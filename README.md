@@ -21,7 +21,8 @@ Classic Simple XML dashboards are detected and rejected with an explanation.
 | **Tabs / canvases** | Tab labels and order, layout type (grid/absolute), the global input bar, and which inputs and visualizations sit on each tab |
 | **Inputs** | Type, token set, default value, static options, the data source that populates dynamic options, placement, and tokens used |
 | **Data sources** | Searches (`ds.search`), chain searches (`ds.chain`), saved searches (`ds.savedSearch`) and other types; query, effective time range (own, base search or defaults), refresh, and smart sources |
-| **Indexes & sourcetypes** | Read from each search's SPL (`index=`, `index::`, `index!=`, `NOT index=`, `index IN (…)`, and the same for `sourcetype`, including `tstats … where index=…`). Excluded terms and token-driven values (`index=$idx$`) are marked. Chain searches inherit their base search's indexes and sourcetypes. Macros, saved searches, data models, lookups and `| rest` calls, which can hide the real source, are listed as *other sources*. A dedicated view shows, for each index and sourcetype, the searches, chains, visualizations and tabs that depend on it |
+| **Indexes & sourcetypes** | Read from each search's SPL (`index=`, `index::`, `index!=`, `NOT index=`, `index IN (…)`, and the same for `sourcetype`, including `tstats … where index=…`). Excluded terms and token-driven values (`index=$idx$`) are marked. Chain searches inherit their base search's indexes and sourcetypes. Macros, saved searches, data models and `| rest` calls, which can hide the real source, are listed as *other sources*. A dedicated view shows, for each index and sourcetype, the searches, chains, visualizations and tabs that depend on it |
+| **Lookups** | Each lookup and whether the dashboard **reads** it (`| lookup`, `| inputlookup`, `| inputcsv`, `| from lookup:`) or **writes** it (`| outputlookup`, `| outputcsv`), with the command options (`append=t`, `key_field=…`). Shows the searches that read or write each lookup, the chain searches that inherit the reads, and the visualizations and tabs fed by it. Lookup names set by a token are shown on the search. Automatic lookups from props.conf aren't visible in SPL |
 | **Searches & chain searches** | A lineage tree from each base search through every chain level, plus the effective SPL of each chain (base and chain queries joined) |
 | **Visualizations** | Type, placement, data source lineage, tokens used, tokens set by drilldown, drilldown actions (set token, link to dashboard, URL, search or report), and visibility rules |
 | **Tokens** | Every `$token$` reference, including filters (`|s`, `|h`, …) and time-range sub-keys (`$t.earliest$`). Each token records what sets it (input, drilldown, `defaults.tokens`, smart source `$<ds>:result.x$`, or the Splunk environment `$env:*$`) and every place it is used, down to the JSON path |
@@ -35,6 +36,7 @@ Each relationship is stored as an edge pointing the way data and token values fl
 - input → *sets* → token; visualization → *sets on click* → token; defaults → *default value* → token
 - token → *used by* → search / visualization / input / condition / tab
 - index / sourcetype → *searched by* → search
+- lookup → *read by* → search; search → *writes lookup* → lookup
 - base search → *extended by* → chain search (any depth)
 - data source → *feeds* → visualization; data source → *populates* → input
 - data source → *provides smart-source token* → token
@@ -57,6 +59,8 @@ The page flags:
 - tokens that are used but never set, and tokens that are set but never used
 - data sources nothing uses
 - searches that name no index (they run against the viewer's default indexes)
+- searches that write a lookup (they write on every load, input change and refresh)
+- lookups written by one search and read by another in the same dashboard (searches run in parallel, so the read may happen before or after the write)
 - visualizations and inputs that are not placed on any tab
 - inputs with no token
 - smart-source tokens whose data source does not set `enableSmartSources`
