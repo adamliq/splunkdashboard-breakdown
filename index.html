@@ -10,7 +10,7 @@
   --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dde1e7; --text: #1b1f24; --muted: #5f6b7a;
   --accent: #2f6fde; --accent-text: #ffffff; --focus: #2f6fde;
   --k-dashboard: #4b5563; --k-tab: #6d4fd8; --k-input: #0f8b8d; --k-defaults: #7a7f87; --k-token: #b7791f;
-  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57; --k-index: #9a5b22; --k-sourcetype: #6b7f1f; --k-lookup: #1f7f9e;
+  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57; --k-index: #9a5b22; --k-sourcetype: #6b7f1f; --k-lookup: #1f7f9e; --k-datamodel: #b0458f; --k-macro: #4f6b8a; --k-command: #6b6f76;
   --sev-error: #c53030; --sev-warning: #b7791f; --sev-info: #2f6fde;
   --e-data: #2f6fde; --e-token: #c08a25; --e-layout: #9aa3ae; --e-vis: #c2417a;
   --code-bg: #f3f5f8; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
@@ -21,7 +21,7 @@
     --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
     --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
     --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
-    --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e; --k-lookup: #5fb7d6;
+    --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e; --k-lookup: #5fb7d6; --k-datamodel: #e07fc4; --k-macro: #8fa9c7; --k-command: #a3a8b0;
     --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
     --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
     --code-bg: #161a20; --shadow: none;
@@ -32,7 +32,7 @@
   --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
   --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
   --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
-  --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e; --k-lookup: #5fb7d6;
+  --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e; --k-lookup: #5fb7d6; --k-datamodel: #e07fc4; --k-macro: #8fa9c7; --k-command: #a3a8b0;
   --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
   --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
   --code-bg: #161a20; --shadow: none;
@@ -118,6 +118,7 @@ td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .k-defaults { --kc: var(--k-defaults); } .k-token { --kc: var(--k-token); } .k-condition { --kc: var(--k-condition); }
 .k-ds { --kc: var(--k-ds); } .k-viz { --kc: var(--k-viz); }
 .k-index { --kc: var(--k-index); } .k-sourcetype { --kc: var(--k-sourcetype); } .k-lookup { --kc: var(--k-lookup); }
+.k-datamodel { --kc: var(--k-datamodel); } .k-macro { --kc: var(--k-macro); } .k-command { --kc: var(--k-command); }
 .badge { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); white-space: nowrap; line-height: 1.6; }
 .badge.sev-error { color: var(--sev-error); border-color: color-mix(in srgb, var(--sev-error) 45%, transparent); }
 .badge.sev-warning { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
@@ -132,6 +133,8 @@ td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .lineage { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 .lineage .sep { color: var(--muted); }
 
+.pipeline { display: inline-flex; flex-wrap: wrap; gap: 2px 4px; align-items: center; }
+.pipeline .sep { color: var(--muted); }
 .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
 .tree ul { padding-left: 22px; border-left: 1px dashed var(--border); margin-left: 10px; }
 .tree li { margin: 4px 0; }
@@ -168,8 +171,8 @@ svg.graph { display: block; }
 .gnode.undef rect.box { stroke: var(--sev-error); stroke-dasharray: 3 2; }
 .gedge { fill: none; stroke-width: 1.4; opacity: .7; }
 .gedge.back { stroke-dasharray: 5 4; }
-.gedge.data { stroke: var(--e-data); } .gedge.token { stroke: var(--e-token); } .gedge.layout { stroke: var(--e-layout); } .gedge.vis { stroke: var(--e-vis); }
-.mk-data { fill: var(--e-data); } .mk-token { fill: var(--e-token); } .mk-layout { fill: var(--e-layout); } .mk-vis { fill: var(--e-vis); }
+.gedge.data { stroke: var(--e-data); } .gedge.token { stroke: var(--e-token); } .gedge.layout { stroke: var(--e-layout); } .gedge.vis { stroke: var(--e-vis); } .gedge.spl { stroke: var(--k-command); }
+.mk-data { fill: var(--e-data); } .mk-token { fill: var(--e-token); } .mk-layout { fill: var(--e-layout); } .mk-vis { fill: var(--e-vis); } .mk-spl { fill: var(--k-command); }
 svg.has-sel .gnode.dim { opacity: .18; }
 svg.has-sel .gedge.dim { opacity: .05; }
 svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
@@ -263,17 +266,17 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     "tokens": { "default": { "selected_uri": { "value": "*" } } }
   },
   "dataSources": {
-    "ds_hosts": { "type": "ds.search", "name": "Host list", "options": { "query": "| tstats count where index=web region=$region|s$ by host | fields host" } },
+    "ds_hosts": { "type": "ds.search", "name": "Host list", "options": { "query": "| tstats summariesonly=t count from datamodel=Web.Web where index=web region=$region|s$ by Web.dest\n| rename Web.dest AS host | fields host" } },
     "ds_base": { "type": "ds.search", "name": "Base web events", "options": { "query": "index=web sourcetype=access_combined host=\"$host$\" ($status$) user=\"$user_filter$\"\n| lookup uri_owners.csv uri OUTPUT team\n| fields _time host status uri response_time user team" } },
     "ds_errors": { "type": "ds.chain", "name": "Server errors", "options": { "extend": "ds_base", "query": "| where status>=500" } },
     "ds_errors_by_uri": { "type": "ds.chain", "name": "Errors by URI", "options": { "extend": "ds_errors", "query": "| stats count by uri | sort - count | outputlookup append=t error_uri_snapshot.csv" } },
     "ds_error_count": { "type": "ds.chain", "name": "Error count", "options": { "extend": "ds_errors", "query": "| stats count" } },
     "ds_traffic": { "type": "ds.chain", "name": "Traffic over time", "options": { "extend": "ds_base", "query": "| timechart count by status" } },
-    "ds_latency": { "type": "ds.chain", "name": "Slow requests", "options": { "extend": "ds_base", "query": "| where response_time > $latency_threshold$ | stats count as slow avg(response_time) as avg_ms" } },
+    "ds_latency": { "type": "ds.chain", "name": "Slow requests", "options": { "extend": "ds_base", "query": "| where response_time > $latency_threshold$ | `ms_summary(response_time, avg_ms)`" } },
     "ds_total": { "type": "ds.chain", "name": "Total requests", "options": { "extend": "ds_base", "query": "| stats count", "enableSmartSources": true } },
     "ds_uri_detail": { "type": "ds.search", "name": "URI detail", "options": { "query": "`web_indexes` sourcetype IN (\"access_combined\", \"nginx:access\") NOT sourcetype=web:debug uri=\"$selected_uri$\" | stats count by host, status", "queryParameters": { "earliest": "-7d@d", "latest": "now" } } },
     "ds_sla": { "type": "ds.savedSearch", "name": "Weekly SLA", "options": { "ref": "Web - Weekly SLA Summary", "app": "search" } },
-    "ds_unused": { "type": "ds.search", "name": "Old test search", "options": { "query": "index=_internal | head 10 | lookup error_uri_snapshot.csv uri OUTPUT count AS error_count" } }
+    "ds_unused": { "type": "ds.search", "name": "Old test search", "options": { "query": "index=_internal | head 10 | lookup error_uri_snapshot.csv uri OUTPUT count AS error_count | collect index=web_summary" } }
   },
   "visualizations": {
     "viz_header": { "type": "splunk.markdown", "options": { "markdown": "### Web operations for **$env:user$** — $Total requests:result.count$ requests in range" } },
@@ -334,6 +337,9 @@ const KINDS = {
   index:     { label: 'Index', plural: 'Indexes' },
   sourcetype:{ label: 'Sourcetype', plural: 'Sourcetypes' },
   lookup:    { label: 'Lookup', plural: 'Lookups' },
+  datamodel: { label: 'Data model', plural: 'Data models' },
+  macro:     { label: 'Macro', plural: 'Macros' },
+  command:   { label: 'SPL command', plural: 'Commands' },
 };
 const DS_TYPES = {
   'ds.search': 'Search', 'ds.chain': 'Chain search', 'ds.savedSearch': 'Saved search (report)',
@@ -357,6 +363,9 @@ const REL = {
   'searches':       { fwd: 'Searched by',                   rev: 'Reads from',                   group: 'data' },
   'lookup-read':    { fwd: 'Read by',                       rev: 'Reads lookup',                 group: 'data' },
   'lookup-write':   { fwd: 'Writes lookup',                 rev: 'Written by',                   group: 'data' },
+  'datamodel-read': { fwd: 'Read by',                       rev: 'Reads data model',             group: 'data' },
+  'macro-used':     { fwd: 'Used by',                       rev: 'Uses macro',                   group: 'data' },
+  'command-used':   { fwd: 'Used by',                       rev: 'Uses command',                 group: 'spl' },
   'contains':       { fwd: 'Placed on',                     rev: 'Contains',                     group: 'layout' },
 };
 
@@ -446,7 +455,7 @@ const DRILL_BUILTIN = /^(row|click|trellis)(\.|$)|^(name|value|name2|value2)$/;
 // NOT field=value and field IN (a, b). Values may be quoted, wildcarded or tokens.
 // Also notes macros, data models, lookups and REST calls, which can hide the real source.
 function extractSources(q) {
-  const out = { index: [], sourcetype: [], other: [], lookups: [] };
+  const out = { index: [], sourcetype: [], other: [], lookups: [], macros: [], datamodels: [], commands: [] };
   if (!q) return out;
   q = q.replace(/```[\s\S]*?```/g, ' ');
   const add = (field, raw, excluded) => {
@@ -458,14 +467,118 @@ function extractSources(q) {
   const negated = end => /\bNOT\s*$/i.test(q.slice(0, end));
   let m;
   const FIELD = /(^|[^\w.])(index|sourcetype)\s*(!=|=|::)\s*("[^"]*"|'[^']*'|\$[^$\s]+\$|[^\s()|,\]]+)/gi;
-  while ((m = FIELD.exec(q))) add(m[2], m[4], m[3] === '!=' || negated(m.index + m[1].length));
+  // index= inside | collect / mcollect / meventcollect / tscollect is where results are written, not read.
+  const writeCmd = end => (q.slice(0, end).match(/(?:^|\|)\s*(collect|mcollect|meventcollect|tscollect)\b[^|]*$/i) || [])[1];
+  while ((m = FIELD.exec(q))) {
+    const w = writeCmd(m.index + m[1].length);
+    if (w) { const v = 'writes to ' + m[2] + ' ' + m[4].replace(/^["']|["']$/g, '') + ' (' + w + ')'; if (!out.other.includes(v)) out.other.push(v); continue; }
+    add(m[2], m[4], m[3] === '!=' || negated(m.index + m[1].length));
+  }
   const IN = /(^|[^\w.])(index|sourcetype)\s+IN\s*\(([^)]*)\)/gi;
   while ((m = IN.exec(q))) { const neg = negated(m.index + m[1].length); for (const v of m[3].match(/"[^"]*"|'[^']*'|[^\s,]+/g) || []) add(m[2], v, neg); }
   const other = (re, label) => { re.lastIndex = 0; while ((m = re.exec(q))) { const v = label(m); if (!out.other.includes(v)) out.other.push(v); } };
-  other(/`([^`]+)`/g, m => 'macro `' + m[1].trim() + '`');
-  other(/\bdatamodel\s*[=:]\s*"?([\w.]+)|\|\s*datamodel\s+"?([\w.]+)/gi, m => 'data model ' + (m[1] || m[2]));
   out.lookups = extractLookups(q);
+  out.macros = extractMacros(q);
+  out.datamodels = extractDatamodels(q);
+  out.commands = splCommands(q);
   other(/\|\s*rest\s+(?:\w+=\S+\s+)*"?([^\s"|]+)/gi, m => 'REST ' + m[1]);
+  return out;
+}
+
+// Macro calls: `name` or `name(arg1, arg2)`. Splunk identifies a macro by name plus argument count, e.g. name(2).
+function splitArgs(s) {
+  const args = []; let cur = '', depth = 0, quote = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quote) { cur += c; if (c === '\\') { cur += s[++i] || ''; } else if (c === '"') quote = false; continue; }
+    if (c === '"') { quote = true; cur += c; continue; }
+    if (c === '(') depth++; else if (c === ')') depth--;
+    if (c === ',' && depth === 0) { args.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur.trim() || args.length) args.push(cur.trim());
+  return args;
+}
+function extractMacros(q) {
+  const out = [];
+  const re = /`([^`]+)`/g;
+  let m;
+  while ((m = re.exec(q))) {
+    const call = m[1].trim();
+    const mm = call.match(/^([\w:.\-]+)\s*(?:\(([\s\S]*)\))?$/);
+    if (!mm) continue;
+    const args = mm[2] !== undefined ? splitArgs(mm[2]) : [];
+    const key = mm[2] !== undefined ? `${mm[1]}(${args.length})` : mm[1];
+    if (!out.some(x => x.key === key && x.call === call)) out.push({ key, name: mm[1], args, call });
+  }
+  return out;
+}
+// Data models: tstats … from datamodel=Model.Dataset, | from datamodel:Model.Dataset,
+// | datamodel Model Dataset search, | pivot Model Dataset …
+function extractDatamodels(q) {
+  const out = [];
+  const add = (raw, dataset, command) => {
+    const v = String(raw).replace(/^"(.*)"$/, '$1');
+    const i = v.indexOf('.');
+    const model = i > 0 ? v.slice(0, i) : v;
+    const ds = dataset ? String(dataset).replace(/^"(.*)"$/, '$1') : (i > 0 ? v.slice(i + 1) : '');
+    if (!model) return;
+    if (!out.some(x => x.model === model && x.dataset === ds && x.command === command)) out.push({ model, dataset: ds, command });
+  };
+  const V = String.raw`("[^"]+"|\$[^$\s]+\$|[\w.:\-]+)`;
+  let m;
+  const TS = new RegExp(String.raw`\bdatamodel\s*=\s*` + V, 'gi');
+  while ((m = TS.exec(q))) add(m[1], '', /\btstats\b/i.test(q) ? 'tstats' : 'datamodel=');
+  const FROM = new RegExp(String.raw`\bfrom\s+datamodel\s*:\s*` + V, 'gi');
+  while ((m = FROM.exec(q))) add(m[1], '', 'from');
+  const DM = new RegExp(String.raw`(?:^|\||\[)\s*datamodel\s+` + V + String.raw`(?:\s+` + V + ')?', 'gi');
+  while ((m = DM.exec(q))) add(m[1], m[2] && !/^(search|flat|acceleration_search|summariesonly=\S*)$/i.test(m[2]) ? m[2] : '', 'datamodel');
+  const PV = new RegExp(String.raw`(?:^|\||\[)\s*pivot\s+` + V + String.raw`\s+` + V, 'gi');
+  while ((m = PV.exec(q))) add(m[1], m[2], 'pivot');
+  return out;
+}
+
+// Every command in the pipeline, in order, including subsearches. A query that does not start with "|"
+// begins with an implicit search command.
+const CMD_CATEGORY = (() => {
+  const c = {};
+  'search tstats mstats mcatalog inputlookup inputcsv makeresults rest metadata metasearch datamodel pivot from dbinspect eventcount loadjob savedsearch gentimes multisearch searchtxn'.split(' ').forEach(x => c[x] = 'Generating');
+  'stats chart timechart top rare xyseries contingency geostats sichart sistats sitimechart sitop sirare tstats associate correlate'.split(' ').forEach(x => c[x] ||= 'Transforming');
+  'collect mcollect meventcollect tscollect sendemail sendalert delete script run outputlookup outputcsv outputtext sendresults'.split(' ').forEach(x => c[x] = 'Writes data / side effect');
+  return c;
+})();
+const SIDE_EFFECT = new Set(['collect', 'mcollect', 'meventcollect', 'tscollect', 'sendemail', 'sendalert', 'delete', 'script', 'run', 'outputtext', 'sendresults']);
+function splCommands(q) {
+  const out = [];
+  const walk = (text, sub) => {
+    const segs = [], subs = []; let seg = '', quote = false, br = 0, subStart = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quote) { seg += c; if (c === '\\') seg += text[++i] || ''; else if (c === '"') quote = false; continue; }
+      if (c === '"') { quote = true; seg += c; continue; }
+      if (c === '$') { const t = text.slice(i).match(/^\$[^$\s]+\$/); if (t) { seg += t[0]; i += t[0].length - 1; continue; } } // $tok|s$
+      if (c === '[') { if (br === 0) subStart = i + 1; br++; seg += c; continue; }
+      if (c === ']' && br > 0) { br--; if (br === 0) (subs[segs.length] ||= []).push(text.slice(subStart, i)); seg += c; continue; }
+      if (c === '|' && br === 0) { segs.push(seg); seg = ''; continue; }
+      seg += c;
+    }
+    segs.push(seg);
+    const leadingPipe = /^\s*\|/.test(text);
+    segs.forEach((sg, idx) => {
+      const t = sg.trim();
+      if (t) {
+        if (idx === 0 && !leadingPipe) {
+          const w = (t.match(/^([A-Za-z_]\w*)\b/) || [])[1];
+          out.push({ name: 'search', implicit: !(w && w.toLowerCase() === 'search'), sub });
+        } else if (t[0] !== '`') { // a macro in command position is listed under macros
+          const w = (t.match(/^([A-Za-z_]\w*)\b/) || [])[1];
+          if (w) out.push({ name: w.toLowerCase(), implicit: false, sub });
+        }
+      }
+      for (const st of subs[idx] || []) walk(st, true); // subsearches run inside this command
+    });
+  };
+  walk(q, false);
   return out;
 }
 
@@ -674,7 +787,28 @@ function buildModel(src) {
 
   // ---- Indexes and sourcetypes each search reads
   for (const n of byKind('ds')) {
-    n.sources = n.type === 'ds.savedSearch' ? { index: [], sourcetype: [], other: ['report ' + (n.ref || '?')], lookups: [] } : extractSources(n.query);
+    n.sources = n.type === 'ds.savedSearch' ? { index: [], sourcetype: [], other: ['report ' + (n.ref || '?')], lookups: [], macros: [], datamodels: [], commands: [{ name: 'savedsearch', implicit: true, sub: false }] } : extractSources(n.query);
+    for (const mc of n.sources.macros) {
+      const mn = node('macro', mc.key, { label: '`' + mc.key + '`', name: mc.name, arity: mc.args.length, calls: [] });
+      if (!mn.calls.includes(mc.call)) mn.calls.push(mc.call);
+      edge(mn.id, n.id, 'macro-used', mc.call);
+    }
+    for (const dm of n.sources.datamodels) {
+      if (dm.model.includes('$')) continue;
+      const dn = node('datamodel', dm.model, { label: dm.model });
+      (dn.datasets ||= new Set());
+      if (dm.dataset) dn.datasets.add(dm.dataset);
+      edge(dn.id, n.id, 'datamodel-read', [dm.dataset, dm.command].filter(Boolean).join(' · '));
+    }
+    const counts = new Map();
+    for (const c of n.sources.commands) counts.set(c.name, (counts.get(c.name) || 0) + 1);
+    for (const [name, count] of counts) {
+      const cn = node('command', name, { label: name, category: CMD_CATEGORY[name] || 'Other' });
+      cn.uses = (cn.uses || 0) + count;
+      const sub = n.sources.commands.some(c => c.name === name && c.sub);
+      edge(cn.id, n.id, 'command-used', (count > 1 ? '×' + count : '') + (sub ? (count > 1 ? ', ' : '') + 'in subsearch' : ''));
+      if (SIDE_EFFECT.has(name)) issue('warning', `This search runs | ${name}, which writes data or sends something every time the search runs (each dashboard load, input change and refresh).`, n.id);
+    }
     for (const lk of n.sources.lookups) {
       if (lk.name.includes('$')) continue; // lookup name comes from a token
       const ln = node('lookup', lk.name, { label: lk.name });
@@ -699,9 +833,11 @@ function buildModel(src) {
         .filter(v => { const k = v.value + '|' + v.excluded; if (seen.has(k)) return false; seen.add(k); return true; });
     }
     n.eff_other = uniq(n.lineage.flatMap(id => nodes.get(id).sources?.other || []));
+    n.eff_macros = n.lineage.flatMap(id => (nodes.get(id).sources?.macros || []).map(x => ({ ...x, inherited: id !== n.id })));
+    n.eff_datamodels = n.lineage.flatMap(id => (nodes.get(id).sources?.datamodels || []).map(x => ({ ...x, inherited: id !== n.id })));
     // A chain inherits what its base searches read from lookups, but not their writes.
     n.eff_lookups = n.lineage.flatMap(id => (nodes.get(id).sources?.lookups || []).filter(l => id === n.id || l.mode === 'read').map(l => ({ ...l, inherited: id !== n.id })));
-    if (n.type === 'ds.search' && !n.sources.index.length && !n.sources.other.length && n.query && !/^\s*\|/.test(n.query))
+    if (n.type === 'ds.search' && !n.sources.index.length && !n.sources.other.length && !n.sources.macros.length && !n.sources.datamodels.length && n.query && !/^\s*\|/.test(n.query))
       issue('info', 'This search names no index, so it runs against the default indexes of whoever views the dashboard.', n.id);
   }
 
@@ -859,7 +995,7 @@ function tokensAffecting(id) {
   const found = new Set(), seen = new Set([id]), stack = [id];
   while (stack.length) {
     for (const e of M.inE.get(stack.pop()) || []) {
-      if (e.rel === 'contains' || e.rel === 'inherits' || e.rel === 'lookup-write' || seen.has(e.from)) continue;
+      if (e.rel === 'contains' || e.rel === 'inherits' || e.rel === 'lookup-write' || e.rel === 'command-used' || seen.has(e.from)) continue;
       seen.add(e.from);
       if (e.from.startsWith('token:')) found.add(e.from); else stack.push(e.from);
     }
@@ -872,7 +1008,7 @@ function tokensAffecting(id) {
    ============================================================ */
 let M = null;
 let view = 'overview';
-const graphState = { focus: '', tokens: true, sources: true, selected: null };
+const graphState = { focus: '', tokens: true, sources: true, commands: false, selected: null };
 
 function chip(id, detail) {
   const n = M.nodes.get(id);
@@ -905,7 +1041,7 @@ function table(cols, rows) {
 function dsLineage(dsId) {
   const n = M.nodes.get(dsId);
   if (!n) return chip(dsId);
-  return `<span class="lineage">${n.lineage.map(chip).join('<span class="sep">›</span>')}</span>`;
+  return `<span class="lineage">${n.lineage.map(x => chip(x)).join('<span class="sep">›</span>')}</span>`;
 }
 function timeRange(n) {
   const e = n.earliest, l = n.latest;
@@ -924,6 +1060,9 @@ const VIEWS = [
   { id: 'datasources', label: 'Data sources & searches', kind: 'ds' },
   { id: 'sources', label: 'Indexes & sourcetypes', kinds: ['index', 'sourcetype'] },
   { id: 'lookups', label: 'Lookups', kind: 'lookup' },
+  { id: 'datamodels', label: 'Data models', kind: 'datamodel' },
+  { id: 'macros', label: 'Macros', kind: 'macro' },
+  { id: 'commands', label: 'SPL commands', kind: 'command' },
   { id: 'visualizations', label: 'Visualizations', kind: 'viz' },
   { id: 'tokens', label: 'Tokens', kind: 'token' },
   { id: 'conditions', label: 'Visibility conditions', kind: 'condition', hideEmpty: true },
@@ -956,7 +1095,7 @@ function render() {
   const root = $('#view');
   root.innerHTML = ({
     overview: viewOverview, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
-    visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups,
+    visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues
   })[view]();
   if (view === 'graph') renderGraph(root);
@@ -989,6 +1128,9 @@ function viewOverview() {
     ${stat('sources', 'index', M.byKind('index').length, 'Indexes', esc(M.byKind('index').map(n => n.label).join(', ') || 'none named in SPL'))}
     ${stat('sources', 'sourcetype', M.byKind('sourcetype').length, 'Sourcetypes', esc(M.byKind('sourcetype').map(n => n.label).join(', ') || 'none named in SPL'))}
     ${stat('lookups', 'lookup', M.byKind('lookup').length, 'Lookups', M.byKind('lookup').length ? `${M.byKind('lookup').filter(l => l.access.has('read')).length} read · ${M.byKind('lookup').filter(l => l.access.has('write')).length} written` : 'none in SPL')}
+    ${stat('datamodels', 'datamodel', M.byKind('datamodel').length, 'Data models', esc(M.byKind('datamodel').map(n => n.label).join(', ') || 'none in SPL'))}
+    ${stat('macros', 'macro', M.byKind('macro').length, 'Macros', esc(M.byKind('macro').map(n => n.key).join(', ') || 'none in SPL'))}
+    ${stat('commands', 'command', M.byKind('command').length, 'SPL commands', esc(M.byKind('command').sort((a, b) => b.uses - a.uses).slice(0, 6).map(n => n.label).join(', ') || '—'))}
     ${stat('visualizations', 'viz', M.byKind('viz').length, 'Visualizations', esc(uniq(M.byKind('viz').map(n => shortType(n.type))).join(', ') || '—'))}
     ${stat('tokens', 'token', tokens.length, 'Tokens', `${tokens.filter(t => t.status === 'Defined').length} defined${undef ? ` · <b style="color:var(--sev-warning)">${undef} undefined</b>` : ''}`)}
     ${M.byKind('condition').length ? stat('conditions', 'condition', M.byKind('condition').length, 'Conditions', 'show / hide rules') : ''}
@@ -1078,6 +1220,9 @@ function viewDataSources() {
     { h: 'Indexes', f: n => srcCell(n, 'index') },
     { h: 'Sourcetypes', f: n => srcCell(n, 'sourcetype') },
     { h: 'Lookups', f: n => lookupCell(n) },
+    { h: 'Data models', f: n => dmCell(n) },
+    { h: 'Macros', f: n => macroCell(n) },
+    { h: 'Commands', f: n => pipeline(n) },
     { h: 'Other sources', f: n => n.eff_other.length ? n.eff_other.map(o => `<div class="small"><code>${esc(o)}</code></div>`).join('') : '<span class="muted">—</span>' },
     { h: 'Time range', f: n => timeRange(n) },
     { h: 'Refresh', f: n => n.refresh ? `<code>${esc(fmt(n.refresh))}</code>${n.refreshType ? ` <span class="muted small">${esc(n.refreshType)}</span>` : ''}` : '<span class="muted">—</span>' },
@@ -1095,7 +1240,7 @@ function viewVisualizations() {
     { h: 'Placed on', f: n => chips(tabsOf(n.id)) },
     { h: 'Data source lineage', f: n => outsIn(n.id) },
     { h: 'Search type', f: n => esc(uniq(ins(n.id, ['feeds']).map(e => dsTypeLabel(M.nodes.get(e.from)?.type))).join(', ')) },
-    { h: 'Indexes / sourcetypes / lookups', f: n => chips(vizSources(n.id)) },
+    { h: 'Reads from', f: n => chips(vizSources(n.id)) },
     { h: 'Uses tokens (direct)', f: n => chips(directTokens(n.id)) },
     { h: 'Sets tokens', f: n => chips(outs(n.id, ['drilldown-sets']).map(e => e.to)) },
     { h: 'Drilldown', f: n => n.drilldowns.map(d => `<div class="small">${esc(d.text)}</div>`).join('') || '<span class="muted">—</span>' },
@@ -1131,13 +1276,15 @@ function vizSources(vizId) {
     const d = M.nodes.get(e.from);
     for (const f of ['index', 'sourcetype']) for (const v of d['eff_' + f] || []) if (!v.excluded && !v.value.includes('$')) ids.push(f + ':' + v.value);
     for (const l of d.eff_lookups || []) if (l.mode === 'read' && !l.name.includes('$')) ids.push('lookup:' + l.name);
+    for (const x of d.eff_datamodels || []) if (!x.model.includes('$')) ids.push('datamodel:' + x.model);
+    for (const x of d.eff_macros || []) ids.push('macro:' + x.key);
   }
   return uniq(ids);
 }
 // Follow only data links (index/sourcetype → search → chain → visualization), not token links.
 function dataDown(id) {
   const seen = new Set(), stack = [id];
-  while (stack.length) for (const e of outs(stack.pop(), ['searches', 'lookup-read', 'extends', 'feeds'])) if (e.detail !== 'excluded' && !seen.has(e.to)) { seen.add(e.to); stack.push(e.to); }
+  while (stack.length) for (const e of outs(stack.pop(), ['searches', 'lookup-read', 'datamodel-read', 'macro-used', 'extends', 'feeds'])) if (e.detail !== 'excluded' && !seen.has(e.to)) { seen.add(e.to); stack.push(e.to); }
   return [...seen];
 }
 function viewSources() {
@@ -1172,6 +1319,74 @@ function lookupCell(n) {
     return l.name.includes('$') ? `<code title="Set by a token">${esc(l.name)}</code> <span class="muted small">${esc(det)}</span>` : chip('lookup:' + l.name, det);
   }).join('')}</div>`;
 }
+function dmCell(n) {
+  const list = n.eff_datamodels || [];
+  if (!list.length) return '<span class="muted">—</span>';
+  return `<div class="stack">${list.map(x => {
+    const det = [x.dataset, x.command, x.inherited ? 'from base' : ''].filter(Boolean).join(' · ');
+    return x.model.includes('$') ? `<code>${esc(x.model)}</code> <span class="muted small">${esc(det)}</span>` : chip('datamodel:' + x.model, det);
+  }).join('')}</div>`;
+}
+function macroCell(n) {
+  const list = n.eff_macros || [];
+  if (!list.length) return '<span class="muted">—</span>';
+  const seen = new Set();
+  return `<div class="stack">${list.filter(x => !seen.has(x.key + x.inherited) && seen.add(x.key + x.inherited)).map(x => chip('macro:' + x.key, x.inherited ? 'from base' : '')).join('')}</div>`;
+}
+// The command pipeline of one search (its own SPL), with subsearch commands marked.
+function pipeline(n, chipsToo = false) {
+  const cmds = n.sources?.commands || [];
+  if (!cmds.length) return '<span class="muted">—</span>';
+  const one = c => {
+    const label = c.name + (c.implicit && c.name === 'search' ? ' (implicit)' : '');
+    const html = chipsToo && M.nodes.has('command:' + c.name) ? chip('command:' + c.name, c.implicit && c.name === 'search' ? 'implicit' : '') : `<code>${esc(label)}</code>`;
+    return c.sub ? `<span title="In a subsearch">[${html}]</span>` : html;
+  };
+  return `<span class="pipeline">${cmds.map(one).join('<span class="sep">|</span>')}</span>`;
+}
+function viewDatamodels() {
+  const vizOf = id => dataDown(id).filter(x => x.startsWith('viz:'));
+  return `<p class="muted small">Found in SPL as <code>| tstats … from datamodel=Model.Dataset</code>, <code>| from datamodel:Model.Dataset</code>, <code>| datamodel Model Dataset search</code> and <code>| pivot Model Dataset …</code>. A chain search inherits the data models its base search reads.</p>` +
+  table([
+    { h: 'Data model', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'Datasets', f: n => [...n.datasets].map(d => `<code>${esc(d)}</code>`).join(' ') || '<span class="muted">—</span>' },
+    { h: 'Read by', f: n => chips(outs(n.id, ['datamodel-read']).map(e => [e.to, e.detail])) },
+    { h: 'Inherited by chain searches', f: n => chips(dataDown(n.id).filter(x => x.startsWith('ds:') && !outs(n.id, ['datamodel-read']).some(e => e.to === x))) },
+    { h: 'Feeds visualizations', f: n => chips(vizOf(n.id)) },
+    { h: 'Tabs', f: n => chips(uniq(vizOf(n.id).flatMap(tabsOf))) },
+  ], M.byKind('datamodel'));
+}
+function viewMacros() {
+  const vizOf = id => dataDown(id).filter(x => x.startsWith('viz:'));
+  return `<p class="muted small">Every <code>\`macro\`</code> call in the SPL. Splunk identifies a macro by its name and argument count, so <code>\`name(2)\`</code> is a different macro from <code>\`name\`</code>. Macro definitions live in macros.conf and are not part of the dashboard, so the indexes, lookups and commands inside a macro are not listed here. To see them, expand the macro in Search (Ctrl+Shift+E).</p>` +
+  table([
+    { h: 'Macro', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'Arguments', f: n => String(n.arity) },
+    { h: 'Calls as written', cls: 'q', f: n => n.calls.map(c => `<code>\`${esc(c)}\`</code>`).join('') },
+    { h: 'Used by', f: n => chips(outs(n.id, ['macro-used']).map(e => e.to)) },
+    { h: 'Inherited by chain searches', f: n => chips(dataDown(n.id).filter(x => x.startsWith('ds:') && !outs(n.id, ['macro-used']).some(e => e.to === x))) },
+    { h: 'Feeds visualizations', f: n => chips(vizOf(n.id)) },
+  ], M.byKind('macro'));
+}
+function viewCommands() {
+  const cmds = M.byKind('command').sort((a, b) => b.uses - a.uses || a.label.localeCompare(b.label));
+  const catCls = c => c === 'Writes data / side effect' ? 'write' : c === 'Generating' ? 'read' : '';
+  return `<p class="muted small">Every command in every search's pipeline, including subsearches. A search that doesn't start with <code>|</code> begins with an implicit <code>search</code>. Commands inside macros aren't visible, because macro definitions live in macros.conf.</p>` +
+  table([
+    { h: 'Command', f: n => chip(n.id) },
+    { h: 'Category', f: n => badge(n.category, catCls(n.category)) },
+    { h: 'Uses', f: n => String(n.uses) },
+    { h: 'Searches', f: n => String(outs(n.id, ['command-used']).length) },
+    { h: 'Used by', f: n => chips(outs(n.id, ['command-used']).map(e => [e.to, e.detail])) },
+  ], cmds) +
+  `<div class="section-title">Pipeline of each search</div>` +
+  table([
+    { h: 'Data source', f: n => chip(n.id) },
+    { h: 'Type', f: n => esc(dsTypeLabel(n.type)) },
+    { h: 'Pipeline', f: n => pipeline(n, true) },
+  ], M.byKind('ds'));
+}
+
 function viewLookups() {
   const vizOf = id => dataDown(id).filter(x => x.startsWith('viz:'));
   return `<p class="muted small">Read from each search's SPL. <b>Read</b>: <code>| lookup</code>, <code>| inputlookup</code>, <code>| inputcsv</code>, <code>| from lookup:</code>. <b>Write</b>: <code>| outputlookup</code>, <code>| outputcsv</code>. A chain search inherits the lookups its base search reads. Automatic lookups configured in props.conf don't appear in SPL, so they aren't listed.</p>` +
@@ -1227,7 +1442,8 @@ function renderGraph(root) {
   root.innerHTML = `<div class="graph-controls">
     <label>Focus <select id="g-focus"><option value="">Whole dashboard</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>
     <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Show inputs, tokens and conditions</label>
-    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Show indexes, sourcetypes and lookups</label>
+    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Show indexes, sourcetypes, lookups, data models and macros</label>
+    <label><input type="checkbox" id="g-commands" ${graphState.commands ? 'checked' : ''}> Show SPL commands</label>
     <span class="legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span></span>
   </div>
   <p class="muted small" style="margin:0 0 8px">Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.</p>
@@ -1235,6 +1451,7 @@ function renderGraph(root) {
   $('#g-focus').onchange = e => { graphState.focus = e.target.value; graphState.selected = null; drawGraph(); };
   $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; graphState.selected = null; drawGraph(); };
   $('#g-sources').onchange = e => { graphState.sources = e.target.checked; graphState.selected = null; drawGraph(); };
+  $('#g-commands').onchange = e => { graphState.commands = e.target.checked; graphState.selected = null; drawGraph(); };
   drawGraph();
 }
 
@@ -1242,10 +1459,11 @@ function drawGraph() {
   let ids = new Set(M.nodes.keys());
   if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
   if (!graphState.tokens) for (const id of [...ids]) if (/^(token|input|defaults|condition):/.test(id)) ids.delete(id);
-  if (!graphState.sources) for (const id of [...ids]) if (/^(index|sourcetype|lookup):/.test(id)) ids.delete(id);
+  if (!graphState.sources) for (const id of [...ids]) if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) ids.delete(id);
+  if (!graphState.commands) for (const id of [...ids]) if (id.startsWith('command:')) ids.delete(id);
   const D = M.maxDepth;
-  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, lookup: 3, ds: 4 + (n.depth || 0), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind];
-  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Indexes, sourcetypes & lookups' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
+  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, lookup: 3, datamodel: 3, macro: 3, command: 3, ds: 4 + (n.depth || 0), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind];
+  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Sources, macros & commands' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
 
   const byCol = new Map();
   for (const id of ids) { const c = colOf(M.nodes.get(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
@@ -1260,7 +1478,7 @@ function drawGraph() {
     nbrs.get(e.from).push(e.to); nbrs.get(e.to).push(e.from);
   }
   // Order each column by barycentre of its neighbours to reduce crossings.
-  const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1, lookup: 2 };
+  const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1, lookup: 2, datamodel: 3, macro: 4, command: 5 };
   cols.forEach(col => col.sort((a, b) => (kindOrder[M.nodes.get(a).kind] ?? 0) - (kindOrder[M.nodes.get(b).kind] ?? 0)));
   const pos = new Map();
   const setPos = col => col.forEach((id, i) => pos.set(id, i - col.length / 2));
@@ -1289,10 +1507,10 @@ function drawGraph() {
   });
   const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
   const subOf = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
-    : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
+    : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model' : n.kind === 'macro' ? 'macro' : n.kind === 'command' ? 'command · ' + n.category.toLowerCase() : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
 
   let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Relationship map">
-  <defs>${['data', 'token', 'layout', 'vis'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
+  <defs>${['data', 'token', 'layout', 'vis', 'spl'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
   cols.forEach((col, ci) => { svg += `<text class="colhead" x="${PADX + ci * COLW}" y="22">${esc(colName(colKeys[ci]))} (${col.length})</text>`; });
   for (const e of vEdges) {
     const a = P.get(e.from), b = P.get(e.to);
@@ -1379,6 +1597,9 @@ function openDrawer(id, push = true) {
     P('Indexes', n.eff_index.length || n.type === 'ds.savedSearch' ? srcCell(n, 'index') : '<span class="muted">none named</span>');
     P('Sourcetypes', n.eff_sourcetype.length ? srcCell(n, 'sourcetype') : '<span class="muted">none named</span>');
     P('Lookups', n.eff_lookups.length ? lookupCell(n) : '');
+    P('Data models', n.eff_datamodels.length ? dmCell(n) : '');
+    P('Macros', n.eff_macros.length ? macroCell(n) : '');
+    P('Commands', n.sources.commands.length ? pipeline(n, true) : '');
     P('Other sources', n.eff_other.map(o => `<code>${esc(o)}</code>`).join(' '));
   } else if (n.kind === 'input') {
     P('Title', esc(n.title)); P('Token', n.token ? chip('token:' + n.token) : '<span class="muted">none</span>');
@@ -1393,6 +1614,16 @@ function openDrawer(id, push = true) {
   } else if (n.kind === 'token') {
     P('Status', esc(n.status));
     P('Default value', (n.defaults || []).map(d => `<code>${esc(fmt(d.value))}</code> <span class="muted small">from</span> ${chip(d.from)}`).join('<br>'));
+  } else if (n.kind === 'datamodel') {
+    P('Datasets', [...n.datasets].map(d => `<code>${esc(d)}</code>`).join(' '));
+    P('Read by', chips(outs(n.id, ['datamodel-read']).map(e => [e.to, e.detail]), ''));
+    P('Feeds visualizations', chips(dataDown(n.id).filter(x => x.startsWith('viz:')), ''));
+  } else if (n.kind === 'macro') {
+    P('Name', `<code>${esc(n.name)}</code>`); P('Arguments', String(n.arity));
+    P('Calls as written', n.calls.map(c => `<code>\`${esc(c)}\`</code>`).join('<br>'));
+    P('Feeds visualizations', chips(dataDown(n.id).filter(x => x.startsWith('viz:')), ''));
+  } else if (n.kind === 'command') {
+    P('Category', esc(n.category)); P('Uses', String(n.uses));
   } else if (n.kind === 'lookup') {
     P('Access', [...n.access].sort().map(accessBadge).join(' '));
     P('Read by', chips(outs(n.id, ['lookup-read']).map(e => [e.to, e.detail]), ''));
@@ -1449,7 +1680,7 @@ function openDrawer(id, push = true) {
   if (n.raw) html += `<details style="margin-top:14px"><summary>Definition JSON</summary><pre>${esc(JSON.stringify(n.raw, null, 2))}</pre></details>`;
   $('#drawer-body').innerHTML = html;
   $('#drawer-body').scrollTop = 0;
-  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup):/.test(id)) graphState.sources = true; view = 'graph'; render(); };
+  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; view = 'graph'; render(); };
   const d = $('#drawer');
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
 }
@@ -1515,6 +1746,9 @@ function itemDetails(n) {
     case 'condition': return n.value;
     case 'tab': return n.layoutType;
     case 'lookup': return n.accessLabel;
+    case 'datamodel': return [...n.datasets].join(', ');
+    case 'macro': return n.calls.map(c => '`' + c + '`').join(' ');
+    case 'command': return `${n.category}; ${n.uses} uses`;
     default: return n.description || '';
   }
 }
@@ -1524,14 +1758,19 @@ function exportInventory() {
   const lkList = n => n.kind === 'ds' ? (n.eff_lookups || []).map(l => `${l.mode}:${l.name}`).join('; ')
     : n.kind === 'viz' ? vizSources(n.id).filter(x => x.startsWith('lookup:')).map(x => 'read:' + x.slice(7)).join('; ')
     : n.kind === 'lookup' ? n.accessLabel : '';
-  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Indexes', 'Sourcetypes', 'Lookups', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
+  const dmList = n => n.kind === 'ds' ? uniq((n.eff_datamodels || []).map(x => x.model + (x.dataset ? '.' + x.dataset : ''))).join('; ')
+    : n.kind === 'viz' ? vizSources(n.id).filter(x => x.startsWith('datamodel:')).map(x => x.slice(10)).join('; ') : '';
+  const mcList = n => n.kind === 'ds' ? uniq((n.eff_macros || []).map(x => x.key)).join('; ')
+    : n.kind === 'viz' ? vizSources(n.id).filter(x => x.startsWith('macro:')).map(x => x.slice(6)).join('; ') : '';
+  const cmdList = n => n.kind === 'ds' ? (n.sources?.commands || []).map(c => c.sub ? `[${c.name}]` : c.name).join(' | ') : n.kind === 'command' ? n.category : '';
+  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Indexes', 'Sourcetypes', 'Lookups', 'Data models', 'Macros', 'Commands', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
   for (const n of M.nodes.values()) {
     rows.push([
       KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, n.label,
       n.kind === 'ds' ? dsTypeLabel(n.type) : (n.type || n.layoutType || n.status || ''),
       tabsOf(n.id).map(t => M.nodes.get(t).label).join('; '),
       ins(n.id, ['feeds', 'populates', 'extends']).map(e => e.from.slice(3)).join('; '),
-      srcList(n, 'index'), srcList(n, 'sourcetype'), lkList(n),
+      srcList(n, 'index'), srcList(n, 'sourcetype'), lkList(n), dmList(n), mcList(n), cmdList(n),
       directTokens(n.id).map(t => M.nodes.get(t).label).join(' '),
       outs(n.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => M.nodes.get(e.to).label).join(' '),
       itemDetails(n),
@@ -1583,6 +1822,10 @@ function exportMarkdown() {
   md += `## Inputs\n\n` + t(['Input', 'ID', 'Type', 'Token', 'Default', 'Options from', 'Placed on'], M.byKind('input').map(n => [n.label, n.key, shortType(n.type), n.token ? '$' + n.token + '$' : '', fmt(n.defaultValue), L(ins(n.id, ['populates']).map(e => e.from)), L(tabsOf(n.id))]));
   const vals = (n, f) => (n['eff_' + f] || []).map(v => (v.excluded ? 'NOT ' : '') + v.value).join(', ');
   md += `\n## Data sources\n\n` + t(['Data source', 'ID', 'Type', 'Base search', 'Indexes', 'Sourcetypes', 'Lookups', 'Other sources', 'Time range', 'Used by', 'Tokens'], M.byKind('ds').map(n => [n.label, n.key, dsTypeLabel(n.type), n.extend, vals(n, 'index'), vals(n, 'sourcetype'), (n.eff_lookups || []).map(l => `${l.name} (${l.mode})`).join(', '), n.eff_other.join(', '), n.earliest ? `${n.earliest.v} → ${n.latest.v}` : '', L(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)), L(directTokens(n.id))]));
+  if (M.byKind('datamodel').length) md += `\n## Data models\n\n` + t(['Data model', 'Datasets', 'Read by', 'Feeds visualizations'], M.byKind('datamodel').map(n => [n.label, [...n.datasets].join(', '), outs(n.id, ['datamodel-read']).map(e => `${lbl(e.to)} (${e.detail})`).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
+  if (M.byKind('macro').length) md += `\n## Macros\n\n` + t(['Macro', 'Arguments', 'Calls as written', 'Used by'], M.byKind('macro').map(n => [n.key, n.arity, n.calls.map(c => '`' + c + '`').join(' '), L(outs(n.id, ['macro-used']).map(e => e.to))]));
+  md += `\n## SPL commands\n\n` + t(['Command', 'Category', 'Uses', 'Used by'], M.byKind('command').sort((a, b) => b.uses - a.uses).map(n => [n.label, n.category, n.uses, outs(n.id, ['command-used']).map(e => lbl(e.to) + (e.detail ? ` (${e.detail})` : '')).join(', ')]));
+  md += `\n### Pipelines\n\n` + t(['Data source', 'Pipeline'], M.byKind('ds').map(n => [n.label, (n.sources?.commands || []).map(c => c.sub ? `[${c.name}]` : c.name).join(' → ')]));
   if (M.byKind('lookup').length) md += `\n## Lookups\n\n` + t(['Lookup', 'Access', 'Read by', 'Written by', 'Feeds visualizations'], M.byKind('lookup').map(n => [n.label, n.accessLabel, outs(n.id, ['lookup-read']).map(e => `${lbl(e.to)} (${e.detail})`).join(', '), ins(n.id, ['lookup-write']).map(e => `${lbl(e.from)} (${e.detail})`).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
   md += `\n## Indexes & sourcetypes\n\n` + t(['Name', 'Kind', 'Read directly by', 'Feeds visualizations'], [...M.byKind('index'), ...M.byKind('sourcetype')].map(n => [n.label, KINDS[n.kind].label, outs(n.id, ['searches']).map(e => lbl(e.to) + (e.detail ? ` (${e.detail})` : '')).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
   md += `\n### Queries\n\n`;
