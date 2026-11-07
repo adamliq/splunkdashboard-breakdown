@@ -1681,6 +1681,8 @@ const VIEWS = [
   { id: 'app', label: 'All dashboards', when: () => DASH.length > 1, count: () => DASH.length },
   { id: 'overview', label: 'Overview' },
   { id: 'mockup', label: 'Dashboard mockup' },
+  { sep: 'Inventory' },
+  { id: 'inventory', label: 'All items', count: () => invItems().length },
   { id: 'tabs', label: 'Tabs & layout', kind: 'tab' },
   { id: 'inputs', label: 'Inputs', kind: 'input' },
   { id: 'datasources', label: 'Data sources & searches', kind: 'ds' },
@@ -1728,7 +1730,7 @@ function render() {
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues,
-    app: viewApp, compare: viewCompare, config: viewConfig
+    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -2692,6 +2694,48 @@ ${tbl(['Severity', 'Item', 'Issue'], M.issues.map(i => [`<span class="${i.severi
   download(slug(M.title) + '-summary.html', html, 'text/html;charset=utf-8');
 }
 
+/* ---------- Inventory: every item in one table ---------- */
+const INV_ORDER = ['tab', 'input', 'ds', 'viz', 'token', 'condition', 'index', 'sourcetype', 'lookup', 'datamodel', 'macro', 'command', 'defaults'];
+const invState = { kind: '' };
+function invItems() { return INV_ORDER.flatMap(k => M.byKind(k)); }
+function invType(n) {
+  switch (n.kind) {
+    case 'ds': return dsTypeLabel(n.type);
+    case 'viz': case 'input': return shortType(n.type);
+    case 'token': return n.status;
+    case 'tab': return n.global ? 'input bar' : (n.layoutType || 'canvas');
+    case 'lookup': return n.accessLabel;
+    case 'command': return n.category;
+    case 'macro': return plural(n.arity, 'argument');
+    case 'datamodel': return [...n.datasets].join(', ') || 'data model';
+    case 'condition': return n.value.length > 60 ? n.value.slice(0, 59) + '…' : n.value;
+    default: return KINDS[n.kind].label;
+  }
+}
+function viewInventory() {
+  const all = invItems();
+  if (invState.kind && !all.some(n => n.kind === invState.kind)) invState.kind = '';
+  const list = invState.kind ? all.filter(n => n.kind === invState.kind) : all;
+  const kinds = INV_ORDER.filter(k => M.byKind(k).length);
+  const btn = (k, label, count) => `<button class="chip ${k ? 'k-' + k : ''}" data-invkind="${k}" aria-pressed="${invState.kind === k}"${invState.kind === k ? ' style="font-weight:650;outline:2px solid var(--kc, var(--accent));outline-offset:1px"' : ''}>${esc(label)} <span class="det">${count}</span></button>`;
+  const some = (edges, side) => {
+    const ids = uniq(edges.map(e => e[side]));
+    return ids.length ? `<div class="stack">${ids.slice(0, 4).map(x => chip(x)).join('')}${ids.length > 4 ? `<span class="muted small">+${ids.length - 4} more</span>` : ''}</div>` : '<span class="muted">—</span>';
+  };
+  return `<p class="muted small" style="margin-top:0">Every item in the dashboard in one place. Filter by kind, or type in the filter box. Click any item for its details and full lineage.</p>
+  <div class="stack inv-kinds" style="margin-bottom:10px">${btn('', 'All', all.length)}${kinds.map(k => btn(k, KINDS[k].plural, M.byKind(k).length)).join('')}</div>
+  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="inv-csv">Download inventory (.csv)</button></div>
+  ${table([
+    { h: 'Item', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'Kind', f: n => esc(KINDS[n.kind].label) },
+    { h: 'ID', f: n => `<code>${esc(n.kind === 'token' ? n.label : n.key)}</code>` },
+    { h: 'Type', f: n => esc(invType(n)) },
+    { h: 'Placed on', f: n => chips(tabsOf(n.id).filter(x => x.startsWith('tab:'))) },
+    { h: 'Depends on', f: n => some(ins(n.id).filter(e => e.rel !== 'contains'), 'from') },
+    { h: 'Used by', f: n => some(outs(n.id).filter(e => e.rel !== 'contains'), 'to') },
+  ], list)}`;
+}
+
 function viewConditions() {
   return table([
     { h: 'Condition', f: n => chip(n.id) + issueMark(n.id) },
@@ -3163,6 +3207,7 @@ function selectDash(i, v = 'overview') {
   FIX_SEL = new Set();
   mockState.tab = null; mockState.values = null;
   graphState.focus = ''; graphState.selected = null;
+  invState.kind = '';
   if (COMPARE && v !== 'compare') COMPARE = null;
   view = v;
   $('#filter').value = '';
@@ -3261,6 +3306,7 @@ document.addEventListener('click', e => {
     'fix-download': downloadDefinition,
     'fix-load': loadFixed,
     'app-csv': exportAppCsv,
+    'inv-csv': exportInventory,
     'cmp-run': () => startCompare($('#cmp-source').value, 'version B'),
     'cmp-clear': () => { COMPARE = null; render(); },
     'cmp-md': exportDiffMd,
@@ -3271,6 +3317,8 @@ document.addEventListener('click', e => {
   if (actions[id] && e.target.closest('button')) { actions[id](); return; }
   const v = e.target.closest('[data-view]');
   if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  const ik = e.target.closest('[data-invkind]');
+  if (ik) { invState.kind = ik.dataset.invkind; render(); return; }
   const dsh = e.target.closest('[data-dash]');
   if (dsh) { selectDash(+dsh.dataset.dash, 'overview'); window.scrollTo(0, 0); return; }
   const mt = e.target.closest('[data-mocktab]');

@@ -33,6 +33,8 @@ Open `index.html` in a browser. It needs no server, build step or internet conne
 | **Tokens** | Every `$token$` reference, what sets it (input, drilldown, default, smart source, Classic `<done>`/`<change>` handler, or `$env:*$`) and every place it is used, down to the JSON path |
 | **Visibility conditions** | `expressions.conditions` (and Classic `depends`/`rejects`) with the items they show or hide |
 
+**All items.** The **Inventory → All items** page lists every item of every kind in one table, with its kind, ID, type, placement, what it depends on and what uses it. Filter by kind with the buttons, or by text with the filter box, and download it as CSV. The pages under it (Tabs, Inputs, Data sources and so on) give the detailed view of each kind.
+
 ## Checks
 
 The **Issues** page lists problems as errors, warnings and notes.
