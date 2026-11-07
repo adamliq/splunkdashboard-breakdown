@@ -10,7 +10,7 @@
   --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dde1e7; --text: #1b1f24; --muted: #5f6b7a;
   --accent: #2f6fde; --accent-text: #ffffff; --focus: #2f6fde;
   --k-dashboard: #4b5563; --k-tab: #6d4fd8; --k-input: #0f8b8d; --k-defaults: #7a7f87; --k-token: #b7791f;
-  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57;
+  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57; --k-index: #9a5b22; --k-sourcetype: #6b7f1f;
   --sev-error: #c53030; --sev-warning: #b7791f; --sev-info: #2f6fde;
   --e-data: #2f6fde; --e-token: #c08a25; --e-layout: #9aa3ae; --e-vis: #c2417a;
   --code-bg: #f3f5f8; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
@@ -21,7 +21,7 @@
     --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
     --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
     --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
-    --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189;
+    --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e;
     --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
     --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
     --code-bg: #161a20; --shadow: none;
@@ -32,7 +32,7 @@
   --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
   --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
   --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
-  --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189;
+  --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189; --k-index: #d39a62; --k-sourcetype: #b2c45e;
   --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
   --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
   --code-bg: #161a20; --shadow: none;
@@ -117,6 +117,7 @@ td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .k-dashboard { --kc: var(--k-dashboard); } .k-tab { --kc: var(--k-tab); } .k-input { --kc: var(--k-input); }
 .k-defaults { --kc: var(--k-defaults); } .k-token { --kc: var(--k-token); } .k-condition { --kc: var(--k-condition); }
 .k-ds { --kc: var(--k-ds); } .k-viz { --kc: var(--k-viz); }
+.k-index { --kc: var(--k-index); } .k-sourcetype { --kc: var(--k-sourcetype); }
 .badge { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); white-space: nowrap; line-height: 1.6; }
 .badge.sev-error { color: var(--sev-error); border-color: color-mix(in srgb, var(--sev-error) 45%, transparent); }
 .badge.sev-warning { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
@@ -268,7 +269,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     "ds_traffic": { "type": "ds.chain", "name": "Traffic over time", "options": { "extend": "ds_base", "query": "| timechart count by status" } },
     "ds_latency": { "type": "ds.chain", "name": "Slow requests", "options": { "extend": "ds_base", "query": "| where response_time > $latency_threshold$ | stats count as slow avg(response_time) as avg_ms" } },
     "ds_total": { "type": "ds.chain", "name": "Total requests", "options": { "extend": "ds_base", "query": "| stats count", "enableSmartSources": true } },
-    "ds_uri_detail": { "type": "ds.search", "name": "URI detail", "options": { "query": "index=web uri=\"$selected_uri$\" | stats count by host, status", "queryParameters": { "earliest": "-7d@d", "latest": "now" } } },
+    "ds_uri_detail": { "type": "ds.search", "name": "URI detail", "options": { "query": "`web_indexes` sourcetype IN (\"access_combined\", \"nginx:access\") NOT sourcetype=web:debug uri=\"$selected_uri$\" | stats count by host, status", "queryParameters": { "earliest": "-7d@d", "latest": "now" } } },
     "ds_sla": { "type": "ds.savedSearch", "name": "Weekly SLA", "options": { "ref": "Web - Weekly SLA Summary", "app": "search" } },
     "ds_unused": { "type": "ds.search", "name": "Old test search", "options": { "query": "index=_internal | head 10" } }
   },
@@ -328,6 +329,8 @@ const KINDS = {
   condition: { label: 'Visibility condition', plural: 'Conditions' },
   ds:        { label: 'Data source', plural: 'Data sources' },
   viz:       { label: 'Visualization', plural: 'Visualizations' },
+  index:     { label: 'Index', plural: 'Indexes' },
+  sourcetype:{ label: 'Sourcetype', plural: 'Sourcetypes' },
 };
 const DS_TYPES = {
   'ds.search': 'Search', 'ds.chain': 'Chain search', 'ds.savedSearch': 'Saved search (report)',
@@ -348,6 +351,7 @@ const REL = {
   'populates':      { fwd: 'Populates options of input',    rev: 'Options populated by',         group: 'data' },
   'inherits':       { fwd: 'Applies defaults to',           rev: 'Inherits defaults from',       group: 'data' },
   'visibility':     { fwd: 'Controls visibility of',        rev: 'Visibility controlled by',     group: 'vis' },
+  'searches':       { fwd: 'Searched by',                   rev: 'Reads from',                   group: 'data' },
   'contains':       { fwd: 'Placed on',                     rev: 'Contains',                     group: 'layout' },
 };
 
@@ -429,6 +433,36 @@ function getPath(obj, path) {
 }
 // Tokens Splunk provides inside drilldown handlers (row.<field>.value, click.value, …).
 const DRILL_BUILTIN = /^(row|click|trellis)(\.|$)|^(name|value|name2|value2)$/;
+
+/* ============================================================
+   Indexes and sourcetypes in SPL
+   ============================================================ */
+// Reads index / sourcetype terms from a query: field=value, field::value, field!=value,
+// NOT field=value and field IN (a, b). Values may be quoted, wildcarded or tokens.
+// Also notes macros, data models, lookups and REST calls, which can hide the real source.
+function extractSources(q) {
+  const out = { index: [], sourcetype: [], other: [] };
+  if (!q) return out;
+  q = q.replace(/```[\s\S]*?```/g, ' ');
+  const add = (field, raw, excluded) => {
+    const value = String(raw).trim().replace(/^(["'])(.*)\1$/, '$2');
+    if (!value) return;
+    const list = out[field.toLowerCase()];
+    if (!list.some(x => x.value === value && x.excluded === excluded)) list.push({ value, excluded });
+  };
+  const negated = end => /\bNOT\s*$/i.test(q.slice(0, end));
+  let m;
+  const FIELD = /(^|[^\w.])(index|sourcetype)\s*(!=|=|::)\s*("[^"]*"|'[^']*'|\$[^$\s]+\$|[^\s()|,\]]+)/gi;
+  while ((m = FIELD.exec(q))) add(m[2], m[4], m[3] === '!=' || negated(m.index + m[1].length));
+  const IN = /(^|[^\w.])(index|sourcetype)\s+IN\s*\(([^)]*)\)/gi;
+  while ((m = IN.exec(q))) { const neg = negated(m.index + m[1].length); for (const v of m[3].match(/"[^"]*"|'[^']*'|[^\s,]+/g) || []) add(m[2], v, neg); }
+  const other = (re, label) => { re.lastIndex = 0; while ((m = re.exec(q))) { const v = label(m); if (!out.other.includes(v)) out.other.push(v); } };
+  other(/`([^`]+)`/g, m => 'macro `' + m[1].trim() + '`');
+  other(/\bdatamodel\s*[=:]\s*"?([\w.]+)|\|\s*datamodel\s+"?([\w.]+)/gi, m => 'data model ' + (m[1] || m[2]));
+  other(/\|\s*inputlookup\s+(?:\w+=\S+\s+)*"?([\w.\-]+)/gi, m => 'lookup ' + m[1]);
+  other(/\|\s*rest\s+(?:\w+=\S+\s+)*"?([^\s"|]+)/gi, m => 'REST ' + m[1]);
+  return out;
+}
 
 /* ============================================================
    Build the model
@@ -608,6 +642,27 @@ function buildModel(src) {
     n.earliest = pick('earliest'); n.latest = pick('latest');
   }
 
+  // ---- Indexes and sourcetypes each search reads
+  for (const n of byKind('ds')) {
+    n.sources = n.type === 'ds.savedSearch' ? { index: [], sourcetype: [], other: ['report ' + (n.ref || '?')] } : extractSources(n.query);
+    for (const field of ['index', 'sourcetype']) for (const v of n.sources[field]) {
+      if (v.value.includes('$')) continue; // value comes from a token; shown on the search, not as an item
+      const sn = node(field, v.value, { label: v.value });
+      edge(sn.id, n.id, 'searches', v.excluded ? 'excluded' : '');
+    }
+  }
+  // A chain search reads whatever its base searches read.
+  for (const n of byKind('ds')) {
+    for (const field of ['index', 'sourcetype']) {
+      const seen = new Set();
+      n['eff_' + field] = n.lineage.flatMap(id => (nodes.get(id).sources?.[field] || []).map(v => ({ ...v, inherited: id !== n.id, from: id })))
+        .filter(v => { const k = v.value + '|' + v.excluded; if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+    n.eff_other = uniq(n.lineage.flatMap(id => nodes.get(id).sources?.other || []));
+    if (n.type === 'ds.search' && !n.sources.index.length && !n.sources.other.length && n.query && !/^\s*\|/.test(n.query))
+      issue('info', 'This search names no index, so it runs against the default indexes of whoever views the dashboard.', n.id);
+  }
+
   // ---- Layout: tabs / canvases
   const tabsDef = [];
   const hasTabBar = Array.isArray(L.tabs?.items) && L.tabs.items.length > 0;
@@ -766,7 +821,7 @@ function tokensAffecting(id) {
    ============================================================ */
 let M = null;
 let view = 'overview';
-const graphState = { focus: '', tokens: true, selected: null };
+const graphState = { focus: '', tokens: true, sources: true, selected: null };
 
 function chip(id, detail) {
   const n = M.nodes.get(id);
@@ -816,6 +871,7 @@ const VIEWS = [
   { id: 'tabs', label: 'Tabs & layout', kind: 'tab' },
   { id: 'inputs', label: 'Inputs', kind: 'input' },
   { id: 'datasources', label: 'Data sources & searches', kind: 'ds' },
+  { id: 'sources', label: 'Indexes & sourcetypes', kinds: ['index', 'sourcetype'] },
   { id: 'visualizations', label: 'Visualizations', kind: 'viz' },
   { id: 'tokens', label: 'Tokens', kind: 'token' },
   { id: 'conditions', label: 'Visibility conditions', kind: 'condition', hideEmpty: true },
@@ -829,7 +885,8 @@ function renderNav() {
   $('#nav').innerHTML = VIEWS.map(v => {
     if (v.sep) return `<hr><div class="navlabel">${esc(v.sep)}</div>`;
     let count = '';
-    if (v.kind) {
+    if (v.kinds) count = v.kinds.reduce((a, k) => a + M.byKind(k).length, 0);
+    else if (v.kind) {
       const c = M.byKind(v.kind).length;
       if (v.hideEmpty && !c) return '';
       count = c;
@@ -847,7 +904,7 @@ function render() {
   const root = $('#view');
   root.innerHTML = ({
     overview: viewOverview, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
-    visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions,
+    visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources,
     graph: () => '', relationships: viewRelationships, issues: viewIssues
   })[view]();
   if (view === 'graph') renderGraph(root);
@@ -877,6 +934,8 @@ function viewOverview() {
     ${stat('tabs', 'tab', tabs.length, 'Tabs', tabs.map(t => esc(t.label)).join(' · ') || '—')}
     ${stat('inputs', 'input', M.byKind('input').length, 'Inputs', esc(uniq(M.byKind('input').map(n => shortType(n.type))).join(', ') || '—'))}
     ${stat('datasources', 'ds', ds.length, 'Data sources', `${plural(nType('ds.search'), 'search', 'searches')} · ${plural(nType('ds.chain'), 'chain')} · ${plural(nType('ds.savedSearch'), 'saved search', 'saved searches')}${otherDs ? ` · ${otherDs} other` : ''}`)}
+    ${stat('sources', 'index', M.byKind('index').length, 'Indexes', esc(M.byKind('index').map(n => n.label).join(', ') || 'none named in SPL'))}
+    ${stat('sources', 'sourcetype', M.byKind('sourcetype').length, 'Sourcetypes', esc(M.byKind('sourcetype').map(n => n.label).join(', ') || 'none named in SPL'))}
     ${stat('visualizations', 'viz', M.byKind('viz').length, 'Visualizations', esc(uniq(M.byKind('viz').map(n => shortType(n.type))).join(', ') || '—'))}
     ${stat('tokens', 'token', tokens.length, 'Tokens', `${tokens.filter(t => t.status === 'Defined').length} defined${undef ? ` · <b style="color:var(--sev-warning)">${undef} undefined</b>` : ''}`)}
     ${M.byKind('condition').length ? stat('conditions', 'condition', M.byKind('condition').length, 'Conditions', 'show / hide rules') : ''}
@@ -963,6 +1022,9 @@ function viewDataSources() {
     { h: 'Type', f: n => esc(dsTypeLabel(n.type)) },
     { h: 'Base search', f: n => n.type === 'ds.chain' ? (n.extend ? chip('ds:' + n.extend) : '<span class="muted">missing</span>') : '<span class="muted">—</span>' },
     { h: 'Query', cls: 'q', f: n => n.type === 'ds.savedSearch' ? `<code>| savedsearch "${esc(n.ref)}"</code>${n.app ? `<span class="muted small">app: ${esc(n.app)}</span>` : ''}` : (n.query ? `<code>${esc(n.query)}</code>` : '<span class="muted">—</span>') },
+    { h: 'Indexes', f: n => srcCell(n, 'index') },
+    { h: 'Sourcetypes', f: n => srcCell(n, 'sourcetype') },
+    { h: 'Other sources', f: n => n.eff_other.length ? n.eff_other.map(o => `<div class="small"><code>${esc(o)}</code></div>`).join('') : '<span class="muted">—</span>' },
     { h: 'Time range', f: n => timeRange(n) },
     { h: 'Refresh', f: n => n.refresh ? `<code>${esc(fmt(n.refresh))}</code>${n.refreshType ? ` <span class="muted small">${esc(n.refreshType)}</span>` : ''}` : '<span class="muted">—</span>' },
     { h: 'Used by', f: n => chips(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)) },
@@ -979,6 +1041,7 @@ function viewVisualizations() {
     { h: 'Placed on', f: n => chips(tabsOf(n.id)) },
     { h: 'Data source lineage', f: n => outsIn(n.id) },
     { h: 'Search type', f: n => esc(uniq(ins(n.id, ['feeds']).map(e => dsTypeLabel(M.nodes.get(e.from)?.type))).join(', ')) },
+    { h: 'Indexes / sourcetypes', f: n => chips(vizSources(n.id)) },
     { h: 'Uses tokens (direct)', f: n => chips(directTokens(n.id)) },
     { h: 'Sets tokens', f: n => chips(outs(n.id, ['drilldown-sets']).map(e => e.to)) },
     { h: 'Drilldown', f: n => n.drilldowns.map(d => `<div class="small">${esc(d.text)}</div>`).join('') || '<span class="muted">—</span>' },
@@ -997,6 +1060,52 @@ function viewTokens() {
     { h: 'Used by', f: t => chips(uniq(outs(t.id, ['uses-token']).map(e => e.to))) },
     { h: 'References', f: t => String(M.usages.filter(u => u.token === t.id).length) },
   ], M.byKind('token'));
+}
+
+function srcCell(n, field) {
+  const list = n['eff_' + field] || [];
+  if (!list.length) return n.type === 'ds.savedSearch' ? '<span class="muted small">defined in the report</span>' : '<span class="muted">—</span>';
+  return `<div class="stack">${list.map(v => {
+    const det = [v.excluded ? 'excluded' : '', v.inherited ? 'from base' : ''].filter(Boolean).join(', ');
+    return v.value.includes('$') ? `<code title="Set by a token">${esc(v.value)}</code>${det ? ` <span class="muted small">${esc(det)}</span>` : ''}` : chip(field + ':' + v.value, det);
+  }).join('')}</div>`;
+}
+// Index / sourcetype items a visualization ultimately reads (included terms only).
+function vizSources(vizId) {
+  const ids = [];
+  for (const e of ins(vizId, ['feeds'])) {
+    const d = M.nodes.get(e.from);
+    for (const f of ['index', 'sourcetype']) for (const v of d['eff_' + f] || []) if (!v.excluded && !v.value.includes('$')) ids.push(f + ':' + v.value);
+  }
+  return uniq(ids);
+}
+// Follow only data links (index/sourcetype → search → chain → visualization), not token links.
+function dataDown(id) {
+  const seen = new Set(), stack = [id];
+  while (stack.length) for (const e of outs(stack.pop(), ['searches', 'extends', 'feeds'])) if (e.detail !== 'excluded' && !seen.has(e.to)) { seen.add(e.to); stack.push(e.to); }
+  return [...seen];
+}
+function viewSources() {
+  const items = [...M.byKind('index'), ...M.byKind('sourcetype')];
+  const chainsOf = id => dataDown(id).filter(x => x.startsWith('ds:') && !outs(id, ['searches']).some(e => e.to === x));
+  const vizOf = id => dataDown(id).filter(x => x.startsWith('viz:'));
+  const noIndex = M.byKind('ds').filter(n => !n.eff_index.length);
+  return `<p class="muted small">Read from each search's SPL: <code>index=</code>, <code>index::</code>, <code>index!=</code>, <code>NOT index=</code> and <code>index IN (…)</code>, and the same for <code>sourcetype</code>. Chain searches inherit from their base search. Macros, saved searches, data models and lookups can hide further sources, so those are listed separately.</p>
+  ${table([
+    { h: 'Name', f: n => chip(n.id) },
+    { h: 'Kind', f: n => esc(KINDS[n.kind].label) },
+    { h: 'Read directly by', f: n => chips(outs(n.id, ['searches']).map(e => [e.to, e.detail])) },
+    { h: 'Inherited by chain searches', f: n => chips(chainsOf(n.id)) },
+    { h: 'Feeds visualizations', f: n => chips(vizOf(n.id)) },
+    { h: 'Tabs', f: n => chips(uniq(vizOf(n.id).flatMap(tabsOf))) },
+  ], items)}
+  <div class="section-title">Data sources with no index in their SPL (${noIndex.length})</div>
+  ${table([
+    { h: 'Data source', f: n => chip(n.id) },
+    { h: 'Type', f: n => esc(dsTypeLabel(n.type)) },
+    { h: 'Sourcetypes', f: n => srcCell(n, 'sourcetype') },
+    { h: 'Other sources', f: n => n.eff_other.map(o => `<div class="small"><code>${esc(o)}</code></div>`).join('') || '<span class="muted">—</span>' },
+  ], noIndex)}`;
 }
 
 function viewConditions() {
@@ -1040,12 +1149,14 @@ function renderGraph(root) {
   root.innerHTML = `<div class="graph-controls">
     <label>Focus <select id="g-focus"><option value="">Whole dashboard</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>
     <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Show inputs, tokens and conditions</label>
+    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Show indexes and sourcetypes</label>
     <span class="legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span></span>
   </div>
   <p class="muted small" style="margin:0 0 8px">Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.</p>
   <div class="graph-wrap" id="g-wrap"></div>`;
   $('#g-focus').onchange = e => { graphState.focus = e.target.value; graphState.selected = null; drawGraph(); };
   $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; graphState.selected = null; drawGraph(); };
+  $('#g-sources').onchange = e => { graphState.sources = e.target.checked; graphState.selected = null; drawGraph(); };
   drawGraph();
 }
 
@@ -1053,9 +1164,10 @@ function drawGraph() {
   let ids = new Set(M.nodes.keys());
   if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
   if (!graphState.tokens) for (const id of [...ids]) if (/^(token|input|defaults|condition):/.test(id)) ids.delete(id);
+  if (!graphState.sources) for (const id of [...ids]) if (/^(index|sourcetype):/.test(id)) ids.delete(id);
   const D = M.maxDepth;
-  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, ds: 3 + (n.depth || 0), viz: 4 + D, tab: 5 + D, dashboard: 6 + D })[n.kind];
-  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Searches' : c < 4 + D ? `Chain level ${c - 3}` : c === 4 + D ? 'Visualizations' : c === 5 + D ? 'Tabs' : 'Dashboard';
+  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, ds: 4 + (n.depth || 0), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind];
+  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Indexes & sourcetypes' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
 
   const byCol = new Map();
   for (const id of ids) { const c = colOf(M.nodes.get(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
@@ -1070,7 +1182,7 @@ function drawGraph() {
     nbrs.get(e.from).push(e.to); nbrs.get(e.to).push(e.from);
   }
   // Order each column by barycentre of its neighbours to reduce crossings.
-  const kindOrder = { input: 0, defaults: 1 };
+  const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1 };
   cols.forEach(col => col.sort((a, b) => (kindOrder[M.nodes.get(a).kind] ?? 0) - (kindOrder[M.nodes.get(b).kind] ?? 0)));
   const pos = new Map();
   const setPos = col => col.forEach((id, i) => pos.set(id, i - col.length / 2));
@@ -1099,7 +1211,7 @@ function drawGraph() {
   });
   const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
   const subOf = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
-    : n.kind === 'token' ? n.status : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
+    : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
 
   let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Relationship map">
   <defs>${['data', 'token', 'layout', 'vis'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
@@ -1186,6 +1298,9 @@ function openDrawer(id, push = true) {
     P('Time range', timeRange(n));
     P('Refresh', n.refresh ? `<code>${esc(fmt(n.refresh))}</code> ${esc(n.refreshType || '')}` : '');
     P('Smart sources', n.enableSmartSources ? 'enabled' : '');
+    P('Indexes', n.eff_index.length || n.type === 'ds.savedSearch' ? srcCell(n, 'index') : '<span class="muted">none named</span>');
+    P('Sourcetypes', n.eff_sourcetype.length ? srcCell(n, 'sourcetype') : '<span class="muted">none named</span>');
+    P('Other sources', n.eff_other.map(o => `<code>${esc(o)}</code>`).join(' '));
   } else if (n.kind === 'input') {
     P('Title', esc(n.title)); P('Token', n.token ? chip('token:' + n.token) : '<span class="muted">none</span>');
     P('Default', n.defaultValue !== undefined ? `<code>${esc(fmt(n.defaultValue))}</code>` : '');
@@ -1199,6 +1314,8 @@ function openDrawer(id, push = true) {
   } else if (n.kind === 'token') {
     P('Status', esc(n.status));
     P('Default value', (n.defaults || []).map(d => `<code>${esc(fmt(d.value))}</code> <span class="muted small">from</span> ${chip(d.from)}`).join('<br>'));
+  } else if (n.kind === 'index' || n.kind === 'sourcetype') {
+    P('Feeds visualizations', chips(dataDown(n.id).filter(x => x.startsWith('viz:'))));
   } else if (n.kind === 'condition') {
     P('Name', esc(n.label)); P('Expression', `<code>${esc(n.value)}</code>`);
   } else if (n.kind === 'tab') {
@@ -1248,7 +1365,7 @@ function openDrawer(id, push = true) {
   if (n.raw) html += `<details style="margin-top:14px"><summary>Definition JSON</summary><pre>${esc(JSON.stringify(n.raw, null, 2))}</pre></details>`;
   $('#drawer-body').innerHTML = html;
   $('#drawer-body').scrollTop = 0;
-  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; view = 'graph'; render(); };
+  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype):/.test(id)) graphState.sources = true; view = 'graph'; render(); };
   const d = $('#drawer');
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
 }
@@ -1317,13 +1434,16 @@ function itemDetails(n) {
   }
 }
 function exportInventory() {
-  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
+  const srcList = (n, f) => n.kind === 'ds' ? (n['eff_' + f] || []).map(v => (v.excluded ? 'NOT ' : '') + v.value).join('; ')
+    : n.kind === 'viz' ? vizSources(n.id).filter(x => x.startsWith(f + ':')).map(x => x.slice(f.length + 1)).join('; ') : '';
+  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Indexes', 'Sourcetypes', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
   for (const n of M.nodes.values()) {
     rows.push([
       KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, n.label,
       n.kind === 'ds' ? dsTypeLabel(n.type) : (n.type || n.layoutType || n.status || ''),
       tabsOf(n.id).map(t => M.nodes.get(t).label).join('; '),
       ins(n.id, ['feeds', 'populates', 'extends']).map(e => e.from.slice(3)).join('; '),
+      srcList(n, 'index'), srcList(n, 'sourcetype'),
       directTokens(n.id).map(t => M.nodes.get(t).label).join(' '),
       outs(n.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => M.nodes.get(e.to).label).join(' '),
       itemDetails(n),
@@ -1373,7 +1493,9 @@ function exportMarkdown() {
     })) + '\n';
   }
   md += `## Inputs\n\n` + t(['Input', 'ID', 'Type', 'Token', 'Default', 'Options from', 'Placed on'], M.byKind('input').map(n => [n.label, n.key, shortType(n.type), n.token ? '$' + n.token + '$' : '', fmt(n.defaultValue), L(ins(n.id, ['populates']).map(e => e.from)), L(tabsOf(n.id))]));
-  md += `\n## Data sources\n\n` + t(['Data source', 'ID', 'Type', 'Base search', 'Time range', 'Used by', 'Tokens'], M.byKind('ds').map(n => [n.label, n.key, dsTypeLabel(n.type), n.extend, n.earliest ? `${n.earliest.v} → ${n.latest.v}` : '', L(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)), L(directTokens(n.id))]));
+  const vals = (n, f) => (n['eff_' + f] || []).map(v => (v.excluded ? 'NOT ' : '') + v.value).join(', ');
+  md += `\n## Data sources\n\n` + t(['Data source', 'ID', 'Type', 'Base search', 'Indexes', 'Sourcetypes', 'Other sources', 'Time range', 'Used by', 'Tokens'], M.byKind('ds').map(n => [n.label, n.key, dsTypeLabel(n.type), n.extend, vals(n, 'index'), vals(n, 'sourcetype'), n.eff_other.join(', '), n.earliest ? `${n.earliest.v} → ${n.latest.v}` : '', L(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)), L(directTokens(n.id))]));
+  md += `\n## Indexes & sourcetypes\n\n` + t(['Name', 'Kind', 'Read directly by', 'Feeds visualizations'], [...M.byKind('index'), ...M.byKind('sourcetype')].map(n => [n.label, KINDS[n.kind].label, outs(n.id, ['searches']).map(e => lbl(e.to) + (e.detail ? ` (${e.detail})` : '')).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
   md += `\n### Queries\n\n`;
   for (const n of M.byKind('ds')) md += `**${n.label}** (\`${n.key}\`, ${dsTypeLabel(n.type)})\n\n\`\`\`spl\n${n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.effectiveQuery || n.query}\n\`\`\`\n\n`;
   md += `## Visualizations\n\n` + t(['Visualization', 'ID', 'Type', 'Placed on', 'Data source', 'Tokens used', 'Sets tokens', 'Drilldown'], M.byKind('viz').map(n => [n.label, n.key, shortType(n.type), L(tabsOf(n.id)), L(ins(n.id, ['feeds']).map(e => e.from)), L(directTokens(n.id)), L(outs(n.id, ['drilldown-sets']).map(e => e.to)), n.drilldowns.map(d => d.text).join('; ')]));
