@@ -1,6 +1,6 @@
 # splunkdashboard-breakdown
 
-**Studio Dashboard Inventory** is a single, standalone web page (`index.html`). It lists everything in a Splunk Dashboard Studio dashboard and shows how the items relate to each other.
+**Studio Dashboard Inventory** is a single, standalone web page (`index.html`). It lists everything in a Splunk dashboard, shows how the items relate, checks for problems before you deploy, and can repair what it safely can.
 
 Open `index.html` in a browser. It needs no server, build step or internet connection, and it sends nothing anywhere. Paste or drop in the dashboard source, or click **Load sample dashboard**.
 
@@ -9,10 +9,12 @@ Open `index.html` in a browser. It needs no server, build step or internet conne
 | Input | Where to get it |
 | --- | --- |
 | Dashboard Studio JSON | Dashboard → *Edit* → *Source* (`</>`) |
-| Dashboard XML (`<dashboard version="2">` with a `<definition>` block) | `$SPLUNK_HOME/etc/apps/<app>/{local,default}/data/ui/views/<name>.xml` |
-| REST API response | `GET /servicesNS/-/<app>/data/ui/views/<name>?output_mode=json` |
+| Dashboard XML, Studio (`<dashboard version="2">` with a `<definition>` block) | `$SPLUNK_HOME/etc/apps/<app>/{local,default}/data/ui/views/<name>.xml` |
+| Dashboard XML, Classic Simple XML (`<dashboard>` / `<form>`) | Same folder. Converted to the Studio model; layout positions are approximate |
+| REST API response, one view or a list of many | `GET /servicesNS/-/<app>/data/ui/views?output_mode=json` |
+| Several files at once | Choose or drop multiple files to inventory a whole app |
 
-Classic Simple XML dashboards are detected and rejected with an explanation.
+**Lenient loading.** Copy-and-paste damage is repaired and reported: Markdown code fences, a byte-order mark, `//` and `/* */` comments, trailing commas, extra text after the closing bracket, and curly quotes.
 
 ## What it inventories
 
@@ -21,24 +23,59 @@ Classic Simple XML dashboards are detected and rejected with an explanation.
 | **Tabs / canvases** | Tab labels and order, layout type (grid/absolute), the global input bar, and which inputs and visualizations sit on each tab |
 | **Inputs** | Type, token set, default value, static options, the data source that populates dynamic options, placement, and tokens used |
 | **Data sources** | Searches (`ds.search`), chain searches (`ds.chain`), saved searches (`ds.savedSearch`) and other types; query, effective time range (own, base search or defaults), refresh, and smart sources |
-| **Indexes & sourcetypes** | Read from each search's SPL (`index=`, `index::`, `index!=`, `NOT index=`, `index IN (…)`, and the same for `sourcetype`, including `tstats … where index=…`). Excluded terms and token-driven values (`index=$idx$`) are marked. Chain searches inherit their base search's indexes and sourcetypes. Saved searches, `| rest` calls and the indexes `| collect` writes to are listed as *other sources*. A dedicated view shows, for each index and sourcetype, the searches, chains, visualizations and tabs that depend on it |
-| **Lookups** | Each lookup and whether the dashboard **reads** it (`| lookup`, `| inputlookup`, `| inputcsv`, `| from lookup:`) or **writes** it (`| outputlookup`, `| outputcsv`), with the command options (`append=t`, `key_field=…`). Shows the searches that read or write each lookup, the chain searches that inherit the reads, and the visualizations and tabs fed by it. Lookup names set by a token are shown on the search. Automatic lookups from props.conf aren't visible in SPL |
-| **Data models** | Data models and datasets read through `| tstats … from datamodel=Model.Dataset`, `| from datamodel:Model.Dataset`, `| datamodel Model Dataset search` and `| pivot Model Dataset …`, with the searches that read them, the chains that inherit them, and the visualizations they feed |
-| **Macros** | Every `` `macro` `` call, keyed by name and argument count as Splunk does (`` `name(2)` ``), with the calls as written and the searches, chains and visualizations that use it. Macro bodies live in macros.conf, so what they contain is not expanded |
-| **SPL commands** | Every command in every search's pipeline (including subsearches and the implicit leading `search`), grouped as generating, transforming, writes data / side effect, or other, with use counts, the searches that use each, and the full pipeline of every search |
 | **Searches & chain searches** | A lineage tree from each base search through every chain level, plus the effective SPL of each chain (base and chain queries joined) |
-| **Visualizations** | Type, placement, data source lineage, tokens used, tokens set by drilldown, drilldown actions (set token, link to dashboard, URL, search or report), and visibility rules |
-| **Tokens** | Every `$token$` reference, including filters (`|s`, `|h`, …) and time-range sub-keys (`$t.earliest$`). Each token records what sets it (input, drilldown, `defaults.tokens`, smart source `$<ds>:result.x$`, or the Splunk environment `$env:*$`) and every place it is used, down to the JSON path |
-| **Visibility conditions** | `expressions.conditions` with their expressions and the items they show or hide |
-| **Defaults** | `defaults.dataSources` / `defaults.visualizations` inheritance, including tokens a data source picks up from defaults (unless it overrides them) |
+| **Indexes & sourcetypes** | From each search's SPL (`index=`, `index::`, `index!=`, `NOT index=`, `index IN (…)`, and the same for `sourcetype`, including `tstats … where index=…`). Excluded terms and token-driven values are marked, chains inherit from their base, and `| collect index=…` is listed as a write target |
+| **Lookups** | Read (`| lookup`, `| inputlookup`, `| inputcsv`, `| from lookup:`) or written (`| outputlookup`, `| outputcsv`), with command options |
+| **Data models** | Read through `tstats … from datamodel=`, `| from datamodel:`, `| datamodel` and `| pivot`, with datasets |
+| **Macros** | Every `` `macro` `` call, keyed by name and argument count as Splunk does (`` `name(2)` ``) |
+| **SPL commands** | Every command in every pipeline (including subsearches and the implicit leading `search`), grouped as generating, transforming, writes data / side effect, or other, plus each search's full pipeline |
+| **Visualizations** | Type, placement, data source lineage, what they read, tokens used and set, drilldown actions, and visibility rules |
+| **Tokens** | Every `$token$` reference, what sets it (input, drilldown, default, smart source, Classic `<done>`/`<change>` handler, or `$env:*$`) and every place it is used, down to the JSON path |
+| **Visibility conditions** | `expressions.conditions` (and Classic `depends`/`rejects`) with the items they show or hide |
+
+## Checks
+
+The **Issues** page lists problems as errors, warnings and notes.
+
+**Structure.** Missing data sources, base searches, layouts or conditions; circular chains; tokens used but never set, or set but never used; unused data sources; unplaced panels and inputs; inputs with no token; smart-source tokens without `enableSmartSources`.
+
+**SPL.** Unbalanced quotes, parentheses, brackets or macro backticks; empty commands (`| |` or a trailing pipe); stats functions with no field (`| stats sum by host`); `rename` without `AS`; `eval` without `=`; commands with nothing after them; generating commands without a leading pipe; chain searches without a leading pipe; commands that aren't built-in SPL.
+
+**Behaviour.** Valid dashboards that don't do what you expect:
+- a time picker with no effect, because its searches start with `| inputlookup`, `| makeresults` or `| rest`
+- a single value set up to show a trend, when its search has no time series
+- identical panels, and searches that run the same SPL and time range
+- base searches that pass raw events to chain searches (Splunk keeps a limited number of events for chains)
+- searches that write lookups or run side-effect commands (`collect`, `sendemail`, `delete` and so on) on every load
+- lookups written by one search and read by another in the same dashboard
+
+## Repair
+
+Issues with a safe fix carry a checkbox: removing a broken data-source reference, layout entry or visibility condition, removing an unused data source, placing an unplaced panel, adding an unplaced input to the input bar, turning on `enableSmartSources`, adding a missing leading pipe, and removing an empty command. Pick the fixes, then **Download definition** (JSON, or the original XML file with its `<definition>` replaced) or **Load the fixed version** to re-check it. Repairs made while loading are always included.
 
 ## Dashboard mockup
 
-The **Dashboard mockup** menu draws the dashboard as it is laid out:
-- the title, the tab bar (switch tabs in the mockup) and the global input bar
-- each visualization and input at its stored position and size, scaled to fit, for both grid and absolute layouts
+Draws the dashboard as laid out: the title, tab bar, global input bar, and each panel and input at its stored position and size. Charts are placeholder sketches for each visualization type, not real data. It is interactive:
+- change inputs, or any token value (to simulate drilldown clicks and search results), and titles update
+- conditional panels show or hide as their conditions change; ones that can't be evaluated are marked
+- panels whose searches use a token with no value show **Waiting for input**
 
-Inputs show their default values. Visualizations show a placeholder sketch for their type (line, area, column, bar, pie, table, single value, map, markdown text and so on), not real data. Panels are tagged *conditional*, *hides if empty*, *drilldown* or *error* where those apply. **Fill titles with default token values** replaces `$tokens$` in titles and markdown with their defaults. Click any panel or input to open its details.
+Export the current tab as SVG or PNG.
+
+## Compare versions
+
+Compare the open dashboard with another version, pasted, chosen as a file, or picked from the loaded dashboards. Shows items added, removed and changed, with field-level changes, a line diff for SPL, and moved or resized panels. Download the changes as Markdown.
+
+## All dashboards
+
+Load several dashboards to get a summary of each (panels, searches, inputs, tokens, errors, warnings), and a table of what they share: indexes, sourcetypes, lookups (with read/write), macros, data models and saved searches, with every dashboard that uses each. Switch dashboards from the header. Download the app inventory as CSV.
+
+## Splunk config
+
+Macro bodies, saved searches and data models live outside the dashboard. Paste `macros.conf` and `savedsearches.conf`, and data model JSON, on the loader or the **Splunk config** page. The page then:
+- expands macros (including nested ones and arguments), inlines saved searches, and adds data model constraint searches
+- finds the indexes, sourcetypes, lookups, data models and commands hidden inside them, marked *via expansion* or *via saved search*
+- flags macros called with the wrong number of arguments, macros that expand into themselves, and macros or saved searches missing from the pasted config
 
 ## Relationships
 
@@ -55,32 +92,20 @@ Each relationship is stored as an edge pointing the way data and token values fl
 - condition → *controls visibility of* → visualization / input
 - visualization / input → *placed on* → tab → dashboard
 
-You can explore the relationships in four ways:
-
-- **Detail panel.** Click any item to see its properties, its direct relationships, its full upstream and downstream lineage, every token reference with its JSON path, and the raw definition.
-- **Relationship map.** A column diagram running inputs → tokens → conditions → searches → chain levels → visualizations → tabs. Click a node to highlight its lineage, or focus on a single tab.
-- **Relationship list.** A flat, filterable and sortable table of every edge.
-- **"Driven by tokens."** Shows, for each visualization, which tokens change its results directly or through its searches.
-
-## Issues detected
-
-The page flags:
-
-- references to missing data sources, base searches, layouts or conditions
-- circular chains
-- tokens that are used but never set, and tokens that are set but never used
-- data sources nothing uses
-- searches that name no index (they run against the viewer's default indexes)
-- searches that run commands with side effects (`collect`, `sendemail`, `delete`, `script`, …)
-- searches that write a lookup (they write on every load, input change and refresh)
-- lookups written by one search and read by another in the same dashboard (searches run in parallel, so the read may happen before or after the write)
-- visualizations and inputs that are not placed on any tab
-- inputs with no token
-- smart-source tokens whose data source does not set `enableSmartSources`
+Explore them through the detail panel (click any item), the **Relationship map**, the **Relationship list**, and the "Driven by tokens" column.
 
 ## Exports
 
-- **Report (.md):** a documentation-ready Markdown write-up of the whole dashboard.
-- **Inventory (.csv):** one row per item, with its upstream and downstream relationships.
-- **Relationships (.csv):** one row per relationship.
-- **Model (.json):** the full parsed model, including token references and issues.
+From the **Export** menu:
+
+- **Printable summary (.html):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
+- **Report (.md):** a documentation-ready Markdown write-up.
+- **Inventory (.csv)** and **Relationships (.csv)**.
+- **Model (.json):** the full parsed model.
+- **Definition, with selected fixes.**
+- **Mockup (.svg / .png).**
+
+## Examples
+
+- `examples/monitoringTemplateDiscreteMetrics.json`: a corrected Studio template.
+- `examples/classicWebErrors.xml`: a Classic Simple XML dashboard for trying the converter.
