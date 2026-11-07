@@ -1285,7 +1285,16 @@ function sortTable(th) {
    Exports
    ============================================================ */
 function slug(s) { return String(s || 'dashboard').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'dashboard'; }
-function download(name, text, type) {
+// Inside the claude.ai artifact viewer, files go through the viewer's save prompt;
+// opened as a local file, fall back to a normal browser download.
+const downloadsCap = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+async function download(name, text, type) {
+  const cap = await downloadsCap;
+  if (cap) {
+    try { await cap.save({ filename: name, data: text }); }
+    catch (e) { if (e && e.code !== 'declined') alert('Could not save the file: ' + (e.message || e.code || e)); }
+    return;
+  }
   const blob = new Blob([text], { type });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
