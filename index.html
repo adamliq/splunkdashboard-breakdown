@@ -1,0 +1,1428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Dashboard Inventory</title>
+<meta name="description" content="Inventory and relationship map for a Splunk Dashboard Studio dashboard: tabs, inputs, data sources, searches, chain searches, visualizations and tokens.">
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dde1e7; --text: #1b1f24; --muted: #5f6b7a;
+  --accent: #2f6fde; --accent-text: #ffffff; --focus: #2f6fde;
+  --k-dashboard: #4b5563; --k-tab: #6d4fd8; --k-input: #0f8b8d; --k-defaults: #7a7f87; --k-token: #b7791f;
+  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57;
+  --sev-error: #c53030; --sev-warning: #b7791f; --sev-info: #2f6fde;
+  --e-data: #2f6fde; --e-token: #c08a25; --e-layout: #9aa3ae; --e-vis: #c2417a;
+  --code-bg: #f3f5f8; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
+    --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
+    --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
+    --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189;
+    --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
+    --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
+    --code-bg: #161a20; --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151a; --panel: #1a1e25; --panel-2: #222731; --border: #2f3541; --text: #e6e9ee; --muted: #9aa4b2;
+  --accent: #5b8ff0; --accent-text: #0b0d10; --focus: #7aa5f5;
+  --k-dashboard: #9aa4b2; --k-tab: #a08cf0; --k-input: #3cc0c2; --k-defaults: #9aa0a8; --k-token: #e0a84a;
+  --k-condition: #e7799f; --k-ds: #6c9cf2; --k-viz: #5cc189;
+  --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
+  --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
+  --code-bg: #161a20; --shadow: none;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 12px; }
+button, select, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+a { color: var(--accent); }
+
+.topbar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.topbar h1 { font-size: 16px; margin: 0; font-weight: 650; white-space: nowrap; }
+.topbar .dash-title { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.btn { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.07); }
+.btn.small { padding: 3px 8px; font-size: 12.5px; }
+
+/* Loader */
+#loader { max-width: 980px; margin: 28px auto; padding: 0 16px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 18px 20px; }
+#loader h2 { margin: 0 0 6px; font-size: 20px; }
+#loader p { margin: 6px 0; color: var(--muted); }
+#source { width: 100%; min-height: 300px; resize: vertical; margin: 12px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+#source.dragover { outline: 2px dashed var(--accent); }
+.loader-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.error { color: var(--sev-error); background: color-mix(in srgb, var(--sev-error) 10%, transparent); border: 1px solid color-mix(in srgb, var(--sev-error) 35%, transparent); padding: 8px 12px; border-radius: 6px; margin-top: 10px; }
+.howto { margin-top: 16px; }
+.howto summary { cursor: pointer; font-weight: 600; }
+.howto ol { margin: 8px 0; padding-left: 20px; color: var(--muted); }
+.howto li { margin: 4px 0; }
+
+/* App */
+#app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 53px); }
+#nav { border-right: 1px solid var(--border); background: var(--panel); padding: 12px 8px; position: sticky; top: 53px; height: calc(100vh - 53px); overflow: auto; }
+#nav button { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+#nav button:hover { background: var(--panel-2); }
+#nav button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
+#nav .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#nav .count.alert { color: var(--sev-error); font-weight: 600; }
+#nav hr { border: 0; border-top: 1px solid var(--border); margin: 10px 4px; }
+#nav .navlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 10px; }
+.content { padding: 18px 22px 40px; min-width: 0; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar h2 { margin: 0; font-size: 18px; flex: 1; min-width: 160px; }
+.search { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); min-width: 220px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.section-title { font-size: 14px; font-weight: 650; margin: 22px 0 8px; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 12px 0 6px; }
+.stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; text-align: left; border-left: 4px solid var(--kc, var(--border)); }
+.stat:hover { background: var(--panel-2); }
+.stat .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat .l { font-weight: 600; }
+.stat .s { color: var(--muted); font-size: 12px; }
+.meta-grid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
+.meta-grid dt { color: var(--muted); }
+.meta-grid dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.tablewrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+th { background: var(--panel-2); font-weight: 600; font-size: 12.5px; position: sticky; top: 0; cursor: pointer; user-select: none; white-space: nowrap; }
+th[data-dir="asc"]::after { content: " ▲"; font-size: 10px; }
+th[data-dir="desc"]::after { content: " ▼"; font-size: 10px; }
+tr:last-child td { border-bottom: 0; }
+td.q code { display: block; max-width: 420px; white-space: pre-wrap; word-break: break-word; max-height: 7.5em; overflow: hidden; }
+td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid color-mix(in srgb, var(--kc) 40%, transparent); background: color-mix(in srgb, var(--kc) 10%, transparent); color: var(--text); border-radius: 999px; padding: 1px 9px; font-size: 12.5px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.6; }
+.chip:hover { background: color-mix(in srgb, var(--kc) 22%, transparent); }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--kc); flex: none; }
+.chip.missing { --kc: var(--sev-error); cursor: default; text-decoration: line-through; }
+.chip .det { color: var(--muted); font-size: 11.5px; }
+.k-dashboard { --kc: var(--k-dashboard); } .k-tab { --kc: var(--k-tab); } .k-input { --kc: var(--k-input); }
+.k-defaults { --kc: var(--k-defaults); } .k-token { --kc: var(--k-token); } .k-condition { --kc: var(--k-condition); }
+.k-ds { --kc: var(--k-ds); } .k-viz { --kc: var(--k-viz); }
+.badge { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); white-space: nowrap; line-height: 1.6; }
+.badge.sev-error { color: var(--sev-error); border-color: color-mix(in srgb, var(--sev-error) 45%, transparent); }
+.badge.sev-warning { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
+.badge.sev-info { color: var(--sev-info); border-color: color-mix(in srgb, var(--sev-info) 45%, transparent); }
+.badge.ok { color: var(--k-viz); border-color: color-mix(in srgb, var(--k-viz) 45%, transparent); }
+
+.tabcard { margin-bottom: 14px; }
+.tabcard h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tabcard .sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; }
+.lineage { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.lineage .sep { color: var(--muted); }
+
+.tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
+.tree ul { padding-left: 22px; border-left: 1px dashed var(--border); margin-left: 10px; }
+.tree li { margin: 4px 0; }
+.tree-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.arrow { color: var(--muted); }
+
+/* Drawer */
+#drawer { position: fixed; top: 0; right: 0; height: 100vh; width: min(560px, 100vw); background: var(--panel); border-left: 1px solid var(--border); box-shadow: -8px 0 24px rgba(0,0,0,.12); z-index: 50; display: flex; flex-direction: column; transform: translateX(105%); transition: transform .18s ease; }
+#drawer.open { transform: none; }
+#drawer header { display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+#drawer header .t { flex: 1; min-width: 0; }
+#drawer header h3 { margin: 2px 0 0; font-size: 17px; overflow-wrap: anywhere; }
+#drawer .body { padding: 12px 16px 30px; overflow: auto; }
+#drawer h4 { margin: 18px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.relgroup { margin: 6px 0 10px; }
+.relgroup .rl { font-size: 12.5px; color: var(--muted); margin-bottom: 3px; }
+.relgroup .stack { display: flex; flex-wrap: wrap; gap: 4px; }
+.navhist { display: flex; gap: 6px; }
+
+/* Graph */
+.graph-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.graph-controls select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+.graph-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); max-height: calc(100vh - 210px); }
+svg.graph { display: block; }
+.gnode rect.box { fill: var(--panel); stroke: var(--border); }
+.gnode rect.bar { fill: var(--kc); }
+.gnode text { fill: var(--text); font-size: 12px; }
+.gnode text.sub { fill: var(--muted); font-size: 10.5px; }
+.gnode { cursor: pointer; }
+.gnode:hover rect.box { stroke: var(--kc); }
+.gnode.sel rect.box { stroke: var(--kc); stroke-width: 2.5; }
+.gnode.undef rect.box { stroke: var(--sev-error); stroke-dasharray: 3 2; }
+.gedge { fill: none; stroke-width: 1.4; opacity: .7; }
+.gedge.back { stroke-dasharray: 5 4; }
+.gedge.data { stroke: var(--e-data); } .gedge.token { stroke: var(--e-token); } .gedge.layout { stroke: var(--e-layout); } .gedge.vis { stroke: var(--e-vis); }
+.mk-data { fill: var(--e-data); } .mk-token { fill: var(--e-token); } .mk-layout { fill: var(--e-layout); } .mk-vis { fill: var(--e-vis); }
+svg.has-sel .gnode.dim { opacity: .18; }
+svg.has-sel .gedge.dim { opacity: .05; }
+svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
+.colhead { fill: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+
+@media (max-width: 820px) {
+  #app { grid-template-columns: 1fr; }
+  #nav { position: static; height: auto; display: flex; overflow-x: auto; gap: 4px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--border); }
+  #nav button { width: auto; white-space: nowrap; gap: 6px; }
+  #nav hr, #nav .navlabel { display: none; }
+  .content { padding: 14px 16px 30px; }
+  .topbar { padding: 10px 16px; flex-wrap: wrap; }
+  .search { min-width: 0; flex: 1; }
+}
+@media print {
+  #nav, .topbar .btn, .toolbar .btn, .search, #drawer { display: none !important; }
+  #app { display: block; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Studio Dashboard Inventory</h1>
+  <span class="dash-title" id="dash-title"></span>
+  <button class="btn" id="btn-new" hidden>Load another dashboard</button>
+</header>
+
+<main id="loader">
+  <div class="card">
+    <h2>Inventory a Dashboard Studio dashboard</h2>
+    <p>Paste the dashboard source, or drop or choose a file. The tool lists every tab, input, data source, search, chain search, visualization and token, and shows how they connect.</p>
+    <p class="small">Everything runs in this page. Nothing is uploaded or saved.</p>
+    <textarea id="source" spellcheck="false" placeholder='Paste the Dashboard Studio JSON ({"visualizations": …, "dataSources": …}), the dashboard XML (<dashboard version="2"> … <definition><![CDATA[ … ]]></definition>), or a REST API response from data/ui/views.'></textarea>
+    <div class="loader-actions">
+      <button class="btn primary" id="btn-analyze">Analyze</button>
+      <label class="btn">Choose file… <input type="file" id="file" accept=".json,.xml,.txt,application/json,text/xml" hidden></label>
+      <button class="btn" id="btn-sample">Load sample dashboard</button>
+    </div>
+    <div class="error" id="load-error" hidden></div>
+    <details class="howto">
+      <summary>How to get the dashboard source</summary>
+      <ol>
+        <li><b>From the Splunk UI:</b> open the dashboard, click <i>Edit</i>, then <i>Source</i> (<code>&lt;/&gt;</code>), and copy the JSON.</li>
+        <li><b>From the app folder:</b> <code>$SPLUNK_HOME/etc/apps/&lt;app&gt;/local/data/ui/views/&lt;dashboard&gt;.xml</code> (or <code>default/</code>). Paste the whole XML file.</li>
+        <li><b>From the REST API:</b> <code>curl -k -u user "https://splunk:8089/servicesNS/-/&lt;app&gt;/data/ui/views/&lt;dashboard&gt;?output_mode=json"</code>, then paste the response.</li>
+      </ol>
+      <p class="small">This tool reads Dashboard Studio dashboards (<code>version="2"</code>). Classic Simple XML dashboards have no Studio definition, so they are not supported.</p>
+    </details>
+  </div>
+</main>
+
+<div id="app" hidden>
+  <nav id="nav" aria-label="Inventory sections"></nav>
+  <section class="content">
+    <div class="toolbar">
+      <h2 id="view-title"></h2>
+      <input class="search" id="filter" type="search" placeholder="Filter this view…" aria-label="Filter this view">
+      <button class="btn" id="btn-export-md" title="Markdown report">Report (.md)</button>
+      <button class="btn" id="btn-export-inv" title="One row per item">Inventory (.csv)</button>
+      <button class="btn" id="btn-export-rel" title="One row per relationship">Relationships (.csv)</button>
+      <button class="btn" id="btn-export-json" title="Full model as JSON">Model (.json)</button>
+    </div>
+    <div id="view"></div>
+  </section>
+</div>
+
+<aside id="drawer" aria-label="Item details" aria-hidden="true">
+  <header>
+    <div class="t"><div id="drawer-kind"></div><h3 id="drawer-title"></h3></div>
+    <div class="navhist">
+      <button class="btn small" id="drawer-back" title="Back" aria-label="Back">←</button>
+      <button class="btn small" id="drawer-close" title="Close (Esc)" aria-label="Close">✕</button>
+    </div>
+  </header>
+  <div class="body" id="drawer-body"></div>
+</aside>
+
+<script id="sample" type="application/json">
+{
+  "title": "Web Operations Overview",
+  "description": "Traffic, errors and latency for the web tier.",
+  "inputs": {
+    "input_time": { "type": "input.timerange", "title": "Time range", "options": { "token": "global_time", "defaultValue": "-24h@h,now" } },
+    "input_host": { "type": "input.dropdown", "title": "Host", "options": { "token": "host", "defaultValue": "*", "items": [ { "label": "All", "value": "*" } ] }, "dataSources": { "primary": "ds_hosts" } },
+    "input_status": { "type": "input.multiselect", "title": "Status", "options": { "token": "status", "defaultValue": ["200", "404", "500"], "items": [ { "label": "200", "value": "200" }, { "label": "404", "value": "404" }, { "label": "500", "value": "500" } ], "valuePrefix": "status=", "delimiter": " OR " } },
+    "input_threshold": { "type": "input.number", "title": "Latency threshold (ms)", "options": { "token": "latency_threshold", "defaultValue": 500 } },
+    "input_user": { "type": "input.text", "title": "User filter", "options": { "token": "user_filter", "defaultValue": "*" } }
+  },
+  "defaults": {
+    "dataSources": { "ds.search": { "options": { "queryParameters": { "earliest": "$global_time.earliest$", "latest": "$global_time.latest$" } } } },
+    "tokens": { "default": { "selected_uri": { "value": "*" } } }
+  },
+  "dataSources": {
+    "ds_hosts": { "type": "ds.search", "name": "Host list", "options": { "query": "| tstats count where index=web region=$region|s$ by host | fields host" } },
+    "ds_base": { "type": "ds.search", "name": "Base web events", "options": { "query": "index=web sourcetype=access_combined host=\"$host$\" ($status$) user=\"$user_filter$\"\n| fields _time host status uri response_time user" } },
+    "ds_errors": { "type": "ds.chain", "name": "Server errors", "options": { "extend": "ds_base", "query": "| where status>=500" } },
+    "ds_errors_by_uri": { "type": "ds.chain", "name": "Errors by URI", "options": { "extend": "ds_errors", "query": "| stats count by uri | sort - count" } },
+    "ds_error_count": { "type": "ds.chain", "name": "Error count", "options": { "extend": "ds_errors", "query": "| stats count" } },
+    "ds_traffic": { "type": "ds.chain", "name": "Traffic over time", "options": { "extend": "ds_base", "query": "| timechart count by status" } },
+    "ds_latency": { "type": "ds.chain", "name": "Slow requests", "options": { "extend": "ds_base", "query": "| where response_time > $latency_threshold$ | stats count as slow avg(response_time) as avg_ms" } },
+    "ds_total": { "type": "ds.chain", "name": "Total requests", "options": { "extend": "ds_base", "query": "| stats count", "enableSmartSources": true } },
+    "ds_uri_detail": { "type": "ds.search", "name": "URI detail", "options": { "query": "index=web uri=\"$selected_uri$\" | stats count by host, status", "queryParameters": { "earliest": "-7d@d", "latest": "now" } } },
+    "ds_sla": { "type": "ds.savedSearch", "name": "Weekly SLA", "options": { "ref": "Web - Weekly SLA Summary", "app": "search" } },
+    "ds_unused": { "type": "ds.search", "name": "Old test search", "options": { "query": "index=_internal | head 10" } }
+  },
+  "visualizations": {
+    "viz_header": { "type": "splunk.markdown", "options": { "markdown": "### Web operations for **$env:user$** — $Total requests:result.count$ requests in range" } },
+    "viz_total": { "type": "splunk.singlevalue", "title": "Total requests", "dataSources": { "primary": "ds_total" } },
+    "viz_errors": { "type": "splunk.singlevalue", "title": "Server errors", "dataSources": { "primary": "ds_error_count" } },
+    "viz_traffic": { "type": "splunk.line", "title": "Traffic by status ($host$)", "dataSources": { "primary": "ds_traffic" } },
+    "viz_errors_table": { "type": "splunk.table", "title": "Top error URIs", "dataSources": { "primary": "ds_errors_by_uri" }, "eventHandlers": [ { "type": "drilldown.setToken", "options": { "tokens": [ { "token": "selected_uri", "key": "row.uri.value" } ] } } ] },
+    "viz_uri_detail": { "type": "splunk.column", "title": "Detail for $selected_uri$", "dataSources": { "primary": "ds_uri_detail" }, "containerOptions": { "visibility": { "showConditions": ["cond_uri_selected"] } } },
+    "viz_latency": { "type": "splunk.singlevalue", "title": "Requests slower than $latency_threshold$ ms", "dataSources": { "primary": "ds_latency" } },
+    "viz_sla": { "type": "splunk.table", "title": "Weekly SLA", "dataSources": { "primary": "ds_sla" }, "eventHandlers": [ { "type": "drilldown.linkToDashboard", "options": { "app": "search", "dashboard": "web_sla_detail", "newTab": true, "tokens": [ { "token": "week", "value": "$row.week.value$" } ] } } ] },
+    "viz_orphan": { "type": "splunk.pie", "title": "Unplaced chart", "dataSources": { "primary": "ds_missing" } }
+  },
+  "expressions": { "conditions": { "cond_uri_selected": { "name": "URI selected", "value": "$selected_uri$ != \"*\"" } } },
+  "layout": {
+    "globalInputs": ["input_time", "input_host", "input_status"],
+    "tabs": { "items": [ { "layoutId": "layout_overview", "label": "Overview" }, { "layoutId": "layout_perf", "label": "Performance" } ] },
+    "layoutDefinitions": {
+      "layout_overview": { "type": "grid", "structure": [
+        { "item": "viz_header", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 80 } },
+        { "item": "viz_total", "type": "block", "position": { "x": 0, "y": 80, "w": 600, "h": 150 } },
+        { "item": "viz_errors", "type": "block", "position": { "x": 600, "y": 80, "w": 600, "h": 150 } },
+        { "item": "viz_traffic", "type": "block", "position": { "x": 0, "y": 230, "w": 1200, "h": 300 } },
+        { "item": "viz_errors_table", "type": "block", "position": { "x": 0, "y": 530, "w": 600, "h": 350 } },
+        { "item": "viz_uri_detail", "type": "block", "position": { "x": 600, "y": 530, "w": 600, "h": 350 } }
+      ] },
+      "layout_perf": { "type": "absolute", "options": { "width": 1440, "height": 960 }, "structure": [
+        { "item": "input_threshold", "type": "input", "position": { "x": 20, "y": 20, "w": 250, "h": 80 } },
+        { "item": "input_user", "type": "input", "position": { "x": 290, "y": 20, "w": 250, "h": 80 } },
+        { "item": "viz_latency", "type": "block", "position": { "x": 20, "y": 120, "w": 400, "h": 200 } },
+        { "item": "viz_sla", "type": "block", "position": { "x": 440, "y": 120, "w": 900, "h": 400 } }
+      ] }
+    }
+  }
+}
+</script>
+
+<script>
+'use strict';
+/* ============================================================
+   Helpers
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const fmt = v => v === undefined ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
+const uniq = a => [...new Set(a)];
+const plural = (n, s, p) => `${n} ${n === 1 ? s : (p || s + 's')}`;
+
+const KINDS = {
+  dashboard: { label: 'Dashboard', plural: 'Dashboard' },
+  tab:       { label: 'Tab / canvas', plural: 'Tabs' },
+  input:     { label: 'Input', plural: 'Inputs' },
+  defaults:  { label: 'Defaults', plural: 'Defaults' },
+  token:     { label: 'Token', plural: 'Tokens' },
+  condition: { label: 'Visibility condition', plural: 'Conditions' },
+  ds:        { label: 'Data source', plural: 'Data sources' },
+  viz:       { label: 'Visualization', plural: 'Visualizations' },
+};
+const DS_TYPES = {
+  'ds.search': 'Search', 'ds.chain': 'Chain search', 'ds.savedSearch': 'Saved search (report)',
+  'ds.test': 'Test data', 'ds.sim': 'Simulated data'
+};
+const dsTypeLabel = t => DS_TYPES[t] || t || 'unknown';
+const shortType = t => String(t || '').replace(/^(splunk|input|ds|viz|abslayout)\./, '');
+
+// Relationship types. Edges always point in data-flow direction (from → to).
+const REL = {
+  'sets':           { fwd: 'Sets token',                    rev: 'Set by input',                 group: 'token' },
+  'drilldown-sets': { fwd: 'Sets token on click',           rev: 'Set by drilldown on',          group: 'token' },
+  'default':        { fwd: 'Sets default value of',         rev: 'Default value from',           group: 'token' },
+  'smart-source':   { fwd: 'Provides smart-source token',   rev: 'Provided by smart source',     group: 'token' },
+  'uses-token':     { fwd: 'Used by',                       rev: 'Uses token',                   group: 'token' },
+  'extends':        { fwd: 'Extended by chain search',      rev: 'Extends base search',          group: 'data' },
+  'feeds':          { fwd: 'Feeds visualization',           rev: 'Gets data from',               group: 'data' },
+  'populates':      { fwd: 'Populates options of input',    rev: 'Options populated by',         group: 'data' },
+  'inherits':       { fwd: 'Applies defaults to',           rev: 'Inherits defaults from',       group: 'data' },
+  'visibility':     { fwd: 'Controls visibility of',        rev: 'Visibility controlled by',     group: 'vis' },
+  'contains':       { fwd: 'Placed on',                     rev: 'Contains',                     group: 'layout' },
+};
+
+/* ============================================================
+   Parsing the source
+   ============================================================ */
+function parseSource(text) {
+  text = String(text || '').replace(/^﻿/, '').trim();
+  if (!text) throw new Error('There is nothing to analyze. Paste a dashboard definition or choose a file.');
+  if (text[0] === '{' || text[0] === '[') {
+    let obj;
+    try { obj = JSON.parse(text); } catch (e) { throw new Error('The JSON could not be parsed: ' + e.message); }
+    return fromObject(obj);
+  }
+  if (text[0] === '<') return fromXml(text);
+  throw new Error('Unrecognised format. Paste Dashboard Studio JSON, or the dashboard XML that contains a <definition> block.');
+}
+function fromObject(obj) {
+  const entry = Array.isArray(obj?.entry) ? obj.entry[0] : null;
+  if (entry?.content?.['eai:data']) {
+    const r = fromXml(entry.content['eai:data']);
+    r.format = 'REST API response (' + (entry.name || 'view') + ')';
+    return r;
+  }
+  if (isObj(obj) && (obj.visualizations || obj.dataSources || obj.layout || obj.inputs)) return { def: obj, format: 'Dashboard Studio JSON' };
+  throw new Error('This JSON does not look like a Dashboard Studio definition: it has no visualizations, dataSources, inputs or layout.');
+}
+function fromXml(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('The XML could not be parsed. Check that you copied the whole file.');
+  const root = doc.documentElement;
+  const child = name => [...root.children].find(c => c.nodeName.toLowerCase() === name);
+  const defEl = child('definition') || doc.getElementsByTagName('definition')[0];
+  if (!defEl) {
+    if (/^(dashboard|form)$/i.test(root.nodeName))
+      throw new Error('This is a Classic (Simple XML) dashboard. It has no Dashboard Studio <definition> block. This tool reads Dashboard Studio dashboards (version="2").');
+    throw new Error('No <definition> block was found in the XML.');
+  }
+  let def;
+  try { def = JSON.parse(defEl.textContent); } catch (e) { throw new Error('The <definition> block is not valid JSON: ' + e.message); }
+  return {
+    def, format: 'Dashboard XML (version ' + (root.getAttribute('version') || '?') + ')',
+    xmlLabel: child('label')?.textContent || '', xmlDescription: child('description')?.textContent || ''
+  };
+}
+
+/* ============================================================
+   Token scanning
+   ============================================================ */
+// Matches, in order: an escaped "$$"; a smart-source token "$<ds name>:result.field$" / "$<ds name>:job.prop$"
+// (the data source name may contain spaces); or a normal token "$name$" with optional |s |h |u |n filters.
+const TOKEN_RE = /\$\$|\$([^$\n:"]{1,120}):((?:result|job)\.[\w.\-]+)((?:\|[a-z]+)*)\$|\$([A-Za-z0-9_][\w.:\-]*)((?:\|[a-z]+)*)\$/gi;
+function walk(v, path, cb) {
+  if (typeof v === 'string') cb(v, path);
+  else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`, cb));
+  else if (isObj(v)) for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k, cb);
+}
+function scanTokens(obj, basePath = '') {
+  const out = [];
+  walk(obj, basePath, (str, path) => {
+    TOKEN_RE.lastIndex = 0;
+    let m;
+    while ((m = TOKEN_RE.exec(str))) {
+      if (m[0] === '$$') continue;
+      if (m[2]) out.push({ path, raw: m[0], smart: { ds: m[1].trim(), prop: m[2] }, filters: m[3] || '' });
+      else out.push({ path, raw: m[0], name: m[4], filters: m[5] || '' });
+    }
+  });
+  return out;
+}
+function getPath(obj, path) {
+  if (!path) return obj;
+  let cur = obj;
+  for (const k of path.replace(/\[(\d+)\]/g, '.$1').split('.')) {
+    if (cur == null || typeof cur !== 'object') return undefined;
+    cur = cur[k];
+  }
+  return cur;
+}
+// Tokens Splunk provides inside drilldown handlers (row.<field>.value, click.value, …).
+const DRILL_BUILTIN = /^(row|click|trellis)(\.|$)|^(name|value|name2|value2)$/;
+
+/* ============================================================
+   Build the model
+   ============================================================ */
+function buildModel(src) {
+  const def = src.def;
+  const nodes = new Map(), edges = [], edgeKeys = new Set(), issues = [], usages = [];
+  const node = (kind, key, props = {}) => {
+    const id = kind + ':' + key;
+    let n = nodes.get(id);
+    if (!n) { n = { id, kind, key: String(key), label: String(key) }; nodes.set(id, n); }
+    Object.assign(n, props);
+    return n;
+  };
+  const tokenNode = name => node('token', name, { label: '$' + name + '$' });
+  const edge = (from, to, rel, detail = '') => {
+    const k = [from, to, rel, detail].join('\u0001');
+    if (edgeKeys.has(k)) return;
+    edgeKeys.add(k);
+    edges.push({ from, to, rel, detail: String(detail) });
+  };
+  const issue = (severity, message, ref) => issues.push({ severity, message, ref });
+  const byKind = k => [...nodes.values()].filter(n => n.kind === k);
+  const L = isObj(def.layout) ? def.layout : {};
+
+  // ---- Dashboard root
+  const dash = node('dashboard', 'root', {
+    label: def.title || src.xmlLabel || 'Untitled dashboard',
+    description: def.description || src.xmlDescription || '',
+    raw: { title: def.title, description: def.description, layoutOptions: L.layoutDefinitions ? L.options : undefined }
+  });
+
+  // ---- Data sources
+  const dsByName = new Map();
+  for (const [id, d] of Object.entries(isObj(def.dataSources) ? def.dataSources : {})) {
+    const o = isObj(d?.options) ? d.options : {};
+    const qp = isObj(o.queryParameters) ? o.queryParameters : null;
+    node('ds', id, {
+      label: d?.name || id, name: d?.name || '', type: d?.type || 'unknown',
+      query: typeof o.query === 'string' ? o.query : '', extend: o.extend || '', ref: o.ref || '', app: o.app || '',
+      qp, refresh: qp?.refresh ?? o.refresh ?? '', refreshType: qp?.refreshType ?? o.refreshType ?? '',
+      enableSmartSources: !!o.enableSmartSources, raw: d
+    });
+    if (!dsByName.has(id)) dsByName.set(id, id);
+    if (d?.name) dsByName.set(d.name, id);
+  }
+  const linkDs = (dsId, targetId, rel, key) => {
+    if (typeof dsId !== 'string') return;
+    if (nodes.has('ds:' + dsId)) edge('ds:' + dsId, targetId, rel, key);
+    else issue('error', `References data source "${dsId}" (${key}), which does not exist.`, targetId);
+  };
+
+  // chains
+  for (const n of byKind('ds')) {
+    if (n.type !== 'ds.chain') continue;
+    if (!n.extend) issue('error', 'This chain search has no base search ("extend" is empty).', n.id);
+    else if (nodes.has('ds:' + n.extend)) edge('ds:' + n.extend, n.id, 'extends');
+    else issue('error', `This chain search extends "${n.extend}", which does not exist.`, n.id);
+  }
+  for (const n of byKind('ds')) {
+    let cur = n; const path = [n]; const seen = new Set([n.id]);
+    while (cur.type === 'ds.chain' && cur.extend) {
+      const p = nodes.get('ds:' + cur.extend);
+      if (!p) break;
+      if (seen.has(p.id)) { n.cycle = true; issue('error', 'Circular chain: this search eventually extends itself.', n.id); break; }
+      seen.add(p.id); path.unshift(p); cur = p;
+    }
+    n.depth = path.length - 1;
+    n.lineage = path.map(x => x.id);
+    n.rootId = path[0].id;
+    n.effectiveQuery = path.map(x => x.type === 'ds.savedSearch' ? `| savedsearch "${x.ref}"` : x.query).filter(Boolean).join('\n');
+  }
+
+  // ---- Visibility conditions (expressions)
+  const conds = isObj(def.expressions?.conditions) ? def.expressions.conditions : {};
+  for (const [id, c] of Object.entries(conds)) node('condition', id, { label: c?.name || id, value: fmt(c?.value), raw: c });
+  const applyVisibility = (n, d) => {
+    const v = isObj(d?.containerOptions?.visibility) ? d.containerOptions.visibility : {};
+    const parts = [];
+    for (const [k, verb] of [['showConditions', 'show when'], ['hideConditions', 'hide when']]) {
+      for (const c of [].concat(v[k] || [])) {
+        if (typeof c !== 'string') continue;
+        parts.push(`${verb} ${c}`);
+        if (nodes.has('condition:' + c)) edge('condition:' + c, n.id, 'visibility', verb);
+        else issue('error', `Visibility refers to condition "${c}", which is not defined in expressions.conditions.`, n.id);
+      }
+    }
+    if (v.hideWhenNoData) parts.push('hidden when no data');
+    if (v.hideInViewMode) parts.push('hidden in view mode');
+    n.visibility = parts.join('; ');
+  };
+
+  // ---- Inputs
+  for (const [id, d] of Object.entries(isObj(def.inputs) ? def.inputs : {})) {
+    const o = isObj(d?.options) ? d.options : {};
+    const n = node('input', id, {
+      label: d?.title || id, title: d?.title || '', type: d?.type || 'unknown', token: o.token || '',
+      defaultValue: o.defaultValue, items: Array.isArray(o.items) ? o.items : null, raw: d
+    });
+    if (o.token) {
+      const t = tokenNode(o.token);
+      (t.defaults ||= []).push({ from: n.id, value: o.defaultValue });
+      edge(n.id, t.id, 'sets', o.defaultValue !== undefined ? 'default ' + fmt(o.defaultValue) : '');
+    } else issue('warning', 'This input does not set a token, so it has no effect.', n.id);
+    for (const [k, dsId] of Object.entries(isObj(d?.dataSources) ? d.dataSources : {})) linkDs(dsId, n.id, 'populates', k);
+    applyVisibility(n, d);
+  }
+
+  // ---- Visualizations
+  for (const [id, d] of Object.entries(isObj(def.visualizations) ? def.visualizations : {})) {
+    const n = node('viz', id, { label: d?.title || id, title: d?.title || '', type: d?.type || 'unknown', drilldowns: [], builtins: [], raw: d });
+    for (const [k, dsId] of Object.entries(isObj(d?.dataSources) ? d.dataSources : {})) linkDs(dsId, n.id, 'feeds', k);
+    (Array.isArray(d?.eventHandlers) ? d.eventHandlers : []).forEach(h => {
+      const t = h?.type || '', ho = isObj(h?.options) ? h.options : {};
+      const toks = Array.isArray(ho.tokens) ? ho.tokens : [];
+      if (/setToken/i.test(t)) {
+        for (const tk of toks) if (tk?.token) {
+          const tn = tokenNode(tk.token);
+          edge(n.id, tn.id, 'drilldown-sets', tk.key ? 'from ' + tk.key : (tk.value !== undefined ? 'value ' + fmt(tk.value) : ''));
+        }
+        n.drilldowns.push({ type: t, text: 'Sets ' + toks.map(x => '$' + x.token + '$' + (x.key ? ' ← ' + x.key : '')).join(', ') });
+      } else if (/unsetToken/i.test(t)) {
+        n.drilldowns.push({ type: t, text: 'Unsets ' + toks.map(x => '$' + x.token + '$').join(', ') });
+      } else if (/linkToDashboard/i.test(t)) {
+        n.drilldowns.push({ type: t, text: `Opens dashboard ${ho.app ? ho.app + '/' : ''}${ho.dashboard || '?'}` + (toks.length ? ' passing ' + toks.map(x => x.token + '=' + fmt(x.value)).join(', ') : '') });
+      } else if (/linkToUrl|customUrl/i.test(t)) {
+        n.drilldowns.push({ type: t, text: 'Opens URL ' + fmt(ho.url) });
+      } else if (/linkToSearch/i.test(t)) {
+        n.drilldowns.push({ type: t, text: 'Opens search' + (ho.query ? ': ' + ho.query : '') });
+      } else if (/linkToReport/i.test(t)) {
+        n.drilldowns.push({ type: t, text: 'Opens report ' + fmt(ho.reportName || ho.ref || ho.report || '') });
+      } else if (t) n.drilldowns.push({ type: t, text: t });
+    });
+    applyVisibility(n, d);
+  }
+
+  // ---- Defaults
+  const dflt = isObj(def.defaults) ? def.defaults : null;
+  const pending = []; // token usages to attach: {nodeId, path, raw, name|smart, filters}
+  if (dflt && Object.keys(dflt).length) {
+    const dn = node('defaults', 'dashboard', { label: 'Dashboard defaults', raw: dflt });
+    const tokDefaults = isObj(dflt.tokens?.default) ? dflt.tokens.default : {};
+    for (const [t, v] of Object.entries(tokDefaults)) {
+      const val = isObj(v) && 'value' in v ? v.value : v;
+      const tn = tokenNode(t);
+      (tn.defaults ||= []).push({ from: dn.id, value: val });
+      edge(dn.id, tn.id, 'default', 'value ' + fmt(val));
+    }
+    const apply = (section, kind, alwaysEdge) => {
+      const secs = isObj(dflt[section]) ? dflt[section] : {};
+      for (const n of byKind(kind)) {
+        const keys = ['global', n.type].filter(k => isObj(secs[k]));
+        if (!keys.length) continue;
+        let any = false;
+        for (const k of keys) {
+          for (const u of scanTokens(secs[k])) {
+            if (getPath(n.raw, u.path) !== undefined) continue; // overridden on the item itself
+            any = true;
+            pending.push({ ...u, nodeId: n.id, path: `defaults.${section}.${k} → ${u.path}` });
+          }
+          if (kind === 'ds') n.inheritedQp = { ...(n.inheritedQp || {}), ...(secs[k]?.options?.queryParameters || {}) };
+        }
+        if (alwaysEdge || any) edge(dn.id, n.id, 'inherits', keys.map(k => `${section}.${k}`).join(', '));
+      }
+    };
+    apply('dataSources', 'ds', true);
+    apply('visualizations', 'viz', false);
+  }
+
+  // ---- Effective time range of each search
+  for (const n of byKind('ds')) {
+    const root = nodes.get(n.rootId) || n;
+    const own = root.qp || {}, inh = root.inheritedQp || {};
+    const pick = k => own[k] !== undefined ? { v: fmt(own[k]), src: root === n ? 'own' : 'base search' }
+      : inh[k] !== undefined ? { v: fmt(inh[k]), src: 'defaults' }
+      : { v: root.type === 'ds.savedSearch' ? '(report setting)' : '(Splunk default)', src: '' };
+    n.earliest = pick('earliest'); n.latest = pick('latest');
+  }
+
+  // ---- Layout: tabs / canvases
+  const tabsDef = [];
+  const hasTabBar = Array.isArray(L.tabs?.items) && L.tabs.items.length > 0;
+  if (isObj(L.layoutDefinitions)) {
+    const order = (hasTabBar ? L.tabs.items : []).map(t => ({ id: t?.layoutId, label: t?.label }));
+    for (const k of Object.keys(L.layoutDefinitions)) if (!order.some(o => o.id === k)) order.push({ id: k, label: k });
+    for (const t of order) {
+      const ld = L.layoutDefinitions[t.id];
+      if (!isObj(ld)) { issue('error', `Tab "${t.label || t.id}" points to layout "${t.id}", which does not exist.`, dash.id); continue; }
+      tabsDef.push({ key: t.id, label: t.label || t.id, def: ld, raw: ld });
+    }
+  } else if (Array.isArray(L.structure) || L.type) {
+    tabsDef.push({ key: 'main', label: 'Main canvas', def: L, raw: { type: L.type, options: L.options, structure: L.structure } });
+  }
+  const placeItem = (b, tn) => {
+    const id = b?.item;
+    if (typeof id !== 'string') return;
+    const target = nodes.get('viz:' + id) || nodes.get('input:' + id);
+    if (target) {
+      const p = b.position;
+      edge(target.id, tn.id, 'contains', p && p.x !== undefined ? `x${p.x} y${p.y} ${p.w}×${p.h}` : '');
+    } else if (b.type !== 'line') issue('warning', `Layout "${tn.label}" places "${id}", which is not a defined visualization or input.`, tn.id);
+  };
+  if (Array.isArray(L.globalInputs) && L.globalInputs.length) {
+    const g = node('tab', '__global__', { label: 'Global inputs', layoutType: 'input bar (all tabs)', order: -1, global: true, raw: { globalInputs: L.globalInputs } });
+    edge(g.id, dash.id, 'contains');
+    for (const id of L.globalInputs) placeItem({ item: id, type: 'input' }, g);
+  }
+  tabsDef.forEach((t, i) => {
+    const tn = node('tab', t.key, { label: t.label, layoutType: t.def.type || L.type || '', order: i, isTab: hasTabBar, raw: t.raw });
+    edge(tn.id, dash.id, 'contains');
+    for (const b of Array.isArray(t.def.structure) ? t.def.structure : []) placeItem(b, tn);
+  });
+
+  // ---- Scan every item for token references
+  for (const n of [...nodes.values()]) {
+    if (n.kind === 'token' || !n.raw) continue;
+    let obj = n.raw;
+    if (n.kind === 'viz' && isObj(obj)) { const { dataSources, ...rest } = obj; obj = rest; }
+    if (n.kind === 'tab' && isObj(obj)) { const { structure, ...rest } = obj; obj = rest; }
+    for (const u of scanTokens(obj)) pending.push({ ...u, nodeId: n.id });
+  }
+  const defining = new Set(edges.filter(e => ['sets', 'drilldown-sets', 'default'].includes(e.rel)).map(e => e.to.slice(6)));
+  const resolve = name => {
+    if (defining.has(name)) return { key: name, prop: '' };
+    const stripped = name.startsWith('form.') ? name.slice(5) : name;
+    if (defining.has(stripped)) return { key: stripped, prop: '' };
+    const i = stripped.lastIndexOf('.');
+    if (i > 0 && defining.has(stripped.slice(0, i))) return { key: stripped.slice(0, i), prop: stripped.slice(i + 1) };
+    return { key: stripped, prop: '' };
+  };
+  for (const u of pending) {
+    const owner = nodes.get(u.nodeId);
+    if (u.smart) {
+      const dsId = dsByName.get(u.smart.ds);
+      const key = `${u.smart.ds}:${u.smart.prop}`;
+      const tn = tokenNode(key);
+      tn.subtype = 'smart';
+      if (dsId) {
+        edge('ds:' + dsId, tn.id, 'smart-source', u.smart.prop);
+        const dsn = nodes.get('ds:' + dsId);
+        if (!dsn.enableSmartSources && !tn._warned) {
+          tn._warned = true;
+          issue('warning', `Smart-source token ${u.raw} reads from "${u.smart.ds}", but that data source does not set "enableSmartSources": true.`, tn.id);
+        }
+      } else issue('error', `Smart-source token ${u.raw} names data source "${u.smart.ds}", which does not exist.`, tn.id);
+      edge(tn.id, u.nodeId, 'uses-token', u.path);
+      usages.push({ token: tn.id, node: u.nodeId, path: u.path, raw: u.raw });
+      continue;
+    }
+    if (owner.kind === 'viz' && /(^|\.)eventHandlers/.test(u.path) && DRILL_BUILTIN.test(u.name)) {
+      owner.builtins.push(u.raw);
+      continue;
+    }
+    const r = resolve(u.name);
+    const tn = tokenNode(r.key);
+    if (r.key.startsWith('env:')) tn.subtype = 'env';
+    edge(tn.id, u.nodeId, 'uses-token', u.path + (r.prop ? ` (.${r.prop})` : ''));
+    usages.push({ token: tn.id, node: u.nodeId, path: u.path, raw: u.raw, prop: r.prop, filters: u.filters });
+  }
+
+  // ---- Adjacency
+  const outE = new Map(), inE = new Map();
+  for (const n of nodes.keys()) { outE.set(n, []); inE.set(n, []); }
+  for (const e of edges) { outE.get(e.from)?.push(e); inE.get(e.to)?.push(e); }
+
+  // ---- Token status
+  for (const t of byKind('token')) {
+    const setters = inE.get(t.id).filter(e => ['sets', 'drilldown-sets', 'default', 'smart-source'].includes(e.rel));
+    const users = outE.get(t.id).filter(e => e.rel === 'uses-token');
+    if (t.subtype === 'env') t.status = 'Splunk environment';
+    else if (t.subtype === 'smart') t.status = 'Smart source';
+    else if (setters.length) t.status = 'Defined';
+    else { t.status = 'Undefined'; issue('warning', `Token ${t.label} is used but never set by an input, a drilldown or a default value.`, t.id); }
+    if (t.status === 'Defined' && !users.length) issue('info', `Token ${t.label} is set but never used.`, t.id);
+    const inputSetters = setters.filter(e => e.rel === 'sets');
+    if (inputSetters.length > 1) issue('info', `Token ${t.label} is set by ${inputSetters.length} inputs (${inputSetters.map(e => e.from.slice(6)).join(', ')}).`, t.id);
+  }
+
+  // ---- Structural checks
+  const placed = id => outE.get(id).some(e => e.rel === 'contains');
+  const hasLayout = tabsDef.length > 0 || nodes.has('tab:__global__');
+  for (const n of byKind('ds')) {
+    if (!outE.get(n.id).some(e => ['feeds', 'extends', 'populates', 'smart-source'].includes(e.rel)))
+      issue('warning', 'This data source is not used by any visualization, input or chain search.', n.id);
+  }
+  if (hasLayout) {
+    for (const n of byKind('viz')) if (!placed(n.id)) issue('warning', 'This visualization is defined but not placed on any tab or canvas, so it is never shown.', n.id);
+    for (const n of byKind('input')) if (!placed(n.id)) issue('warning', 'This input is defined but not placed on any tab or in the global input bar, so it is never shown.', n.id);
+  }
+  for (const n of byKind('tab')) if (!inE.get(n.id).some(e => e.rel === 'contains')) issue('info', `Tab "${n.label}" is empty.`, n.id);
+
+  const order = { error: 0, warning: 1, info: 2 };
+  issues.sort((a, b) => order[a.severity] - order[b.severity]);
+
+  const maxDepth = Math.max(0, ...byKind('ds').map(n => n.depth || 0));
+  return {
+    title: dash.label, description: dash.description, format: src.format,
+    layoutSummary: hasTabBar ? `${tabsDef.length} tabs` : (tabsDef.length ? `single ${tabsDef[0].def.type || ''} canvas`.replace('  ', ' ') : 'no layout'),
+    nodes, edges, issues, usages, outE, inE, maxDepth, byKind
+  };
+}
+
+/* ============================================================
+   Graph traversal
+   ============================================================ */
+function closure(start, dir, allowed) {
+  const seen = new Set();
+  const stack = [start];
+  while (stack.length) {
+    const id = stack.pop();
+    for (const e of (dir === 'up' ? M.inE : M.outE).get(id) || []) {
+      const nxt = dir === 'up' ? e.from : e.to;
+      if (allowed && !allowed.has(nxt)) continue;
+      if (!seen.has(nxt) && nxt !== start) { seen.add(nxt); stack.push(nxt); }
+    }
+  }
+  return seen;
+}
+// Tokens whose value changes this item: walk upstream through searches, chains, defaults and conditions,
+// but stop at each token reached (what sets that token is a separate concern).
+function tokensAffecting(id) {
+  const found = new Set(), seen = new Set([id]), stack = [id];
+  while (stack.length) {
+    for (const e of M.inE.get(stack.pop()) || []) {
+      if (e.rel === 'contains' || e.rel === 'inherits' || seen.has(e.from)) continue;
+      seen.add(e.from);
+      if (e.from.startsWith('token:')) found.add(e.from); else stack.push(e.from);
+    }
+  }
+  return [...found];
+}
+
+/* ============================================================
+   Rendering helpers
+   ============================================================ */
+let M = null;
+let view = 'overview';
+const graphState = { focus: '', tokens: true, selected: null };
+
+function chip(id, detail) {
+  const n = M.nodes.get(id);
+  if (!n) return `<span class="chip missing">${esc(id)}</span>`;
+  const label = n.kind === 'token' ? n.label : n.label;
+  const tip = `${KINDS[n.kind].label}: ${n.kind === 'token' ? n.label : n.key}${n.label !== n.key && n.kind !== 'token' ? ' (' + n.label + ')' : ''}`;
+  return `<button class="chip k-${n.kind}" data-id="${esc(id)}" title="${esc(tip)}">${esc(label)}${detail ? ` <span class="det">${esc(detail)}</span>` : ''}</button>`;
+}
+const chips = (ids, empty = '<span class="muted">—</span>') => ids.length ? `<div class="stack">${ids.map(x => Array.isArray(x) ? chip(x[0], x[1]) : chip(x)).join('')}</div>` : empty;
+const badge = (t, cls = '') => `<span class="badge ${cls}">${esc(t)}</span>`;
+const sevBadge = s => badge(s, 'sev-' + s);
+const outs = (id, rels) => (M.outE.get(id) || []).filter(e => !rels || rels.includes(e.rel));
+const ins = (id, rels) => (M.inE.get(id) || []).filter(e => !rels || rels.includes(e.rel));
+const tabsOf = id => uniq(outs(id, ['contains']).map(e => e.to));
+const directTokens = id => uniq(ins(id, ['uses-token']).map(e => e.from));
+const issuesFor = id => M.issues.filter(i => i.ref === id);
+const issueMark = id => {
+  const list = issuesFor(id);
+  if (!list.length) return '';
+  const worst = list[0].severity;
+  return ` <span class="badge sev-${worst}" title="${esc(list.map(i => i.message).join('\n'))}">${list.length} ${list.length === 1 ? 'issue' : 'issues'}</span>`;
+};
+
+function table(cols, rows) {
+  if (!rows.length) return `<p class="muted">None in this dashboard.</p>`;
+  return `<div class="tablewrap"><table><thead><tr>${cols.map(c => `<th scope="col">${esc(c.h)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr class="filterable">${cols.map(c => `<td class="${c.cls || ''}">${c.f(r)}</td>`).join('')}</tr>`).join('') +
+    `</tbody></table></div>`;
+}
+function dsLineage(dsId) {
+  const n = M.nodes.get(dsId);
+  if (!n) return chip(dsId);
+  return `<span class="lineage">${n.lineage.map(chip).join('<span class="sep">›</span>')}</span>`;
+}
+function timeRange(n) {
+  const e = n.earliest, l = n.latest;
+  if (!e) return '';
+  const src = uniq([e.src, l.src].filter(Boolean));
+  return `<code>${esc(e.v)}</code> → <code>${esc(l.v)}</code>${src.length ? `<div class="muted small">from ${esc(src.join(' / '))}</div>` : ''}`;
+}
+
+/* ============================================================
+   Views
+   ============================================================ */
+const VIEWS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'tabs', label: 'Tabs & layout', kind: 'tab' },
+  { id: 'inputs', label: 'Inputs', kind: 'input' },
+  { id: 'datasources', label: 'Data sources & searches', kind: 'ds' },
+  { id: 'visualizations', label: 'Visualizations', kind: 'viz' },
+  { id: 'tokens', label: 'Tokens', kind: 'token' },
+  { id: 'conditions', label: 'Visibility conditions', kind: 'condition', hideEmpty: true },
+  { sep: 'Relationships' },
+  { id: 'graph', label: 'Relationship map' },
+  { id: 'relationships', label: 'Relationship list' },
+  { id: 'issues', label: 'Issues' },
+];
+
+function renderNav() {
+  $('#nav').innerHTML = VIEWS.map(v => {
+    if (v.sep) return `<hr><div class="navlabel">${esc(v.sep)}</div>`;
+    let count = '';
+    if (v.kind) {
+      const c = M.byKind(v.kind).length;
+      if (v.hideEmpty && !c) return '';
+      count = c;
+    } else if (v.id === 'relationships') count = M.edges.length;
+    else if (v.id === 'issues') count = M.issues.length;
+    const alert = v.id === 'issues' && M.issues.some(i => i.severity !== 'info');
+    return `<button data-view="${v.id}" ${view === v.id ? 'aria-current="page"' : ''}><span>${esc(v.label)}</span><span class="count ${alert ? 'alert' : ''}">${count}</span></button>`;
+  }).join('');
+}
+
+function render() {
+  renderNav();
+  const v = VIEWS.find(x => x.id === view);
+  $('#view-title').textContent = v.label;
+  const root = $('#view');
+  root.innerHTML = ({
+    overview: viewOverview, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
+    visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions,
+    graph: () => '', relationships: viewRelationships, issues: viewIssues
+  })[view]();
+  if (view === 'graph') renderGraph(root);
+  applyFilter();
+}
+
+function viewOverview() {
+  const ds = M.byKind('ds');
+  const nType = t => ds.filter(n => n.type === t).length;
+  const tokens = M.byKind('token');
+  const undef = tokens.filter(t => t.status === 'Undefined').length;
+  const sev = s => M.issues.filter(i => i.severity === s).length;
+  const tabs = M.byKind('tab').filter(t => !t.global);
+  const otherDs = ds.length - nType('ds.search') - nType('ds.chain') - nType('ds.savedSearch');
+  const stat = (v, k, n, l, s) => `<button class="stat k-${k}" style="--kc: var(--k-${k})" data-view="${v}"><div class="n">${n}</div><div class="l">${esc(l)}</div><div class="s">${s}</div></button>`;
+  return `
+  <div class="card">
+    <dl class="meta-grid">
+      <dt>Title</dt><dd><b>${esc(M.title)}</b></dd>
+      ${M.description ? `<dt>Description</dt><dd>${esc(M.description)}</dd>` : ''}
+      <dt>Layout</dt><dd>${esc(M.layoutSummary)}</dd>
+      <dt>Source</dt><dd>${esc(M.format)}</dd>
+      <dt>Relationships</dt><dd>${M.edges.length} connections between ${M.nodes.size - 1} items</dd>
+    </dl>
+  </div>
+  <div class="stats">
+    ${stat('tabs', 'tab', tabs.length, 'Tabs', tabs.map(t => esc(t.label)).join(' · ') || '—')}
+    ${stat('inputs', 'input', M.byKind('input').length, 'Inputs', esc(uniq(M.byKind('input').map(n => shortType(n.type))).join(', ') || '—'))}
+    ${stat('datasources', 'ds', ds.length, 'Data sources', `${plural(nType('ds.search'), 'search', 'searches')} · ${plural(nType('ds.chain'), 'chain')} · ${plural(nType('ds.savedSearch'), 'saved search', 'saved searches')}${otherDs ? ` · ${otherDs} other` : ''}`)}
+    ${stat('visualizations', 'viz', M.byKind('viz').length, 'Visualizations', esc(uniq(M.byKind('viz').map(n => shortType(n.type))).join(', ') || '—'))}
+    ${stat('tokens', 'token', tokens.length, 'Tokens', `${tokens.filter(t => t.status === 'Defined').length} defined${undef ? ` · <b style="color:var(--sev-warning)">${undef} undefined</b>` : ''}`)}
+    ${M.byKind('condition').length ? stat('conditions', 'condition', M.byKind('condition').length, 'Conditions', 'show / hide rules') : ''}
+    <button class="stat" style="--kc: var(--sev-${sev('error') ? 'error' : sev('warning') ? 'warning' : 'info'})" data-view="issues"><div class="n">${M.issues.length}</div><div class="l">Issues</div><div class="s">${plural(sev('error'), 'error')} · ${plural(sev('warning'), 'warning')} · ${plural(sev('info'), 'note')}</div></button>
+  </div>
+  ${M.issues.length ? `<div class="section-title">Top issues</div>${issueTable(M.issues.slice(0, 8))}` : ''}
+  <div class="section-title">Search lineage</div>
+  <div class="card">${dsTree()}</div>`;
+}
+
+function viewTabs() {
+  const tabs = M.byKind('tab').sort((a, b) => a.order - b.order);
+  if (!tabs.length) return '<p class="muted">This dashboard has no layout definition.</p>';
+  return tabs.map(t => {
+    const items = ins(t.id, ['contains']);
+    const inputs = items.filter(e => e.from.startsWith('input:'));
+    const viz = items.filter(e => e.from.startsWith('viz:'));
+    const vizRows = viz.map(e => M.nodes.get(e.from));
+    return `<div class="card tabcard filterable">
+      <h3>${chip(t.id)} ${badge(t.global ? 'shown on every tab' : (t.isTab ? 'tab' : 'canvas'))} ${t.layoutType ? badge(t.layoutType) : ''}${issueMark(t.id)}</h3>
+      <div class="sub">${plural(inputs.length, 'input')} · ${plural(viz.length, 'visualization')} · layout id <code>${esc(t.key)}</code></div>
+      ${inputs.length ? `<div class="relgroup"><div class="rl">Inputs</div>${chips(inputs.map(e => [e.from, M.nodes.get(e.from).token ? '$' + M.nodes.get(e.from).token + '$' : '']))}</div>` : ''}
+      ${vizRows.length ? table([
+        { h: 'Visualization', f: n => chip(n.id) + issueMark(n.id) },
+        { h: 'Type', f: n => esc(shortType(n.type)) },
+        { h: 'Data source lineage', f: n => outsIn(n.id) },
+        { h: 'Driven by tokens', f: n => chips(tokensAffecting(n.id)) },
+      ], vizRows) : ''}
+    </div>`;
+  }).join('');
+}
+function outsIn(vizId) {
+  const list = ins(vizId, ['feeds']);
+  if (!list.length) return '<span class="muted">static (no data source)</span>';
+  return list.map(e => `<div>${dsLineage(e.from)}${list.length > 1 ? ` <span class="muted small">${esc(e.detail)}</span>` : ''}</div>`).join('');
+}
+
+function viewInputs() {
+  return table([
+    { h: 'Input', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'ID', f: n => `<code>${esc(n.key)}</code>` },
+    { h: 'Type', f: n => esc(shortType(n.type)) },
+    { h: 'Sets token', f: n => n.token ? chip('token:' + n.token) : '<span class="muted">—</span>' },
+    { h: 'Default', f: n => n.defaultValue !== undefined ? `<code>${esc(fmt(n.defaultValue))}</code>` : '<span class="muted">—</span>' },
+    { h: 'Options from', f: n => {
+        const d = ins(n.id, ['populates']).map(e => e.from);
+        const parts = [];
+        if (d.length) parts.push(d.map(x => dsLineage(x)).join(' '));
+        if (n.items) parts.push(`<span class="muted small">${plural(n.items.length, 'static option')}</span>`);
+        return parts.join('<br>') || '<span class="muted">—</span>';
+      } },
+    { h: 'Placed on', f: n => chips(tabsOf(n.id)) },
+    { h: 'Uses tokens', f: n => chips(directTokens(n.id)) },
+    { h: 'Visibility', f: n => esc(n.visibility || '') },
+  ], M.byKind('input'));
+}
+
+function dsTree() {
+  const ds = M.byKind('ds');
+  if (!ds.length) return '<p class="muted">No data sources.</p>';
+  const li = (id, seen) => {
+    if (seen.has(id)) return '';
+    seen = new Set(seen).add(id);
+    const n = M.nodes.get(id);
+    const kids = outs(id, ['extends']).map(e => e.to);
+    const cons = outs(id, ['feeds', 'populates']).map(e => e.to);
+    return `<li class="filterable"><div class="tree-row">${chip(id)} ${badge(dsTypeLabel(n.type))}${issueMark(id)}
+      ${cons.length ? `<span class="arrow">→</span> ${cons.map(c => chip(c)).join(' ')}` : (kids.length ? '' : '<span class="muted small">no consumers</span>')}</div>
+      ${kids.length ? `<ul>${kids.map(k => li(k, seen)).join('')}</ul>` : ''}</li>`;
+  };
+  const roots = ds.filter(n => n.depth === 0 || n.cycle || (n.type === 'ds.chain' && !M.nodes.has('ds:' + n.extend)));
+  return `<ul class="tree">${uniq(roots.map(r => r.id)).map(r => li(r, new Set())).join('')}</ul>`;
+}
+
+function viewDataSources() {
+  const ds = M.byKind('ds');
+  return `<p class="muted small">Searches run on their own. Chain searches extend a base search, and a chain can extend another chain. Click any item to see its full and effective SPL.</p>
+  <div class="section-title">Search lineage</div>
+  <div class="card">${dsTree()}</div>
+  <div class="section-title">All data sources</div>
+  ${table([
+    { h: 'Data source', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'ID', f: n => `<code>${esc(n.key)}</code>` },
+    { h: 'Type', f: n => esc(dsTypeLabel(n.type)) },
+    { h: 'Base search', f: n => n.type === 'ds.chain' ? (n.extend ? chip('ds:' + n.extend) : '<span class="muted">missing</span>') : '<span class="muted">—</span>' },
+    { h: 'Query', cls: 'q', f: n => n.type === 'ds.savedSearch' ? `<code>| savedsearch "${esc(n.ref)}"</code>${n.app ? `<span class="muted small">app: ${esc(n.app)}</span>` : ''}` : (n.query ? `<code>${esc(n.query)}</code>` : '<span class="muted">—</span>') },
+    { h: 'Time range', f: n => timeRange(n) },
+    { h: 'Refresh', f: n => n.refresh ? `<code>${esc(fmt(n.refresh))}</code>${n.refreshType ? ` <span class="muted small">${esc(n.refreshType)}</span>` : ''}` : '<span class="muted">—</span>' },
+    { h: 'Used by', f: n => chips(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)) },
+    { h: 'Uses tokens', f: n => chips(directTokens(n.id)) },
+    { h: 'Provides tokens', f: n => chips(outs(n.id, ['smart-source']).map(e => e.to)) },
+  ], ds)}`;
+}
+
+function viewVisualizations() {
+  return table([
+    { h: 'Visualization', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'ID', f: n => `<code>${esc(n.key)}</code>` },
+    { h: 'Type', f: n => esc(shortType(n.type)) },
+    { h: 'Placed on', f: n => chips(tabsOf(n.id)) },
+    { h: 'Data source lineage', f: n => outsIn(n.id) },
+    { h: 'Search type', f: n => esc(uniq(ins(n.id, ['feeds']).map(e => dsTypeLabel(M.nodes.get(e.from)?.type))).join(', ')) },
+    { h: 'Uses tokens (direct)', f: n => chips(directTokens(n.id)) },
+    { h: 'Sets tokens', f: n => chips(outs(n.id, ['drilldown-sets']).map(e => e.to)) },
+    { h: 'Drilldown', f: n => n.drilldowns.map(d => `<div class="small">${esc(d.text)}</div>`).join('') || '<span class="muted">—</span>' },
+    { h: 'Visibility', f: n => esc(n.visibility || '') },
+  ], M.byKind('viz'));
+}
+
+function viewTokens() {
+  const st = t => t.status === 'Undefined' ? badge('Undefined', 'sev-warning') : t.status === 'Defined' ? badge('Defined', 'ok') : badge(t.status);
+  return `<p class="muted small">A token is set by an input, a drilldown, a default value or a smart source, and is used wherever <code>$name$</code> appears. Time range tokens such as <code>$global_time.earliest$</code> are grouped under their base token.</p>` +
+  table([
+    { h: 'Token', f: t => chip(t.id) + issueMark(t.id) },
+    { h: 'Status', f: st },
+    { h: 'Set by', f: t => chips(ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => [e.from, REL[e.rel].group === 'token' && e.rel === 'drilldown-sets' ? 'drilldown' : e.rel === 'default' ? 'default' : e.rel === 'smart-source' ? 'smart source' : ''])) },
+    { h: 'Default value', f: t => (t.defaults || []).map(d => `<code>${esc(fmt(d.value))}</code>`).join(' ') || '<span class="muted">—</span>' },
+    { h: 'Used by', f: t => chips(uniq(outs(t.id, ['uses-token']).map(e => e.to))) },
+    { h: 'References', f: t => String(M.usages.filter(u => u.token === t.id).length) },
+  ], M.byKind('token'));
+}
+
+function viewConditions() {
+  return table([
+    { h: 'Condition', f: n => chip(n.id) + issueMark(n.id) },
+    { h: 'ID', f: n => `<code>${esc(n.key)}</code>` },
+    { h: 'Expression', cls: 'q', f: n => `<code>${esc(n.value)}</code>` },
+    { h: 'Uses tokens', f: n => chips(directTokens(n.id)) },
+    { h: 'Controls', f: n => chips(outs(n.id, ['visibility']).map(e => [e.to, e.detail])) },
+  ], M.byKind('condition'));
+}
+
+function viewRelationships() {
+  const groups = { data: 'Data flow', token: 'Token flow', layout: 'Layout', vis: 'Visibility' };
+  return `<p class="muted small">Every connection, written as “from → relationship → to”. Edges follow the direction data and token values flow.</p>` + table([
+    { h: 'From', f: e => chip(e.from) },
+    { h: 'Relationship', f: e => `${esc(REL[e.rel].fwd)}` },
+    { h: 'To', f: e => chip(e.to) },
+    { h: 'Detail', f: e => e.detail ? `<code>${esc(e.detail)}</code>` : '' },
+    { h: 'Kind', f: e => badge(groups[REL[e.rel].group]) },
+  ], M.edges);
+}
+
+function issueTable(list) {
+  return table([
+    { h: 'Severity', f: i => sevBadge(i.severity) },
+    { h: 'Item', f: i => chip(i.ref) },
+    { h: 'Issue', f: i => esc(i.message) },
+  ], list);
+}
+function viewIssues() {
+  if (!M.issues.length) return '<p>No issues found. Every reference resolves, every item is placed, and every token is defined.</p>';
+  return issueTable(M.issues);
+}
+
+/* ============================================================
+   Relationship map (SVG)
+   ============================================================ */
+function renderGraph(root) {
+  const tabs = M.byKind('tab').sort((a, b) => a.order - b.order);
+  root.innerHTML = `<div class="graph-controls">
+    <label>Focus <select id="g-focus"><option value="">Whole dashboard</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>
+    <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Show inputs, tokens and conditions</label>
+    <span class="legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span></span>
+  </div>
+  <p class="muted small" style="margin:0 0 8px">Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.</p>
+  <div class="graph-wrap" id="g-wrap"></div>`;
+  $('#g-focus').onchange = e => { graphState.focus = e.target.value; graphState.selected = null; drawGraph(); };
+  $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; graphState.selected = null; drawGraph(); };
+  drawGraph();
+}
+
+function drawGraph() {
+  let ids = new Set(M.nodes.keys());
+  if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
+  if (!graphState.tokens) for (const id of [...ids]) if (/^(token|input|defaults|condition):/.test(id)) ids.delete(id);
+  const D = M.maxDepth;
+  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, ds: 3 + (n.depth || 0), viz: 4 + D, tab: 5 + D, dashboard: 6 + D })[n.kind];
+  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Searches' : c < 4 + D ? `Chain level ${c - 3}` : c === 4 + D ? 'Visualizations' : c === 5 + D ? 'Tabs' : 'Dashboard';
+
+  const byCol = new Map();
+  for (const id of ids) { const c = colOf(M.nodes.get(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
+  const colKeys = [...byCol.keys()].sort((a, b) => a - b);
+  const cols = colKeys.map(k => byCol.get(k));
+  const colIndex = new Map();
+  cols.forEach((col, ci) => col.forEach(id => colIndex.set(id, ci)));
+  const vEdges = M.edges.filter(e => ids.has(e.from) && ids.has(e.to));
+  const nbrs = new Map();
+  for (const e of vEdges) {
+    if (!nbrs.has(e.from)) nbrs.set(e.from, []); if (!nbrs.has(e.to)) nbrs.set(e.to, []);
+    nbrs.get(e.from).push(e.to); nbrs.get(e.to).push(e.from);
+  }
+  // Order each column by barycentre of its neighbours to reduce crossings.
+  const kindOrder = { input: 0, defaults: 1 };
+  cols.forEach(col => col.sort((a, b) => (kindOrder[M.nodes.get(a).kind] ?? 0) - (kindOrder[M.nodes.get(b).kind] ?? 0)));
+  const pos = new Map();
+  const setPos = col => col.forEach((id, i) => pos.set(id, i - col.length / 2));
+  cols.forEach(setPos);
+  for (let it = 0; it < 10; it++) {
+    const seq = it % 2 ? [...cols.keys()].reverse() : [...cols.keys()];
+    for (const ci of seq) {
+      const col = cols[ci];
+      const bc = new Map(col.map(id => {
+        const v = (nbrs.get(id) || []).filter(x => colIndex.get(x) !== ci).map(x => pos.get(x));
+        return [id, v.length ? v.reduce((a, b) => a + b, 0) / v.length : pos.get(id)];
+      }));
+      col.sort((a, b) => bc.get(a) - bc.get(b));
+      setPos(col);
+    }
+  }
+
+  const W = 196, H = 36, GAP = 10, COLW = 270, PADX = 24, TOP = 40;
+  const maxRows = Math.max(1, ...cols.map(c => c.length));
+  const height = TOP + maxRows * (H + GAP) + 20;
+  const width = PADX * 2 + (cols.length - 1) * COLW + W;
+  const P = new Map();
+  cols.forEach((col, ci) => {
+    const off = ((maxRows - col.length) * (H + GAP)) / 2;
+    col.forEach((id, i) => P.set(id, { x: PADX + ci * COLW, y: TOP + off + i * (H + GAP) }));
+  });
+  const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
+  const subOf = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
+    : n.kind === 'token' ? n.status : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
+
+  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Relationship map">
+  <defs>${['data', 'token', 'layout', 'vis'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
+  cols.forEach((col, ci) => { svg += `<text class="colhead" x="${PADX + ci * COLW}" y="22">${esc(colName(colKeys[ci]))} (${col.length})</text>`; });
+  for (const e of vEdges) {
+    const a = P.get(e.from), b = P.get(e.to);
+    const g = REL[e.rel].group;
+    let d, back = false;
+    if (b.x > a.x) {
+      const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2, dx = (x2 - x1) / 2;
+      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    } else {
+      back = true;
+      const x1 = a.x, y1 = a.y + H / 2, x2 = b.x + W + 2, y2 = b.y + H / 2, dx = Math.max(50, (x1 - x2) / 2);
+      d = `M${x1},${y1} C${x1 - dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`;
+    }
+    svg += `<path class="gedge ${g}${back ? ' back' : ''}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${d}" marker-end="url(#ar-${g})"><title>${esc(M.nodes.get(e.from).label + ' → ' + REL[e.rel].fwd + ' → ' + M.nodes.get(e.to).label + (e.detail ? ' (' + e.detail + ')' : ''))}</title></path>`;
+  }
+  for (const id of ids) {
+    const n = M.nodes.get(id), p = P.get(id);
+    svg += `<g class="gnode k-${n.kind}${n.status === 'Undefined' || issuesFor(id).some(i => i.severity === 'error') ? ' undef' : ''}" data-id="${esc(id)}" transform="translate(${p.x},${p.y})" tabindex="0">
+      <title>${esc(KINDS[n.kind].label + ': ' + n.label + (n.label !== n.key && n.kind !== 'token' ? ' [' + n.key + ']' : ''))}</title>
+      <rect class="box" width="${W}" height="${H}" rx="6"/><rect class="bar" width="4" height="${H}" rx="2"/>
+      <text x="12" y="15">${esc(trunc(n.label, 28))}</text><text class="sub" x="12" y="29">${esc(trunc(subOf(n), 32))}</text></g>`;
+  }
+  svg += '</svg>';
+  const wrap = $('#g-wrap');
+  wrap.innerHTML = ids.size ? svg : '<p class="muted" style="padding:12px">Nothing to show.</p>';
+  const el = wrap.querySelector('svg');
+  if (!el) return;
+  el.addEventListener('click', ev => {
+    const g = ev.target.closest('.gnode');
+    if (!g) { graphState.selected = null; highlight(el); return; }
+    graphState.selected = g.dataset.id;
+    highlight(el);
+    openDrawer(g.dataset.id);
+  });
+  el.addEventListener('keydown', ev => {
+    const g = ev.target.closest('.gnode');
+    if (g && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); graphState.selected = g.dataset.id; highlight(el); openDrawer(g.dataset.id); }
+  });
+  highlight(el);
+  if (graphState.selected && P.has(graphState.selected)) {
+    const p = P.get(graphState.selected);
+    wrap.scrollTo({ left: Math.max(0, p.x - wrap.clientWidth / 2), top: Math.max(0, p.y - wrap.clientHeight / 2) });
+  }
+}
+function highlight(svg) {
+  const sel = graphState.selected;
+  svg.classList.toggle('has-sel', !!sel);
+  if (!sel) { svg.querySelectorAll('.dim,.sel').forEach(x => x.classList.remove('dim', 'sel')); return; }
+  const lin = new Set([sel, ...closure(sel, 'up'), ...closure(sel, 'down')]);
+  const up = closure(sel, 'up'), down = closure(sel, 'down');
+  svg.querySelectorAll('.gnode').forEach(g => { g.classList.toggle('dim', !lin.has(g.dataset.id)); g.classList.toggle('sel', g.dataset.id === sel); });
+  // An edge is on the lineage when it connects two upstream items (or the selection) or two downstream items.
+  svg.querySelectorAll('.gedge').forEach(p => {
+    const f = p.dataset.from, t = p.dataset.to;
+    const onUp = (up.has(f) || f === sel) && (up.has(t) || t === sel);
+    const onDown = (down.has(f) || f === sel) && (down.has(t) || t === sel);
+    p.classList.toggle('dim', !(onUp || onDown));
+  });
+}
+
+/* ============================================================
+   Detail drawer
+   ============================================================ */
+const drawerHistory = [];
+function openDrawer(id, push = true) {
+  const n = M.nodes.get(id);
+  if (!n) return;
+  if (push && drawerHistory[drawerHistory.length - 1] !== id) drawerHistory.push(id);
+  $('#drawer-back').disabled = drawerHistory.length < 2;
+  const kindLabel = n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? 'Visualization · ' + n.type : n.kind === 'input' ? 'Input · ' + n.type : KINDS[n.kind].label;
+  $('#drawer-kind').innerHTML = `<span class="chip k-${n.kind}" style="cursor:default">${esc(kindLabel)}</span>`;
+  $('#drawer-title').textContent = n.label;
+
+  const props = [];
+  const P = (k, v) => { if (v !== undefined && v !== '' && v !== null) props.push(`<dt>${esc(k)}</dt><dd>${v}</dd>`); };
+  P('ID', `<code>${esc(n.key)}</code>`);
+  if (n.kind === 'ds') {
+    P('Name', esc(n.name)); P('Type', `<code>${esc(n.type)}</code>`);
+    if (n.depth) P('Lineage', dsLineage(n.id));
+    if (n.ref) P('Report', `<code>${esc(n.ref)}</code>${n.app ? ' in app <code>' + esc(n.app) + '</code>' : ''}`);
+    P('Time range', timeRange(n));
+    P('Refresh', n.refresh ? `<code>${esc(fmt(n.refresh))}</code> ${esc(n.refreshType || '')}` : '');
+    P('Smart sources', n.enableSmartSources ? 'enabled' : '');
+  } else if (n.kind === 'input') {
+    P('Title', esc(n.title)); P('Token', n.token ? chip('token:' + n.token) : '<span class="muted">none</span>');
+    P('Default', n.defaultValue !== undefined ? `<code>${esc(fmt(n.defaultValue))}</code>` : '');
+    if (n.items) P('Static options', n.items.slice(0, 30).map(i => `<code>${esc(fmt(i?.label ?? i))}${i?.value !== undefined && i.value !== i.label ? ' = ' + esc(fmt(i.value)) : ''}</code>`).join(' ') + (n.items.length > 30 ? ` … (${n.items.length})` : ''));
+    P('Visibility', esc(n.visibility));
+  } else if (n.kind === 'viz') {
+    P('Title', esc(n.title)); P('Type', `<code>${esc(n.type)}</code>`);
+    P('Drilldown', n.drilldowns.map(d => esc(d.text)).join('<br>'));
+    P('Drilldown values', uniq(n.builtins).map(b => `<code>${esc(b)}</code>`).join(' '));
+    P('Visibility', esc(n.visibility));
+  } else if (n.kind === 'token') {
+    P('Status', esc(n.status));
+    P('Default value', (n.defaults || []).map(d => `<code>${esc(fmt(d.value))}</code> <span class="muted small">from</span> ${chip(d.from)}`).join('<br>'));
+  } else if (n.kind === 'condition') {
+    P('Name', esc(n.label)); P('Expression', `<code>${esc(n.value)}</code>`);
+  } else if (n.kind === 'tab') {
+    P('Layout type', esc(n.layoutType)); P('Items', String(ins(n.id, ['contains']).length));
+  } else if (n.kind === 'dashboard') {
+    P('Description', esc(n.description)); P('Source', esc(M.format)); P('Layout', esc(M.layoutSummary));
+  }
+
+  let html = `<dl class="meta-grid">${props.join('')}</dl>`;
+  const iss = issuesFor(id);
+  if (iss.length) html += `<h4>Issues</h4>` + iss.map(i => `<div style="margin:4px 0">${sevBadge(i.severity)} ${esc(i.message)}</div>`).join('');
+
+  if (n.kind === 'ds') {
+    if (n.type === 'ds.savedSearch') html += `<h4>Search</h4><pre>| savedsearch "${esc(n.ref)}"</pre>`;
+    else if (n.query) html += `<h4>Query</h4><pre>${esc(n.query)}</pre>`;
+    if (n.depth > 0) html += `<h4>Effective SPL (base + chain)</h4><pre>${esc(n.effectiveQuery)}</pre>`;
+  }
+
+  const groups = new Map();
+  const add = (label, id2, detail) => { if (!groups.has(label)) groups.set(label, []); groups.get(label).push([id2, detail]); };
+  for (const e of ins(id)) add(REL[e.rel].rev, e.from, e.rel === 'uses-token' ? '' : e.detail);
+  for (const e of outs(id)) add(REL[e.rel].fwd, e.to, e.rel === 'uses-token' ? '' : e.detail);
+  html += `<h4>Relationships</h4>` + (groups.size ? [...groups].map(([label, list]) => {
+    const seen = new Set();
+    const items = list.filter(([i, d]) => { const k = i + '|' + d; if (seen.has(k)) return false; seen.add(k); return true; });
+    return `<div class="relgroup"><div class="rl">${esc(label)} (${uniq(items.map(x => x[0])).length})</div>${chips(items)}</div>`;
+  }).join('') : '<p class="muted">No relationships.</p>');
+
+  if (n.kind !== 'tab' && n.kind !== 'dashboard') {
+    const up = [...closure(id, 'up')].filter(x => !x.startsWith('dashboard:') && !x.startsWith('tab:'));
+    const down = [...closure(id, 'down')];
+    if (up.length || down.length) {
+      html += `<h4>Full lineage</h4>`;
+      if (up.length) html += `<div class="relgroup"><div class="rl">Everything this depends on (${up.length})</div>${chips(up)}</div>`;
+      if (down.length) html += `<div class="relgroup"><div class="rl">Everything that depends on this (${down.length})</div>${chips(down)}</div>`;
+    }
+  }
+
+  const tokUse = n.kind === 'token' ? M.usages.filter(u => u.token === id) : M.usages.filter(u => u.node === id);
+  if (tokUse.length) {
+    html += `<h4>${n.kind === 'token' ? 'Where it is referenced' : 'Token references'}</h4>` +
+      `<div class="tablewrap"><table><thead><tr><th>${n.kind === 'token' ? 'Item' : 'Token'}</th><th>Location</th><th>As written</th></tr></thead><tbody>` +
+      tokUse.map(u => `<tr><td>${chip(n.kind === 'token' ? u.node : u.token)}</td><td><code>${esc(u.path)}</code></td><td><code>${esc(u.raw)}</code></td></tr>`).join('') + `</tbody></table></div>`;
+  }
+
+  html += `<div style="margin-top:14px"><button class="btn small" id="drawer-map">Show on relationship map</button></div>`;
+  if (n.raw) html += `<details style="margin-top:14px"><summary>Definition JSON</summary><pre>${esc(JSON.stringify(n.raw, null, 2))}</pre></details>`;
+  $('#drawer-body').innerHTML = html;
+  $('#drawer-body').scrollTop = 0;
+  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; view = 'graph'; render(); };
+  const d = $('#drawer');
+  d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
+}
+function closeDrawer() {
+  const d = $('#drawer');
+  d.classList.remove('open'); d.setAttribute('aria-hidden', 'true');
+  drawerHistory.length = 0;
+}
+
+/* ============================================================
+   Filtering and sorting
+   ============================================================ */
+function applyFilter() {
+  const q = $('#filter').value.trim().toLowerCase();
+  document.querySelectorAll('#view .filterable').forEach(el => { el.hidden = !!q && !el.textContent.toLowerCase().includes(q); });
+  // keep tree parents visible if a descendant matches
+  if (q) document.querySelectorAll('#view .tree li.filterable').forEach(li => { if (li.querySelector('li.filterable:not([hidden])')) li.hidden = false; });
+}
+function sortTable(th) {
+  const table = th.closest('table'), tbody = table.tBodies[0];
+  const idx = [...th.parentNode.children].indexOf(th);
+  const dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+  th.parentNode.querySelectorAll('th').forEach(x => delete x.dataset.dir);
+  th.dataset.dir = dir;
+  const rows = [...tbody.rows];
+  rows.sort((a, b) => {
+    const r = (a.cells[idx]?.textContent || '').trim().localeCompare((b.cells[idx]?.textContent || '').trim(), undefined, { numeric: true, sensitivity: 'base' });
+    return dir === 'asc' ? r : -r;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+/* ============================================================
+   Exports
+   ============================================================ */
+function slug(s) { return String(s || 'dashboard').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'dashboard'; }
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+// Prefix cells that a spreadsheet would read as a formula.
+const csvCell = v => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+const csv = rows => rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+const ref = id => { const n = M.nodes.get(id); return n ? `${n.kind}:${n.kind === 'token' ? n.label : n.key}` : id; };
+function itemDetails(n) {
+  switch (n.kind) {
+    case 'ds': return n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query;
+    case 'input': return n.token ? `$${n.token}$ default=${fmt(n.defaultValue)}` : '';
+    case 'viz': return n.drilldowns.map(d => d.text).join('; ');
+    case 'token': return n.status + ((n.defaults || []).length ? ' default=' + n.defaults.map(d => fmt(d.value)).join(' | ') : '');
+    case 'condition': return n.value;
+    case 'tab': return n.layoutType;
+    default: return n.description || '';
+  }
+}
+function exportInventory() {
+  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
+  for (const n of M.nodes.values()) {
+    rows.push([
+      KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, n.label,
+      n.kind === 'ds' ? dsTypeLabel(n.type) : (n.type || n.layoutType || n.status || ''),
+      tabsOf(n.id).map(t => M.nodes.get(t).label).join('; '),
+      ins(n.id, ['feeds', 'populates', 'extends']).map(e => e.from.slice(3)).join('; '),
+      directTokens(n.id).map(t => M.nodes.get(t).label).join(' '),
+      outs(n.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => M.nodes.get(e.to).label).join(' '),
+      itemDetails(n),
+      ins(n.id).map(e => `${REL[e.rel].rev}: ${ref(e.from)}`).join('; '),
+      outs(n.id).map(e => `${REL[e.rel].fwd}: ${ref(e.to)}`).join('; '),
+      issuesFor(n.id).map(i => `[${i.severity}] ${i.message}`).join(' '),
+    ]);
+  }
+  download(slug(M.title) + '-inventory.csv', '﻿' + csv(rows), 'text/csv;charset=utf-8');
+}
+function exportRelationships() {
+  const rows = [['From kind', 'From ID', 'From name', 'Relationship', 'To kind', 'To ID', 'To name', 'Detail']];
+  for (const e of M.edges) {
+    const a = M.nodes.get(e.from), b = M.nodes.get(e.to);
+    rows.push([KINDS[a.kind].label, a.kind === 'token' ? a.label : a.key, a.label, REL[e.rel].fwd, KINDS[b.kind].label, b.kind === 'token' ? b.label : b.key, b.label, e.detail]);
+  }
+  download(slug(M.title) + '-relationships.csv', '﻿' + csv(rows), 'text/csv;charset=utf-8');
+}
+function exportJson() {
+  const items = [...M.nodes.values()].map(n => {
+    const { raw, _warned, ...rest } = n;
+    return rest;
+  });
+  const out = {
+    dashboard: { title: M.title, description: M.description, source: M.format, layout: M.layoutSummary },
+    items, relationships: M.edges.map(e => ({ ...e, label: REL[e.rel].fwd })), tokenReferences: M.usages, issues: M.issues
+  };
+  download(slug(M.title) + '-inventory.json', JSON.stringify(out, null, 2), 'application/json');
+}
+function exportMarkdown() {
+  const c = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  const t = (head, rows) => rows.length ? `| ${head.join(' | ')} |\n| ${head.map(() => '---').join(' | ')} |\n` + rows.map(r => `| ${r.map(c).join(' | ')} |`).join('\n') + '\n' : '_None._\n';
+  const lbl = id => M.nodes.get(id)?.label ?? id;
+  const L = ids => ids.map(lbl).join(', ');
+  let md = `# ${M.title}\n\n${M.description ? M.description + '\n\n' : ''}`;
+  md += `- Source: ${M.format}\n- Layout: ${M.layoutSummary}\n- Generated: ${new Date().toISOString().slice(0, 16).replace('T', ' ')}\n\n`;
+  md += `## Summary\n\n` + t(['Item', 'Count'], [['Tabs', M.byKind('tab').filter(x => !x.global).length], ['Inputs', M.byKind('input').length], ['Data sources', M.byKind('ds').length],
+    ['…searches', M.byKind('ds').filter(n => n.type === 'ds.search').length], ['…chain searches', M.byKind('ds').filter(n => n.type === 'ds.chain').length],
+    ['…saved searches', M.byKind('ds').filter(n => n.type === 'ds.savedSearch').length], ['Visualizations', M.byKind('viz').length], ['Tokens', M.byKind('token').length],
+    ['Relationships', M.edges.length], ['Issues', M.issues.length]]);
+  md += `\n## Tabs\n\n`;
+  for (const tab of M.byKind('tab').sort((a, b) => a.order - b.order)) {
+    md += `### ${tab.label}\n\n`;
+    md += t(['Item', 'Kind', 'Type', 'Data source lineage', 'Driven by tokens'], ins(tab.id, ['contains']).map(e => {
+      const n = M.nodes.get(e.from);
+      return [n.label, KINDS[n.kind].label, shortType(n.type), n.kind === 'viz' ? ins(n.id, ['feeds']).map(x => M.nodes.get(x.from).lineage.map(lbl).join(' › ')).join('; ') : '', L(tokensAffecting(n.id))];
+    })) + '\n';
+  }
+  md += `## Inputs\n\n` + t(['Input', 'ID', 'Type', 'Token', 'Default', 'Options from', 'Placed on'], M.byKind('input').map(n => [n.label, n.key, shortType(n.type), n.token ? '$' + n.token + '$' : '', fmt(n.defaultValue), L(ins(n.id, ['populates']).map(e => e.from)), L(tabsOf(n.id))]));
+  md += `\n## Data sources\n\n` + t(['Data source', 'ID', 'Type', 'Base search', 'Time range', 'Used by', 'Tokens'], M.byKind('ds').map(n => [n.label, n.key, dsTypeLabel(n.type), n.extend, n.earliest ? `${n.earliest.v} → ${n.latest.v}` : '', L(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)), L(directTokens(n.id))]));
+  md += `\n### Queries\n\n`;
+  for (const n of M.byKind('ds')) md += `**${n.label}** (\`${n.key}\`, ${dsTypeLabel(n.type)})\n\n\`\`\`spl\n${n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.effectiveQuery || n.query}\n\`\`\`\n\n`;
+  md += `## Visualizations\n\n` + t(['Visualization', 'ID', 'Type', 'Placed on', 'Data source', 'Tokens used', 'Sets tokens', 'Drilldown'], M.byKind('viz').map(n => [n.label, n.key, shortType(n.type), L(tabsOf(n.id)), L(ins(n.id, ['feeds']).map(e => e.from)), L(directTokens(n.id)), L(outs(n.id, ['drilldown-sets']).map(e => e.to)), n.drilldowns.map(d => d.text).join('; ')]));
+  md += `\n## Tokens\n\n` + t(['Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(n => [n.label, n.status, L(ins(n.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => e.from)), (n.defaults || []).map(d => fmt(d.value)).join(', '), L(uniq(outs(n.id, ['uses-token']).map(e => e.to)))]));
+  if (M.byKind('condition').length) md += `\n## Visibility conditions\n\n` + t(['Condition', 'Expression', 'Controls'], M.byKind('condition').map(n => [n.label, n.value, L(outs(n.id, ['visibility']).map(e => e.to))]));
+  md += `\n## Issues\n\n` + t(['Severity', 'Item', 'Issue'], M.issues.map(i => [i.severity, lbl(i.ref), i.message]));
+  download(slug(M.title) + '-inventory.md', md, 'text/markdown;charset=utf-8');
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+function analyze(text) {
+  const err = $('#load-error');
+  err.hidden = true;
+  try {
+    M = buildModel(parseSource(text));
+  } catch (e) {
+    err.textContent = e.message; err.hidden = false;
+    return;
+  }
+  view = 'overview'; graphState.focus = ''; graphState.selected = null;
+  $('#filter').value = '';
+  $('#loader').hidden = true; $('#app').hidden = false; $('#btn-new').hidden = false;
+  $('#dash-title').textContent = M.title;
+  document.title = M.title + ' · Studio Dashboard Inventory';
+  render();
+  window.scrollTo(0, 0);
+}
+
+$('#btn-analyze').onclick = () => analyze($('#source').value);
+$('#btn-sample').onclick = () => { $('#source').value = $('#sample').textContent.trim(); analyze($('#source').value); };
+$('#file').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(t => { $('#source').value = t; analyze(t); }); e.target.value = ''; };
+const src = $('#source');
+src.addEventListener('dragover', e => { e.preventDefault(); src.classList.add('dragover'); });
+src.addEventListener('dragleave', () => src.classList.remove('dragover'));
+src.addEventListener('drop', e => {
+  e.preventDefault(); src.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) f.text().then(t => { src.value = t; analyze(t); });
+});
+$('#btn-new').onclick = () => { closeDrawer(); $('#app').hidden = true; $('#loader').hidden = false; $('#btn-new').hidden = true; $('#dash-title').textContent = ''; document.title = 'Studio Dashboard Inventory'; };
+$('#filter').addEventListener('input', applyFilter);
+$('#btn-export-inv').onclick = exportInventory;
+$('#btn-export-rel').onclick = exportRelationships;
+$('#btn-export-json').onclick = exportJson;
+$('#btn-export-md').onclick = exportMarkdown;
+$('#drawer-close').onclick = closeDrawer;
+$('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('click', e => {
+  const v = e.target.closest('[data-view]');
+  if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  const c = e.target.closest('.chip[data-id]');
+  if (c) { openDrawer(c.dataset.id); return; }
+  const th = e.target.closest('#view th');
+  if (th) sortTable(th);
+});
+</script>
+</body>
+</html>
