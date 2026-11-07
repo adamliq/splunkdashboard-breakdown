@@ -32,6 +32,14 @@ Classic Simple XML dashboards are detected and rejected with an explanation.
 | **Visibility conditions** | `expressions.conditions` with their expressions and the items they show or hide |
 | **Defaults** | `defaults.dataSources` / `defaults.visualizations` inheritance, including tokens a data source picks up from defaults (unless it overrides them) |
 
+## Dashboard mockup
+
+The **Dashboard mockup** menu draws the dashboard as it is laid out:
+- the title, the tab bar (switch tabs in the mockup) and the global input bar
+- each visualization and input at its stored position and size, scaled to fit, for both grid and absolute layouts
+
+Inputs show their default values. Visualizations show a placeholder sketch for their type (line, area, column, bar, pie, table, single value, map, markdown text and so on), not real data. Panels are tagged *conditional*, *hides if empty*, *drilldown* or *error* where those apply. **Fill titles with default token values** replaces `$tokens$` in titles and markdown with their defaults. Click any panel or input to open its details.
+
 ## Relationships
 
 Each relationship is stored as an edge pointing the way data and token values flow:
