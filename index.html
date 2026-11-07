@@ -167,6 +167,29 @@ td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .mock-panel .big { font-size: clamp(16px, 2.4vw, 34px); font-weight: 650; color: var(--accent); }
 .mock-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .mock-flow .mock-panel { position: relative; min-height: 180px; }
+/* Menus, notes, fixes, compare, config */
+.menu { position: relative; }
+.menu-list { position: absolute; right: 0; top: 100%; margin-top: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 30; display: flex; flex-direction: column; min-width: 240px; padding: 4px; }
+.menu-list button { border: 0; background: transparent; text-align: left; padding: 7px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.menu-list button:hover { background: var(--panel-2); }
+#dash-switch { max-width: 40vw; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.error { white-space: pre-line; }
+.notes { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.notes ul { margin: 4px 0 8px; padding-left: 18px; }
+.fixbar { margin-bottom: 12px; }
+.linklike { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.del { color: var(--sev-error); } .ins { color: var(--k-viz); }
+pre.diff span { display: block; } pre.diff span.del { background: color-mix(in srgb, var(--sev-error) 10%, transparent); } pre.diff span.ins { background: color-mix(in srgb, var(--k-viz) 12%, transparent); }
+.cmp-source { width: 100%; min-height: 180px; margin: 8px 0; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+.cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.cfg-text { width: 100%; min-height: 160px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; }
+.lbl2 { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+.mock-panel.hidden-panel { opacity: .35; border-style: dashed; }
+.mock-panel .waiting { position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); text-align: center; font-size: 12px; font-weight: 600; color: var(--sev-warning); background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 4px; border-radius: 4px; }
+.mock-panel .b.faded { opacity: .25; }
+.mock-panel .flags span.warn { color: var(--sev-warning); } .mock-panel .flags span.err { color: var(--sev-error); }
+select.mock-ctl, input.mock-ctl { width: 100%; font-size: 12.5px; }
+.mock-opts label { white-space: nowrap; }
 .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
 .tree ul { padding-left: 22px; border-left: 1px dashed var(--border); margin-left: 10px; }
 .tree li { margin: 4px 0; }
@@ -228,22 +251,32 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 <body>
 <header class="topbar">
   <h1>Studio Dashboard Inventory</h1>
+  <select id="dash-switch" aria-label="Dashboard" hidden></select>
   <span class="dash-title" id="dash-title"></span>
   <button class="btn" id="btn-new" hidden>Load another dashboard</button>
 </header>
 
 <main id="loader">
   <div class="card">
-    <h2>Inventory a Dashboard Studio dashboard</h2>
-    <p>Paste the dashboard source, or drop or choose a file. The tool lists every tab, input, data source, search, chain search, visualization and token, and shows how they connect.</p>
+    <h2>Inventory a Splunk dashboard</h2>
+    <p>Paste the dashboard source, or drop or choose one or more files. The tool lists every tab, input, data source, search, chain search, visualization and token, shows how they connect, and checks for problems. Dashboard Studio and Classic Simple XML are both supported. Load several files, or a REST list of views, to inventory a whole app.</p>
     <p class="small">Everything runs in this page. Nothing is uploaded or saved.</p>
     <textarea id="source" spellcheck="false" placeholder='Paste the Dashboard Studio JSON ({"visualizations": …, "dataSources": …}), the dashboard XML (<dashboard version="2"> … <definition><![CDATA[ … ]]></definition>), or a REST API response from data/ui/views.'></textarea>
     <div class="loader-actions">
       <button class="btn primary" id="btn-analyze">Analyze</button>
-      <label class="btn">Choose file… <input type="file" id="file" accept=".json,.xml,.txt,application/json,text/xml" hidden></label>
+      <label class="btn">Choose files… <input type="file" id="file" multiple accept=".json,.xml,.txt,application/json,text/xml" hidden></label>
       <button class="btn" id="btn-sample">Load sample dashboard</button>
     </div>
     <div class="error" id="load-error" hidden></div>
+    <details class="howto" id="ldr-config">
+      <summary>Splunk configuration (optional): macros, saved searches, data models</summary>
+      <p class="small muted">Paste macros.conf and savedsearches.conf, and data model JSON, so the page can look inside macros, saved searches and data models. You can also add or change these later on the Splunk config page.</p>
+      <div class="cfg-grid">
+        <textarea id="ldr-conf" class="cfg-text" spellcheck="false" aria-label="macros.conf and savedsearches.conf" placeholder="macros.conf and/or savedsearches.conf"></textarea>
+        <textarea id="ldr-dm" class="cfg-text" spellcheck="false" aria-label="Data model JSON" placeholder="Data model JSON"></textarea>
+      </div>
+      <div class="loader-actions"><label class="btn small">Choose .conf / .json files… <input type="file" id="ldr-cfg-file" multiple accept=".conf,.json,.txt" hidden></label><button class="btn small" id="ldr-cfg-sample">Use sample config</button></div>
+    </details>
     <details class="howto">
       <summary>How to get the dashboard source</summary>
       <ol>
@@ -251,7 +284,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
         <li><b>From the app folder:</b> <code>$SPLUNK_HOME/etc/apps/&lt;app&gt;/local/data/ui/views/&lt;dashboard&gt;.xml</code> (or <code>default/</code>). Paste the whole XML file.</li>
         <li><b>From the REST API:</b> <code>curl -k -u user "https://splunk:8089/servicesNS/-/&lt;app&gt;/data/ui/views/&lt;dashboard&gt;?output_mode=json"</code>, then paste the response.</li>
       </ol>
-      <p class="small">This tool reads Dashboard Studio dashboards (<code>version="2"</code>). Classic Simple XML dashboards have no Studio definition, so they are not supported.</p>
+      <p class="small">Dashboard Studio dashboards are read as they are. Classic Simple XML dashboards (<code>&lt;dashboard&gt;</code> or <code>&lt;form&gt;</code>) are converted to the Studio model first, so their layout is approximate. A REST response listing many views loads them all.</p>
     </details>
   </div>
 </main>
@@ -262,10 +295,19 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     <div class="toolbar">
       <h2 id="view-title"></h2>
       <input class="search" id="filter" type="search" placeholder="Filter this view…" aria-label="Filter this view">
-      <button class="btn" id="btn-export-md" title="Markdown report">Report (.md)</button>
-      <button class="btn" id="btn-export-inv" title="One row per item">Inventory (.csv)</button>
-      <button class="btn" id="btn-export-rel" title="One row per relationship">Relationships (.csv)</button>
-      <button class="btn" id="btn-export-json" title="Full model as JSON">Model (.json)</button>
+      <div class="menu">
+        <button class="btn" id="btn-export" aria-haspopup="true" aria-expanded="false">Export ▾</button>
+        <div class="menu-list" id="export-menu" hidden>
+          <button id="btn-export-summary">Printable summary (.html)</button>
+          <button id="btn-export-md">Report (.md)</button>
+          <button id="btn-export-inv">Inventory (.csv)</button>
+          <button id="btn-export-rel">Relationships (.csv)</button>
+          <button id="btn-export-json">Model (.json)</button>
+          <button id="btn-export-def">Definition, with selected fixes</button>
+          <button id="btn-export-svg">Mockup (.svg)</button>
+          <button id="btn-export-png">Mockup (.png)</button>
+        </div>
+      </div>
     </div>
     <div id="view"></div>
   </section>
@@ -345,6 +387,27 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 }
 </script>
 
+<script id="sample-conf" type="text/plain">
+[web_indexes]
+definition = (index=web OR index=web_archive)
+
+[ms_summary(2)]
+args = field, name
+definition = stats count AS slow, avg($field$) AS $name$
+
+[cim_Web_indexes]
+definition = index=web
+
+[Web - Weekly SLA Summary]
+search = index=web sourcetype=access_combined | bin _time span=1w | stats count(eval(status<500)) AS ok, count AS total by _time | eval sla=round(ok/total*100, 2) | lookup sla_targets.csv service OUTPUT target
+dispatch.earliest_time = -4w@w
+dispatch.latest_time = @w
+cron_schedule = 0 6 * * 1
+</script>
+<script id="sample-dm" type="application/json">
+{"modelName": "Web", "displayName": "Web", "objects": [{"objectName": "Web", "parentName": "BaseEvent", "constraints": [{"search": "`cim_Web_indexes` tag=web"}], "fields": [{"fieldName": "dest"}, {"fieldName": "status"}, {"fieldName": "uri_path"}]}]}
+</script>
+
 <script>
 'use strict';
 /* ============================================================
@@ -404,44 +467,276 @@ const REL = {
 /* ============================================================
    Parsing the source
    ============================================================ */
-function parseSource(text) {
-  text = String(text || '').replace(/^﻿/, '').trim();
-  if (!text) throw new Error('There is nothing to analyze. Paste a dashboard definition or choose a file.');
-  if (text[0] === '{' || text[0] === '[') {
-    let obj;
-    try { obj = JSON.parse(text); } catch (e) { throw new Error('The JSON could not be parsed: ' + e.message); }
-    return fromObject(obj);
+// Where the JSON value starting at `start` ends (string-aware bracket matching); -1 if it never closes.
+function jsonValueEnd(t, start) {
+  let depth = 0, inStr = false;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') { depth--; if (depth === 0) return i + 1; }
   }
-  if (text[0] === '<') return fromXml(text);
-  throw new Error('Unrecognised format. Paste Dashboard Studio JSON, or the dashboard XML that contains a <definition> block.');
+  return -1;
 }
-function fromObject(obj) {
-  const entry = Array.isArray(obj?.entry) ? obj.entry[0] : null;
-  if (entry?.content?.['eai:data']) {
-    const r = fromXml(entry.content['eai:data']);
-    r.format = 'REST API response (' + (entry.name || 'view') + ')';
-    return r;
+// Remove // and /* */ comments and trailing commas, outside strings.
+function stripJsonExtras(t) {
+  let out = '', inStr = false, comments = 0, commas = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { out += c; if (c === '\\') out += t[++i] ?? ''; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; out += c; continue; }
+    if (c === '/' && t[i + 1] === '/') { while (i < t.length && t[i] !== '\n') i++; out += '\n'; comments++; continue; }
+    if (c === '/' && t[i + 1] === '*') { const e = t.indexOf('*/', i + 2); i = e < 0 ? t.length : e + 1; comments++; continue; }
+    if (c === ',') { let j = i + 1; while (/\s/.test(t[j] || '')) j++; if (t[j] === '}' || t[j] === ']') { commas++; continue; } }
+    out += c;
   }
-  if (isObj(obj) && (obj.visualizations || obj.dataSources || obj.layout || obj.inputs)) return { def: obj, format: 'Dashboard Studio JSON' };
+  return { text: out, comments, commas };
+}
+// Remove a byte-order mark and Markdown code fences left over from copying.
+function cleanText(text, repairs) {
+  let t = String(text ?? '');
+  if (t.charCodeAt(0) === 0xFEFF) { t = t.slice(1); repairs.push('Removed a byte-order mark at the start.'); }
+  t = t.trim();
+  const fenced = t.match(/^```[\w-]*[ \t]*\r?\n([\s\S]*?)\r?\n?[ \t]*```$/);
+  if (fenced) { t = fenced[1].trim(); repairs.push('Removed the Markdown code fence (```) around the definition.'); }
+  else {
+    if (/^```[\w-]*[ \t]*\r?\n/.test(t)) { t = t.replace(/^```[\w-]*[ \t]*\r?\n/, '').trim(); repairs.push('Removed a stray Markdown code fence (```) at the start.'); }
+    if (/```$/.test(t)) { t = t.replace(/\s*```$/, '').trim(); repairs.push('Removed a stray Markdown code fence (```) at the end.'); }
+  }
+  return t;
+}
+// JSON.parse, then progressively more forgiving: comments, trailing commas, extra text, curly quotes.
+function lenientJson(t, repairs) {
+  let firstErr;
+  try { return JSON.parse(t); } catch (e) { firstErr = e; }
+  let cur = t; const notes = [];
+  const s = stripJsonExtras(cur);
+  if (s.comments || s.commas) {
+    cur = s.text;
+    if (s.comments) notes.push(`Removed ${plural(s.comments, 'comment')}.`);
+    if (s.commas) notes.push(`Removed ${plural(s.commas, 'trailing comma')}.`);
+  }
+  try { const v = JSON.parse(cur); repairs.push(...notes); return v; } catch { /* keep trying */ }
+  const start = cur.search(/[{[]/), end = start >= 0 ? jsonValueEnd(cur, start) : -1;
+  if (end > 0 && cur.slice(end).trim()) {
+    try {
+      const v = JSON.parse(cur.slice(start, end));
+      const extra = cur.slice(end).trim();
+      repairs.push(...notes, `Ignored extra text after the closing bracket: "${extra.length > 40 ? extra.slice(0, 40) + '…' : extra}".`);
+      return v;
+    } catch { /* keep trying */ }
+  }
+  if (/[“”]/.test(cur)) {
+    try { const v = JSON.parse(cur.replace(/[“”]/g, '"')); repairs.push(...notes, 'Replaced curly quotes (“ ”) with straight quotes.'); return v; } catch { /* give up */ }
+  }
+  throw new Error('The JSON could not be parsed: ' + firstErr.message);
+}
+// Returns every dashboard found in one pasted text or file: [{ def, format, name, repairs, notes, xmlText, classic } | { error, name }]
+function parseSources(text, name = '') {
+  const repairs = [];
+  const t = cleanText(text, repairs);
+  if (!t) throw new Error('There is nothing to analyze. Paste a dashboard definition or choose a file.');
+  let list;
+  if (t[0] === '{' || t[0] === '[') list = fromObject(lenientJson(t, repairs), name);
+  else if (t[0] === '<') list = [fromXml(t, name)];
+  else throw new Error('Unrecognised format. Paste Dashboard Studio JSON, dashboard XML (Studio or Classic), or a REST API response.');
+  for (const s of list) if (!s.error) s.repairs = [...repairs, ...(s.repairs || [])];
+  return list;
+}
+function fromObject(obj, name) {
+  if (Array.isArray(obj?.entry)) {
+    const out = [];
+    for (const entry of obj.entry) {
+      const data = entry?.content?.['eai:data'];
+      if (typeof data !== 'string' || !data.trim()) continue;
+      try { const r = fromXml(data.trim(), entry.name || name); r.format = 'REST API, ' + r.format; out.push(r); }
+      catch (e) { out.push({ error: e.message, name: entry.name || name }); }
+    }
+    if (!out.length) throw new Error('The REST response has no dashboards (no entry with content["eai:data"]).');
+    return out;
+  }
+  if (Array.isArray(obj)) return obj.flatMap((d, i) => fromObject(d, `${name || 'item'} #${i + 1}`));
+  if (isObj(obj) && (obj.visualizations || obj.dataSources || obj.layout || obj.inputs)) return [{ def: obj, format: 'Dashboard Studio JSON', name }];
   throw new Error('This JSON does not look like a Dashboard Studio definition: it has no visualizations, dataSources, inputs or layout.');
 }
-function fromXml(text) {
+function fromXml(text, name = '') {
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.getElementsByTagName('parsererror').length) throw new Error('The XML could not be parsed. Check that you copied the whole file.');
   const root = doc.documentElement;
-  const child = name => [...root.children].find(c => c.nodeName.toLowerCase() === name);
+  const child = n => [...root.children].find(c => c.nodeName.toLowerCase() === n);
   const defEl = child('definition') || doc.getElementsByTagName('definition')[0];
   if (!defEl) {
-    if (/^(dashboard|form)$/i.test(root.nodeName))
-      throw new Error('This is a Classic (Simple XML) dashboard. It has no Dashboard Studio <definition> block. This tool reads Dashboard Studio dashboards (version="2").');
+    if (/^(dashboard|form)$/i.test(root.nodeName)) return convertClassic(root, name);
     throw new Error('No <definition> block was found in the XML.');
   }
+  const repairs = [];
   let def;
-  try { def = JSON.parse(defEl.textContent); } catch (e) { throw new Error('The <definition> block is not valid JSON: ' + e.message); }
+  try { def = lenientJson(cleanText(defEl.textContent, repairs), repairs); }
+  catch (e) { throw new Error('The <definition> block is not valid JSON: ' + e.message.replace(/^The JSON could not be parsed: /, '')); }
   return {
-    def, format: 'Dashboard XML (version ' + (root.getAttribute('version') || '?') + ')',
+    def, name, repairs, xmlText: text,
+    format: 'Dashboard XML (version ' + (root.getAttribute('version') || '?') + ')',
     xmlLabel: child('label')?.textContent || '', xmlDescription: child('description')?.textContent || ''
   };
+}
+
+/* ---------- Classic Simple XML → Studio model ---------- */
+// Maps searches, inputs, panels, drilldowns and depends/rejects to their Studio equivalents so the rest of
+// the page can analyse a Classic dashboard. Positions are approximate: each row is split evenly.
+function convertClassic(root, name) {
+  const kids = (el, ...names) => el ? [...el.children].filter(c => names.includes(c.nodeName.toLowerCase())) : [];
+  const first = (el, n) => kids(el, n)[0];
+  const txt = el => (el?.textContent ?? '').trim();
+  const def = {
+    title: txt(first(root, 'label')) || name || 'Untitled dashboard', description: txt(first(root, 'description')),
+    inputs: {}, dataSources: {}, visualizations: {}, defaults: { tokens: { default: {} } }, expressions: { conditions: {} },
+    layout: { type: 'grid', options: {}, structure: [], globalInputs: [] }
+  };
+  const notes = ['Converted from a Classic Simple XML dashboard. Searches, inputs, panels, drilldowns and depends/rejects rules are mapped to their Dashboard Studio equivalents. Panel positions are approximate: each row is split evenly.'];
+  let seq = 0;
+  const nid = p => `${p}_${++seq}`;
+  const setsOf = el => kids(el, 'set', 'eval', 'unset').map(s => ({ token: s.getAttribute('token'), value: txt(s), op: s.nodeName.toLowerCase() }))
+    .filter(s => s.token).concat(kids(el, 'condition').flatMap(c => setsOf(c)));
+  const condKeys = new Map();
+  const visOf = (...els) => {
+    const dep = [], rej = [];
+    for (const el of els) {
+      if (!el) continue;
+      for (const [attr, list] of [['depends', dep], ['rejects', rej]]) {
+        const v = el.getAttribute(attr);
+        if (v) list.push(...v.split(',').map(s => s.trim().replace(/^\$|\$$/g, '')).filter(Boolean));
+      }
+    }
+    if (!dep.length && !rej.length) return undefined;
+    const key = dep.join(',') + '|' + rej.join(',');
+    if (!condKeys.has(key)) {
+      const id = nid('cond');
+      condKeys.set(key, id);
+      const parts = [];
+      if (dep.length) parts.push('depends=' + dep.map(t => '$' + t + '$').join(','));
+      if (rej.length) parts.push('rejects=' + rej.map(t => '$' + t + '$').join(','));
+      def.expressions.conditions[id] = { name: parts.join(' '), value: parts.join(' '), _classic: { depends: dep, rejects: rej } };
+    }
+    return { visibility: { showConditions: [condKeys.get(key)] } };
+  };
+  function addSearch(sEl, hint) {
+    const sid = sEl.getAttribute('id') || nid('search');
+    const qp = {};
+    for (const k of ['earliest', 'latest', 'refresh']) { const v = txt(first(sEl, k)); if (v) qp[k] = v; }
+    const base = sEl.getAttribute('base'), ref = sEl.getAttribute('ref');
+    const q = txt(first(sEl, 'query'));
+    let d;
+    if (ref) d = { type: 'ds.savedSearch', name: hint || ref, options: { ref } };
+    else if (base) d = { type: 'ds.chain', name: hint || sid, options: { extend: base, query: q && !/^\s*\|/.test(q) ? '| ' + q : q } };
+    else d = { type: 'ds.search', name: hint || sid, options: { query: q } };
+    if (sEl.getAttribute('app')) d.options.app = sEl.getAttribute('app');
+    if (Object.keys(qp).length) d.options.queryParameters = qp;
+    const sets = ['done', 'progress', 'finalized', 'preview', 'cancelled', 'error', 'fail']
+      .flatMap(h => kids(sEl, h).flatMap(el => setsOf(el).filter(s => s.op !== 'unset').map(s => ({ ...s, when: h }))));
+    if (sets.length) d._classicSets = sets;
+    def.dataSources[sid] = d;
+    return sid;
+  }
+  for (const s of kids(root, 'search')) addSearch(s);
+  const init = first(root, 'init');
+  if (init) for (const s of setsOf(init)) if (s.op !== 'unset') def.defaults.tokens.default[s.token] = { value: s.value };
+  const ITYPE = { dropdown: 'input.dropdown', multiselect: 'input.multiselect', time: 'input.timerange', text: 'input.text', radio: 'input.radio', checkbox: 'input.checkbox', link: 'input.radio' };
+  function addInput(iEl) {
+    const t = (iEl.getAttribute('type') || 'text').toLowerCase();
+    const id = iEl.getAttribute('id') || nid('input');
+    const o = {};
+    if (iEl.getAttribute('token')) o.token = iEl.getAttribute('token');
+    const dEl = first(iEl, 'default') || first(iEl, 'initialvalue');
+    if (t === 'time') { if (dEl) o.defaultValue = `${txt(first(dEl, 'earliest'))},${txt(first(dEl, 'latest'))}`; }
+    else if (dEl) { const v = txt(dEl); o.defaultValue = (t === 'multiselect' || t === 'checkbox') ? v.split(',').map(x => x.trim()) : v; }
+    const choices = kids(iEl, 'choice').map(c => ({ label: txt(c), value: c.getAttribute('value') ?? txt(c) }));
+    if (choices.length) o.items = choices;
+    for (const [tag, key] of [['prefix', 'prefix'], ['suffix', 'suffix'], ['valueprefix', 'valuePrefix'], ['valuesuffix', 'valueSuffix'], ['delimiter', 'delimiter'], ['fieldforlabel', 'fieldForLabel'], ['fieldforvalue', 'fieldForValue']]) {
+      const el = first(iEl, tag);
+      if (el) o[key] = el.textContent;
+    }
+    const d = { type: ITYPE[t] || 'input.' + t, title: txt(first(iEl, 'label')) || o.token || id, options: o };
+    const sEl = first(iEl, 'search');
+    if (sEl) d.dataSources = { primary: addSearch(sEl, (d.title || id) + ' options') };
+    const change = first(iEl, 'change');
+    if (change) { const s = setsOf(change).filter(x => x.op !== 'unset'); if (s.length) d._classicSets = s.map(x => ({ ...x, when: 'change' })); }
+    const vis = visOf(iEl);
+    if (vis) d.containerOptions = vis;
+    def.inputs[id] = d;
+    return id;
+  }
+  for (const fs of kids(root, 'fieldset')) for (const i of kids(fs, 'input')) def.layout.globalInputs.push(addInput(i));
+  const VTYPE = { table: 'splunk.table', single: 'splunk.singlevalue', event: 'splunk.events', map: 'splunk.map', html: 'splunk.markdown' };
+  const CHART = { radialGauge: 'splunk.singlevalueradial', fillerGauge: 'splunk.fillergauge', markerGauge: 'splunk.markergauge' };
+  const htmlText = el => [...el.childNodes].map(n => n.nodeType === 3 ? n.textContent
+    : /^h[1-6]$/i.test(n.nodeName) ? '\n### ' + n.textContent.trim() + '\n'
+    : n.textContent + (/^(p|div|li|br|ul|ol|table|tr)$/i.test(n.nodeName) ? '\n' : '')).join('').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  let y = 0;
+  for (const row of kids(root, 'row')) {
+    let panels = kids(row, 'panel');
+    if (!panels.length) panels = [row]; // very old dashboards put elements straight into a row
+    const w = Math.floor(1200 / panels.length);
+    let rowH = 0;
+    panels.forEach((p, pi) => {
+      const x = pi * w, pw = pi === panels.length - 1 ? 1200 - x : w;
+      let py = y;
+      const pTitle = p === row ? '' : txt(first(p, 'title'));
+      const els = kids(p, 'chart', 'table', 'single', 'event', 'map', 'html', 'viz');
+      for (const i of kids(p, 'input')) {
+        def.layout.structure.push({ item: addInput(i), type: 'input', position: { x, y: py, w: pw, h: 80 } });
+        py += 80;
+      }
+      for (const el of els) {
+        const tag = el.nodeName.toLowerCase();
+        const id = el.getAttribute('id') || nid('viz');
+        const opts = {};
+        for (const op of kids(el, 'option')) opts[op.getAttribute('name')] = txt(op);
+        let type = VTYPE[tag];
+        if (tag === 'chart') { const c = opts['charting.chart'] || 'column'; type = CHART[c] || 'splunk.' + c; }
+        if (tag === 'viz') type = 'splunk.' + String(el.getAttribute('type') || 'viz').split('.').pop();
+        const v = { type, title: txt(first(el, 'title')) || (els.length === 1 ? pTitle : '') };
+        if (tag === 'html') v.options = { markdown: htmlText(el) };
+        else if (Object.keys(opts).length) v.options = { classicOptions: opts };
+        const sEl = first(el, 'search');
+        if (sEl) v.dataSources = { primary: addSearch(sEl, v.title || id) };
+        const dd = first(el, 'drilldown');
+        if (dd) {
+          const all = setsOf(dd), handlers = [];
+          const sets = all.filter(s => s.op !== 'unset');
+          if (sets.length) handlers.push({
+            type: 'drilldown.setToken', options: {
+              tokens: sets.map(s => {
+                const m = s.value.match(/^\$((?:row|click)\.[^$]+)\$$/);
+                return m ? { token: s.token, key: m[1].startsWith('row.') ? m[1] + '.value' : m[1] } : { token: s.token, value: s.value };
+              })
+            }
+          });
+          const uns = all.filter(s => s.op === 'unset');
+          if (uns.length) handlers.push({ type: 'drilldown.unsetToken', options: { tokens: uns.map(s => ({ token: s.token })) } });
+          for (const l of [...dd.getElementsByTagName('link')]) handlers.push({ type: 'drilldown.customUrl', options: { url: txt(l), newTab: l.getAttribute('target') === '_blank' } });
+          if (handlers.length) v.eventHandlers = handlers;
+        }
+        const vis = visOf(row, p === row ? null : p, el);
+        if (vis) v.containerOptions = vis;
+        def.visualizations[id] = v;
+        const h = tag === 'single' ? 150 : tag === 'html' ? 140 : 300;
+        def.layout.structure.push({ item: id, type: 'block', position: { x, y: py, w: pw, h } });
+        py += h;
+      }
+      rowH = Math.max(rowH, py - y);
+    });
+    y += rowH;
+  }
+  if (!Object.keys(def.defaults.tokens.default).length) delete def.defaults;
+  if (!Object.keys(def.expressions.conditions).length) delete def.expressions;
+  return { def, name, notes, repairs: [], classic: true, format: 'Classic Simple XML (' + root.nodeName.toLowerCase() + '), converted to the Studio model' };
+}
+// Internal fields added by the Classic converter; removed when a definition is exported.
+function stripInternal(o) {
+  if (Array.isArray(o)) o.forEach(stripInternal);
+  else if (isObj(o)) for (const k of Object.keys(o)) { if (k.startsWith('_classic')) delete o[k]; else stripInternal(o[k]); }
+  return o;
 }
 
 /* ============================================================
@@ -478,7 +773,7 @@ function getPath(obj, path) {
   return cur;
 }
 // Tokens Splunk provides inside drilldown handlers (row.<field>.value, click.value, …).
-const DRILL_BUILTIN = /^(row|click|trellis)(\.|$)|^(name|value|name2|value2)$/;
+const DRILL_BUILTIN = /^(row|click|trellis)(\.|$)|^(name|value|name2|value2|earliest|latest)$/;
 
 /* ============================================================
    Indexes and sourcetypes in SPL
@@ -601,12 +896,12 @@ function splCommands(q) {
       if (t) {
         if (idx === 0 && !leadingPipe) {
           const w = (t.match(/^([A-Za-z_]\w*)\b/) || [])[1];
-          out.push({ name: 'search', implicit: !(w && w.toLowerCase() === 'search'), sub });
+          out.push({ name: 'search', implicit: !(w && w.toLowerCase() === 'search'), sub, text: t });
         } else if (t[0] !== '`') { // a macro in command position is listed under macros
           const w = (t.match(/^([A-Za-z_]\w*)\b/) || [])[1];
-          if (w) out.push({ name: w.toLowerCase(), implicit: false, sub });
+          if (w) out.push({ name: w.toLowerCase(), implicit: false, sub, text: t });
         }
-      }
+      } else if (!(idx === 0 && leadingPipe)) out.empty = (out.empty || 0) + 1;
       for (const st of subs[idx] || []) walk(st, true); // subsearches run inside this command
     });
   };
@@ -640,6 +935,203 @@ function extractLookups(q) {
 }
 
 /* ============================================================
+   Splunk configuration: macros.conf, savedsearches.conf, data models
+   ============================================================ */
+let CONFIG = { conf: '', dm: '', macros: new Map(), saved: new Map(), datamodels: new Map(), errors: [] };
+const hasConfig = () => CONFIG.macros.size + CONFIG.saved.size + CONFIG.datamodels.size > 0;
+// .conf files: [stanza] lines, key = value, values continued with a trailing backslash.
+function parseConf(text) {
+  const stanzas = [];
+  let cur = null;
+  const lines = String(text || '').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || /^\s*[#;]/.test(line)) continue;
+    const st = line.match(/^\s*\[(.+)\]\s*$/);
+    if (st) { cur = { name: st[1].trim(), kv: {} }; stanzas.push(cur); continue; }
+    const kv = line.match(/^\s*([^=]+?)\s*=\s?(.*)$/);
+    if (!kv || !cur) continue;
+    let val = kv[2];
+    while (/\\\s*$/.test(val) && i + 1 < lines.length) val = val.replace(/\\\s*$/, '\n') + lines[++i];
+    cur.kv[kv[1].trim()] = val.trim();
+  }
+  return stanzas;
+}
+// Data model JSON: a model file ({modelName, objects}), a REST response, or several of either back to back.
+function parseDatamodels(text, errors) {
+  const out = new Map();
+  const t = String(text || '').trim();
+  const add = m => {
+    if (typeof m === 'string') { try { m = JSON.parse(m); } catch { return; } }
+    if (isObj(m) && m.modelName && Array.isArray(m.objects)) {
+      out.set(m.modelName, {
+        name: m.modelName, displayName: m.displayName || m.modelName,
+        objects: m.objects.map(o => ({
+          name: o.objectName, parent: o.parentName || '',
+          constraints: (o.constraints || []).map(c => c?.search).filter(Boolean),
+          fields: (o.fields || []).map(f => f?.fieldName).filter(Boolean)
+        }))
+      });
+    } else if (isObj(m) && Array.isArray(m.entry)) m.entry.forEach(en => add(en?.content?.['eai:data']));
+    else if (Array.isArray(m)) m.forEach(add);
+  };
+  let i = 0;
+  while (i < t.length) {
+    const rel = t.slice(i).search(/[{[]/);
+    if (rel < 0) break;
+    const s = i + rel, e = jsonValueEnd(t, s);
+    if (e < 0) { errors.push('A data model JSON block is never closed.'); break; }
+    try { add(JSON.parse(t.slice(s, e))); } catch (err) { errors.push('Data model JSON could not be parsed: ' + err.message); }
+    i = e;
+  }
+  return out;
+}
+function applyConfig(conf, dm) {
+  const errors = [], macros = new Map(), saved = new Map();
+  for (const st of parseConf(conf)) {
+    if (st.name === 'default') continue;
+    if ('definition' in st.kv) {
+      const m = st.name.match(/^(.*?)\((\d+)\)$/);
+      macros.set(st.name, {
+        key: st.name, name: m ? m[1] : st.name, arity: m ? +m[2] : 0,
+        args: (st.kv.args || '').split(',').map(s => s.trim()).filter(Boolean),
+        definition: st.kv.definition, iseval: /^(1|true)$/i.test(st.kv.iseval || '')
+      });
+    } else if ('search' in st.kv) {
+      saved.set(st.name, { name: st.name, search: st.kv.search, earliest: st.kv['dispatch.earliest_time'] || '', latest: st.kv['dispatch.latest_time'] || '', cron: st.kv.cron_schedule || '' });
+    }
+  }
+  CONFIG = { conf, dm, macros, saved, datamodels: parseDatamodels(dm, errors), errors };
+}
+// Expand macro calls recursively. Records what was expanded, missing, or looping in `info`.
+function expandMacros(q, info, depth = 0, stack = []) {
+  return String(q).replace(/`([^`]+)`/g, (all, call) => {
+    const mm = call.trim().match(/^([\w:.\-]+)\s*(?:\(([\s\S]*)\))?$/);
+    if (!mm) return all;
+    const args = mm[2] !== undefined ? splitArgs(mm[2]) : [];
+    const key = mm[2] !== undefined ? `${mm[1]}(${args.length})` : mm[1];
+    const m = CONFIG.macros.get(key);
+    if (!m) {
+      if (!info.missing.some(x => x.key === key)) info.missing.push({ key, other: [...CONFIG.macros.values()].filter(x => x.name === mm[1]).map(x => x.key) });
+      return all;
+    }
+    if (stack.includes(key) || depth > 10) { if (!info.loops.includes(key)) info.loops.push(key); return all; }
+    if (depth > 0 && !info.nested.some(x => x.key === key)) info.nested.push({ key, call: call.trim(), in: stack[stack.length - 1] });
+    if (!info.used.includes(key)) info.used.push(key);
+    if (m.iseval) { if (!info.evalMacros.includes(key)) info.evalMacros.push(key); return ' '; }
+    let body = m.definition;
+    m.args.forEach((a, i) => { body = body.split('$' + a + '$').join(args[i] ?? ''); });
+    return ' ' + expandMacros(body, info, depth + 1, [...stack, key]) + ' ';
+  });
+}
+// The text a data source really runs, for analysis: macros expanded, saved searches inlined,
+// and the constraint searches of the data models it reads appended.
+function expandForAnalysis(n) {
+  const info = { used: [], nested: [], missing: [], loops: [], evalMacros: [], saved: [], savedMissing: [], datamodels: [], datasetMissing: [] };
+  const parts = [];
+  if (n.type === 'ds.savedSearch') {
+    const s = CONFIG.saved.get(n.ref);
+    if (s) { parts.push(s.search); info.saved.push(n.ref); } else if (CONFIG.saved.size) info.savedMissing.push(n.ref);
+  } else parts.push(n.query || '');
+  for (const m of String(n.query || '').matchAll(/(?:^|\||\[)\s*savedsearch\s+("([^"]+)"|[^\s|\]]+)/gi)) {
+    const name = m[2] || m[1];
+    const s = CONFIG.saved.get(name);
+    if (s) { parts.push(s.search); info.saved.push(name); } else if (CONFIG.saved.size) info.savedMissing.push(name);
+  }
+  let text = expandMacros(parts.join('\n'), info);
+  for (const d of extractDatamodels(text)) {
+    const model = CONFIG.datamodels.get(d.model);
+    if (!model) continue;
+    const want = (d.dataset || '').split('.').pop();
+    let o = want ? model.objects.find(x => x.name === want) : model.objects.find(x => !x.parent || /^Base(Event|Search|Transaction)$/.test(x.parent));
+    if (!o) { info.datasetMissing.push(`${d.model}.${d.dataset}`); continue; }
+    const constraints = [];
+    const seen = new Set();
+    while (o && !seen.has(o.name)) { seen.add(o.name); constraints.unshift(...o.constraints); o = model.objects.find(x => x.name === o.parent); }
+    info.datamodels.push({ model: d.model, dataset: d.dataset, constraints });
+    if (constraints.length) text += '\n' + expandMacros(constraints.join(' '), info);
+  }
+  return { text, info };
+}
+// Add what only the expanded text revealed to a search's sources, labelled with how it was found.
+function mergeExpanded(own, ex, via) {
+  for (const f of ['index', 'sourcetype']) for (const v of ex[f]) if (!own[f].some(x => x.value === v.value && x.excluded === v.excluded)) own[f].push({ ...v, via });
+  for (const l of ex.lookups) if (!own.lookups.some(x => x.name === l.name && x.mode === l.mode)) own.lookups.push({ ...l, via });
+  for (const d of ex.datamodels) if (!own.datamodels.some(x => x.model === d.model && x.dataset === d.dataset)) own.datamodels.push({ ...d, via });
+  for (const c of ex.commands) if (!own.commands.some(x => x.name === c.name)) own.commands.push({ ...c, via });
+  for (const o of ex.other) if (!own.other.includes(o)) own.other.push(o);
+}
+
+/* ============================================================
+   SPL checks
+   ============================================================ */
+const KNOWN_CMDS = new Set(`abstract accum addcoltotals addinfo addtotals analyzefields anomalies anomalousvalue anomalydetection append appendcols
+appendpipe apply arules associate audit autoregress bin bucket bucketdir chart cluster cofilter collect concurrency contingency convert correlate
+datamodel dbinspect dbxquery dedup delete delta diff dump erex eval eventcount eventstats extract fieldformat fields fieldsummary filldown fillnull
+findtypes fit folderize foreach format from gauge gentimes geom geomfilter geostats head highlight history iconify inputcsv inputlookup iplocation
+join kmeans kv kvform ldapfilter ldapsearch loadjob localize localop lookup makecontinuous makemv makeresults map mcatalog mcollect metadata metasearch
+meventcollect mpreview msearch mstats multikv multisearch mvcombine mvexpand nomv outlier outputcsv outputlookup outputtext overlap pivot predict
+rangemap rare redistribute regex reltime rename replace require rest return reverse rex rtorder run sample savedsearch score script scrub search
+searchtxn selfjoin sendalert sendemail set setfields sichart sirare sistats sitimechart sitop sort spath stats strcat streamstats summary table tags
+tail timechart timewrap tojson top transaction transpose trendline tscollect tstats typeahead typelearner typer union uniq untable walklate where
+x11 xmlkv xmlunescape xpath xyseries`.split(/\s+/));
+const STATS_LIKE = new Set(['stats', 'eventstats', 'streamstats', 'chart', 'timechart', 'sistats', 'sichart', 'sitimechart', 'tstats', 'mstats', 'geostats']);
+const FIELD_FUNCS = /^(sum|avg|mean|max|min|median|mode|stdev|stdevp|var|varp|range|sumsq|first|last|list|values|dc|distinct_count|estdc|estdc_error|earliest|latest|earliest_time|latest_time|rate|rate_avg|rate_sum|per_second|per_minute|per_hour|per_day|p\d{1,2}|perc\d{1,2}|exactperc\d{1,2}|upperperc\d{1,2})$/i;
+const NEEDS_ARGS = new Set(['eval', 'where', 'rename', 'rex', 'lookup', 'inputlookup', 'outputlookup', 'table', 'fields', 'dedup', 'sort', 'bin', 'bucket',
+  'stats', 'eventstats', 'streamstats', 'chart', 'timechart', 'tstats', 'top', 'rare', 'append', 'appendcols', 'join', 'regex', 'convert', 'makemv',
+  'mvexpand', 'collect', 'sendemail', 'inputcsv', 'outputcsv', 'xyseries', 'strcat', 'fieldformat', 'datamodel', 'pivot', 'from', 'savedsearch', 'loadjob', 'map', 'foreach']);
+const GENERATING = new Set(['inputlookup', 'inputcsv', 'makeresults', 'tstats', 'mstats', 'mcatalog', 'rest', 'datamodel', 'pivot', 'metadata', 'metasearch',
+  'from', 'loadjob', 'savedsearch', 'dbinspect', 'eventcount', 'gentimes', 'multisearch', 'dbxquery', 'ldapsearch']);
+const TRANSFORMING = new Set(['stats', 'chart', 'timechart', 'top', 'rare', 'tstats', 'mstats', 'xyseries', 'geostats', 'contingency', 'sistats', 'sichart', 'sitimechart']);
+const NO_EVENT_TIME = new Set(['inputlookup', 'inputcsv', 'makeresults', 'rest', 'gentimes']);
+const prependPipe = q => '| ' + String(q).replace(/^\s+/, '');
+// Returns problems in one search's SPL: [{ severity, message, fixLabel?, fix?(query) }]
+function lintSpl(q, isChain) {
+  const out = [];
+  const add = (severity, message, fixLabel, fix) => { if (!out.some(x => x.message === message)) out.push({ severity, message: 'SPL: ' + message, fixLabel, fix }); };
+  if (!q || !q.trim()) return out;
+  const clean = q.replace(/```[\s\S]*?```/g, m => ' '.repeat(m.length));
+  let inStr = false, open = { '(': 0, '[': 0 }, close = { ')': 0, ']': 0 }, early = { ')': false, ']': false }, ticks = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '(' || c === '[') open[c]++;
+    else if (c === ')' || c === ']') { close[c]++; const o = c === ')' ? '(' : '['; if (close[c] > open[o]) early[c] = true; }
+    else if (c === '`') ticks++;
+  }
+  if (inStr) add('error', 'a double quote (") is never closed.');
+  if (open['('] !== close[')'] || early[')']) add('error', `unbalanced parentheses: ${open['(']} "(" and ${close[')']} ")".`);
+  if (open['['] !== close[']'] || early[']']) add('error', `unbalanced square brackets: ${open['[']} "[" and ${close[']']} "]".`);
+  if (ticks % 2) add('error', 'a backtick (`) around a macro is never closed.');
+  const cmds = splCommands(clean);
+  if (cmds.empty) add('error', 'there is an empty command: two pipes with nothing between them, or a pipe at the end.', 'Remove the empty command',
+    s => s.replace(/\|\s*(?=\|)/g, '').replace(/\|\s*$/, '').trimEnd());
+  const firstWord = (clean.trim().match(/^([A-Za-z_]\w*)/) || [])[1]?.toLowerCase();
+  if (isChain && !/^\s*\|/.test(clean)) add('warning', 'a chain search should start with a pipe (|), for example "| stats count".', 'Add the leading pipe', prependPipe);
+  else if (!isChain && firstWord && GENERATING.has(firstWord)) add('error', `${firstWord} is a generating command, so the search must start with a pipe: "| ${firstWord} …".`, 'Add the leading pipe', prependPipe);
+  for (const c of cmds) {
+    if (c.implicit || !c.text) continue;
+    const args = c.text.replace(/^\s*[A-Za-z_]\w*/, '').trim();
+    if (!KNOWN_CMDS.has(c.name)) add('info', `| ${c.name} isn't a built-in SPL command. It may be a custom command from an app, or a typo.`);
+    if (NEEDS_ARGS.has(c.name) && !args) add('error', `| ${c.name} has nothing after it.`);
+    else if (c.name === 'rename' && !/\bas\b/i.test(args)) add('error', '| rename needs "old_name AS new_name".');
+    else if (c.name === 'eval' && !args.includes('=')) add('error', '| eval needs an assignment, for example "| eval total = a + b".');
+    else if (STATS_LIKE.has(c.name)) {
+      const words = args.match(/"[^"]*"|\S+/g) || [];
+      for (let i = 0; i < words.length; i++) {
+        const lw = words[i].toLowerCase().replace(/,$/, '');
+        if (/^(by|over|from|where|groupby)$/.test(lw)) break;
+        if (lw === 'as') { i++; continue; }
+        if (lw.includes('=')) continue;
+        if (FIELD_FUNCS.test(lw)) add('error', `| ${c.name} ${lw} needs a field to work on, for example ${lw}(bytes). Splunk rejects "${lw}" on its own.`);
+      }
+    }
+  }
+  return out;
+}
+
+/* ============================================================
    Build the model
    ============================================================ */
 function buildModel(src) {
@@ -653,15 +1145,18 @@ function buildModel(src) {
     return n;
   };
   const tokenNode = name => node('token', name, { label: '$' + name + '$' });
+  const mn0 = key => nodes.get('macro:' + key)?.calls || [];
   const edge = (from, to, rel, detail = '') => {
     const k = [from, to, rel, detail].join('\u0001');
     if (edgeKeys.has(k)) return;
     edgeKeys.add(k);
     edges.push({ from, to, rel, detail: String(detail) });
   };
-  const issue = (severity, message, ref) => issues.push({ severity, message, ref });
+  // `fix`, when given, is { label, apply(definition) }: a safe change offered on the Issues page.
+  const issue = (severity, message, ref, fix) => issues.push({ severity, message, ref, fix });
   const byKind = k => [...nodes.values()].filter(n => n.kind === k);
   const L = isObj(def.layout) ? def.layout : {};
+  const SECTION = { viz: 'visualizations', input: 'inputs', ds: 'dataSources' };
 
   // ---- Dashboard root
   const dash = node('dashboard', 'root', {
@@ -669,6 +1164,8 @@ function buildModel(src) {
     description: def.description || src.xmlDescription || '',
     raw: { title: def.title, description: def.description, layoutOptions: L.layoutDefinitions ? L.options : undefined }
   });
+  for (const r of src.repairs || []) issue('info', 'Repaired while loading: ' + r, dash.id);
+  for (const r of src.notes || []) issue('info', r, dash.id);
 
   // ---- Data sources
   const dsByName = new Map();
@@ -687,8 +1184,17 @@ function buildModel(src) {
   const linkDs = (dsId, targetId, rel, key) => {
     if (typeof dsId !== 'string') return;
     if (nodes.has('ds:' + dsId)) edge('ds:' + dsId, targetId, rel, key);
-    else issue('error', `References data source "${dsId}" (${key}), which does not exist.`, targetId);
+    else {
+      const [kind, ...rest] = targetId.split(':'), tkey = rest.join(':');
+      issue('error', `References data source "${dsId}" (${key}), which does not exist.`, targetId,
+        { label: `Remove the broken "${key}" data source reference`, apply: d => { const it = d[SECTION[kind]]?.[tkey]; if (it?.dataSources) { delete it.dataSources[key]; if (!Object.keys(it.dataSources).length) delete it.dataSources; } } });
+    }
   };
+  // Classic Simple XML search handlers (<done><set token=…>) set tokens from search results.
+  for (const n of byKind('ds')) for (const st of Array.isArray(n.raw?._classicSets) ? n.raw._classicSets : []) {
+    const t = tokenNode(st.token);
+    edge(n.id, t.id, 'smart-source', `<${st.when}> ${st.value}`.slice(0, 80));
+  }
 
   // chains
   for (const n of byKind('ds')) {
@@ -722,7 +1228,8 @@ function buildModel(src) {
         if (typeof c !== 'string') continue;
         parts.push(`${verb} ${c}`);
         if (nodes.has('condition:' + c)) edge('condition:' + c, n.id, 'visibility', verb);
-        else issue('error', `Visibility refers to condition "${c}", which is not defined in expressions.conditions.`, n.id);
+        else issue('error', `Visibility refers to condition "${c}", which is not defined in expressions.conditions.`, n.id,
+          { label: `Remove "${c}" from ${k}`, apply: d => { const vv = d[SECTION[n.kind]]?.[n.key]?.containerOptions?.visibility; if (vv && Array.isArray(vv[k])) vv[k] = vv[k].filter(x => x !== c); } });
       }
     }
     if (v.hideWhenNoData) parts.push('hidden when no data');
@@ -742,6 +1249,7 @@ function buildModel(src) {
       (t.defaults ||= []).push({ from: n.id, value: o.defaultValue });
       edge(n.id, t.id, 'sets', o.defaultValue !== undefined ? 'default ' + fmt(o.defaultValue) : '');
     } else issue('warning', 'This input does not set a token, so it has no effect.', n.id);
+    for (const st of Array.isArray(d?._classicSets) ? d._classicSets : []) edge(n.id, tokenNode(st.token).id, 'sets', `on change: ${st.value}`.slice(0, 80));
     for (const [k, dsId] of Object.entries(isObj(d?.dataSources) ? d.dataSources : {})) linkDs(dsId, n.id, 'populates', k);
     applyVisibility(n, d);
   }
@@ -819,18 +1327,42 @@ function buildModel(src) {
 
   // ---- Indexes and sourcetypes each search reads
   for (const n of byKind('ds')) {
-    n.sources = n.type === 'ds.savedSearch' ? { index: [], sourcetype: [], other: ['report ' + (n.ref || '?')], lookups: [], macros: [], datamodels: [], commands: [{ name: 'savedsearch', implicit: true, sub: false }] } : extractSources(n.query);
+    n.sources = n.type === 'ds.savedSearch'
+      ? { index: [], sourcetype: [], other: ['report ' + (n.ref || '?')], lookups: [], macros: [], datamodels: [], commands: [{ name: 'savedsearch', implicit: true, sub: false, text: '' }] }
+      : extractSources(n.query);
+    if (hasConfig()) {
+      const ex = expandForAnalysis(n);
+      n.expansion = ex.info;
+      if (ex.text.trim() && ex.text.trim() !== String(n.query || '').trim()) {
+        n.expandedQuery = ex.text.trim();
+        mergeExpanded(n.sources, extractSources(ex.text), n.type === 'ds.savedSearch' ? 'via saved search' : 'via expansion');
+      }
+      for (const nm of ex.info.nested) n.sources.macros.push({ key: nm.key, name: nm.key.replace(/\(\d+\)$/, ''), args: [], call: nm.call, via: 'inside `' + nm.in + '`' });
+      if (CONFIG.macros.size) for (const m of ex.info.missing) {
+        const argc = +(m.key.match(/\((\d+)\)$/)?.[1] || 0);
+        if (m.other.length) issue('error', `SPL: macro \`${m.key}\` is called with ${plural(argc, 'argument')}, but macros.conf only defines ${m.other.map(k => '`' + k + '`').join(', ')}.`, n.id);
+        else issue('info', `Macro \`${m.key}\` isn't in the pasted macros.conf, so it wasn't expanded.`, n.id);
+      }
+      for (const k of ex.info.loops) issue('error', `SPL: macro \`${k}\` expands into itself.`, n.id);
+      for (const k of ex.info.evalMacros) issue('info', `Macro \`${k}\` is an eval-based macro. Its SPL is computed when the search runs, so it can't be expanded here.`, n.id);
+      for (const r of ex.info.savedMissing) issue('info', `Saved search "${r}" isn't in the pasted savedsearches.conf.`, n.id);
+      for (const r of ex.info.datasetMissing) issue('info', `Dataset ${r} isn't in the pasted data model JSON.`, n.id);
+    }
+    if (n.type !== 'ds.savedSearch') for (const l of lintSpl(n.query, n.type === 'ds.chain'))
+      issue(l.severity, l.message, n.id, l.fix ? { label: l.fixLabel, apply: d => { const o = d.dataSources?.[n.key]?.options; if (o && typeof o.query === 'string') o.query = l.fix(o.query); } } : undefined);
     for (const mc of n.sources.macros) {
-      const mn = node('macro', mc.key, { label: '`' + mc.key + '`', name: mc.name, arity: mc.args.length, calls: [] });
+      const mn = node('macro', mc.key, { label: '`' + mc.key + '`', name: mc.name, arity: mc.args.length || +(mc.key.match(/\((\d+)\)$/)?.[1] || 0), calls: mn0(mc.key) });
       if (!mn.calls.includes(mc.call)) mn.calls.push(mc.call);
-      edge(mn.id, n.id, 'macro-used', mc.call);
+      mn.config = CONFIG.macros.get(mc.key) || null;
+      edge(mn.id, n.id, 'macro-used', mc.via || mc.call);
     }
     for (const dm of n.sources.datamodels) {
       if (dm.model.includes('$')) continue;
       const dn = node('datamodel', dm.model, { label: dm.model });
       (dn.datasets ||= new Set());
       if (dm.dataset) dn.datasets.add(dm.dataset);
-      edge(dn.id, n.id, 'datamodel-read', [dm.dataset, dm.command].filter(Boolean).join(' · '));
+      dn.config = CONFIG.datamodels.get(dm.model) || null;
+      edge(dn.id, n.id, 'datamodel-read', [dm.dataset, dm.command, dm.via].filter(Boolean).join(' · '));
     }
     const counts = new Map();
     for (const c of n.sources.commands) counts.set(c.name, (counts.get(c.name) || 0) + 1);
@@ -838,23 +1370,24 @@ function buildModel(src) {
       const cn = node('command', name, { label: name, category: CMD_CATEGORY[name] || 'Other' });
       cn.uses = (cn.uses || 0) + count;
       const sub = n.sources.commands.some(c => c.name === name && c.sub);
-      edge(cn.id, n.id, 'command-used', (count > 1 ? '×' + count : '') + (sub ? (count > 1 ? ', ' : '') + 'in subsearch' : ''));
+      const via = n.sources.commands.find(c => c.name === name)?.via;
+      edge(cn.id, n.id, 'command-used', [count > 1 ? '×' + count : '', sub ? 'in subsearch' : '', via || ''].filter(Boolean).join(', '));
       if (SIDE_EFFECT.has(name)) issue('warning', `This search runs | ${name}, which writes data or sends something every time the search runs (each dashboard load, input change and refresh).`, n.id);
     }
     for (const lk of n.sources.lookups) {
       if (lk.name.includes('$')) continue; // lookup name comes from a token
       const ln = node('lookup', lk.name, { label: lk.name });
       (ln.access ||= new Set()).add(lk.mode);
-      if (lk.mode === 'read') edge(ln.id, n.id, 'lookup-read', lk.command);
+      if (lk.mode === 'read') edge(ln.id, n.id, 'lookup-read', lk.command + (lk.via ? ' · ' + lk.via : ''));
       else {
-        edge(n.id, ln.id, 'lookup-write', lk.command + (lk.options ? ' ' + lk.options : ''));
+        edge(n.id, ln.id, 'lookup-write', lk.command + (lk.options ? ' ' + lk.options : '') + (lk.via ? ' · ' + lk.via : ''));
         issue('info', `This search writes to lookup "${lk.name}" (${lk.command}${/append\s*=\s*t/i.test(lk.options) ? ', append' : ', overwrite'}) every time it runs: on each dashboard load, input change and refresh.`, n.id);
       }
     }
     for (const field of ['index', 'sourcetype']) for (const v of n.sources[field]) {
       if (v.value.includes('$')) continue; // value comes from a token; shown on the search, not as an item
       const sn = node(field, v.value, { label: v.value });
-      edge(sn.id, n.id, 'searches', v.excluded ? 'excluded' : '');
+      edge(sn.id, n.id, 'searches', [v.excluded ? 'excluded' : '', v.via || ''].filter(Boolean).join(', '));
     }
   }
   // A chain search reads whatever its base searches read.
@@ -895,7 +1428,13 @@ function buildModel(src) {
       const p = b.position;
       edge(target.id, tn.id, 'contains', p && p.x !== undefined ? `x${p.x} y${p.y} ${p.w}×${p.h}` : '');
       (tn.items ||= []).push({ id: target.id, type: b.type, position: isObj(p) ? p : null });
-    } else if (b.type !== 'line') issue('warning', `Layout "${tn.label}" places "${id}", which is not a defined visualization or input.`, tn.id);
+    } else if (b.type !== 'line') issue('warning', `Layout "${tn.label}" places "${id}", which is not a defined visualization or input.`, tn.id, {
+      label: `Remove "${id}" from the layout`, apply: d => {
+        const LL = d.layout || {};
+        if (tn.key === '__global__') LL.globalInputs = (LL.globalInputs || []).filter(x => x !== id);
+        else { const tgt = LL.layoutDefinitions?.[tn.key] || LL; if (Array.isArray(tgt.structure)) tgt.structure = tgt.structure.filter(x => x?.item !== id); }
+      }
+    });
   };
   if (Array.isArray(L.globalInputs) && L.globalInputs.length) {
     const g = node('tab', '__global__', { label: 'Global inputs', layoutType: 'input bar (all tabs)', order: -1, global: true, raw: { globalInputs: L.globalInputs } });
@@ -916,7 +1455,7 @@ function buildModel(src) {
     if (n.kind === 'tab' && isObj(obj)) { const { structure, ...rest } = obj; obj = rest; }
     for (const u of scanTokens(obj)) pending.push({ ...u, nodeId: n.id });
   }
-  const defining = new Set(edges.filter(e => ['sets', 'drilldown-sets', 'default'].includes(e.rel)).map(e => e.to.slice(6)));
+  const defining = new Set(edges.filter(e => ['sets', 'drilldown-sets', 'default', 'smart-source'].includes(e.rel) && e.to.startsWith('token:')).map(e => e.to.slice(6)));
   const resolve = name => {
     if (defining.has(name)) return { key: name, prop: '' };
     const stripped = name.startsWith('form.') ? name.slice(5) : name;
@@ -937,13 +1476,15 @@ function buildModel(src) {
         const dsn = nodes.get('ds:' + dsId);
         if (!dsn.enableSmartSources && !tn._warned) {
           tn._warned = true;
-          issue('warning', `Smart-source token ${u.raw} reads from "${u.smart.ds}", but that data source does not set "enableSmartSources": true.`, tn.id);
+          issue('warning', `Smart-source token ${u.raw} reads from "${u.smart.ds}", but that data source does not set "enableSmartSources": true.`, tn.id,
+            { label: `Turn on enableSmartSources for "${u.smart.ds}"`, apply: d => { const o = (d.dataSources?.[dsId] && (d.dataSources[dsId].options ||= {})); if (o) o.enableSmartSources = true; } });
         }
       } else issue('error', `Smart-source token ${u.raw} names data source "${u.smart.ds}", which does not exist.`, tn.id);
       edge(tn.id, u.nodeId, 'uses-token', u.path);
       usages.push({ token: tn.id, node: u.nodeId, path: u.path, raw: u.raw });
       continue;
     }
+    if (/_classicSets/.test(u.path) && /^(value|label|earliest|latest|result\.|job\.|row\.|click\.)/.test(u.name)) continue;
     if (owner.kind === 'viz' && /(^|\.)eventHandlers/.test(u.path) && DRILL_BUILTIN.test(u.name)) {
       owner.builtins.push(u.raw);
       continue;
@@ -987,13 +1528,63 @@ function buildModel(src) {
   const hasLayout = tabsDef.length > 0 || nodes.has('tab:__global__');
   for (const n of byKind('ds')) {
     if (!outE.get(n.id).some(e => ['feeds', 'extends', 'populates', 'smart-source'].includes(e.rel)))
-      issue('warning', 'This data source is not used by any visualization, input or chain search.', n.id);
+      issue('warning', 'This data source is not used by any visualization, input or chain search.', n.id,
+        { label: 'Remove this unused data source', apply: d => { delete d.dataSources?.[n.key]; } });
   }
   if (hasLayout) {
-    for (const n of byKind('viz')) if (!placed(n.id)) issue('warning', 'This visualization is defined but not placed on any tab or canvas, so it is never shown.', n.id);
-    for (const n of byKind('input')) if (!placed(n.id)) issue('warning', 'This input is defined but not placed on any tab or in the global input bar, so it is never shown.', n.id);
+    const fc = tabsDef[0];
+    for (const n of byKind('viz')) if (!placed(n.id)) issue('warning', 'This visualization is defined but not placed on any tab or canvas, so it is never shown.', n.id, fc ? {
+      label: `Place it at the bottom of "${fc.label}"`, apply: d => {
+        const LL = (d.layout ||= {}), tgt = LL.layoutDefinitions?.[fc.key] || LL;
+        tgt.structure ||= [];
+        const maxY = Math.max(0, ...tgt.structure.map(b => (Number(b?.position?.y) || 0) + (Number(b?.position?.h) || 0)));
+        tgt.structure.push({ item: n.key, type: 'block', position: { x: 0, y: maxY, w: Math.min(1200, Number(tgt.options?.width) || 1200), h: 300 } });
+      }
+    } : undefined);
+    for (const n of byKind('input')) if (!placed(n.id)) issue('warning', 'This input is defined but not placed on any tab or in the global input bar, so it is never shown.', n.id,
+      { label: 'Add it to the global input bar', apply: d => { const LL = (d.layout ||= {}); LL.globalInputs ||= []; if (!LL.globalInputs.includes(n.key)) LL.globalInputs.push(n.key); } });
   }
   for (const n of byKind('tab')) if (!inE.get(n.id).some(e => e.rel === 'contains')) issue('info', `Tab "${n.label}" is empty.`, n.id);
+
+  // ---- Behaviour checks: valid dashboards that don't do what you'd expect
+  const mainCmds = n => (n.sources?.commands || []).filter(c => !c.sub && !c.via);
+  const firstCmd = n => mainCmds(n)[0]?.name;
+  const timeToks = n => uniq((`${n.earliest?.v || ''} ${n.latest?.v || ''}`.match(/\$[^$\s|.]+/g) || []).map(x => x.slice(1)));
+  const ignoresTime = n => n.type === 'ds.search' && NO_EVENT_TIME.has(firstCmd(n));
+  for (const n of byKind('ds')) if (n.depth === 0 && timeToks(n).length && ignoresTime(n))
+    issue('warning', `The time range ($${timeToks(n).join('$, $')}$) has no effect on this search: it starts with | ${firstCmd(n)}, which doesn't filter by event time.`, n.id);
+  for (const inp of byKind('input')) {
+    if (shortType(inp.type) !== 'timerange' || !inp.token) continue;
+    const users = byKind('ds').filter(n => n.depth === 0 && timeToks(n).includes(inp.token));
+    if (users.length && users.every(ignoresTime))
+      issue('warning', `This time picker has no effect: every search that uses $${inp.token}$ (${users.map(u => u.label).join(', ')}) starts with a command that doesn't filter by event time, such as | inputlookup.`, inp.id);
+  }
+  for (const v of byKind('viz')) {
+    if (!/singlevalue/i.test(v.type)) continue;
+    const o = isObj(v.raw?.options) ? v.raw.options : {};
+    const wants = Object.entries(o).some(([k, val]) => (/trend/i.test(k) && !(/display/i.test(k) && val === 'off')) || (k === 'sparklineDisplay' && val !== 'off'));
+    const feed = (inE.get(v.id) || []).find(e => e.rel === 'feeds');
+    if (!wants || !feed) continue;
+    const cmds = nodes.get(feed.from).lineage.flatMap(id => mainCmds(nodes.get(id)));
+    const lastT = [...cmds].reverse().find(c => TRANSFORMING.has(c.name));
+    if (lastT && lastT.name !== 'timechart' && !/\b_time\b/.test(lastT.text || ''))
+      issue('warning', `This single value is set up to show a trend or sparkline, but its search ends with | ${lastT.name} without _time, so there is no time series to compare. Use | timechart (or split by _time) to get a trend.`, v.id);
+  }
+  const groupBy = (list, keyOf) => { const g = new Map(); for (const x of list) { const k = keyOf(x); if (k) (g.get(k) || g.set(k, []).get(k)).push(x); } return [...g.values()].filter(a => a.length > 1); };
+  // Key order and empty fields don't make panels different.
+  const stable = v => Array.isArray(v) ? '[' + v.map(stable).join(',') + ']'
+    : isObj(v) ? '{' + Object.keys(v).filter(k => v[k] !== '' && v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}' : JSON.stringify(v);
+  for (const g of groupBy(byKind('viz'), v => v.raw ? stable([v.type, v.title, v.raw.dataSources || {}, v.raw.options || {}, v.raw.context || {}]) : ''))
+    for (const v of g) issue('info', `This panel is identical to ${g.filter(x => x !== v).map(x => x.key).join(', ')} (same type, title, data source and options).`, v.id);
+  for (const g of groupBy(byKind('ds'), n => n.effectiveQuery ? [n.effectiveQuery.replace(/\s+/g, ' ').trim(), n.earliest?.v, n.latest?.v].join('\u0001') : ''))
+    for (const n of g) issue('info', `Runs the same SPL and time range as ${g.filter(x => x !== n).map(x => x.label).join(', ')}. The panels could share one data source.`, n.id);
+  const NON_EVENT = new Set([...NO_EVENT_TIME, 'tstats', 'mstats', 'mcatalog', 'datamodel', 'pivot', 'savedsearch', 'loadjob', 'metadata', 'dbinspect', 'eventcount', 'from']);
+  for (const n of byKind('ds')) {
+    if (n.depth !== 0 || n.type !== 'ds.search' || !(outE.get(n.id) || []).some(e => e.rel === 'extends')) continue;
+    const cmds = mainCmds(n);
+    if (NON_EVENT.has(cmds[0]?.name) || cmds.some(c => TRANSFORMING.has(c.name) || c.name === 'fields' || c.name === 'table')) continue;
+    issue('warning', 'This base search passes raw events, with every field, to its chain searches. Splunk keeps a limited number of events for chain searches (500,000 by default), so chains can work on incomplete results and run slowly. End it with | fields and the fields the chains need, or with a transforming command such as | stats.', n.id);
+  }
 
   const order = { error: 0, warning: 1, info: 2 };
   issues.sort((a, b) => order[a.severity] - order[b.severity]);
@@ -1002,7 +1593,7 @@ function buildModel(src) {
   return {
     title: dash.label, description: dash.description, format: src.format,
     layoutSummary: hasTabBar ? `${tabsDef.length} tabs` : (tabsDef.length ? `single ${tabsDef[0].def.type || ''} canvas`.replace('  ', ' ') : 'no layout'),
-    nodes, edges, issues, usages, outE, inE, maxDepth, byKind
+    nodes, edges, issues, usages, outE, inE, maxDepth, byKind, src
   };
 }
 
@@ -1087,6 +1678,7 @@ function timeRange(n) {
    Views
    ============================================================ */
 const VIEWS = [
+  { id: 'app', label: 'All dashboards', when: () => DASH.length > 1, count: () => DASH.length },
   { id: 'overview', label: 'Overview' },
   { id: 'mockup', label: 'Dashboard mockup' },
   { id: 'tabs', label: 'Tabs & layout', kind: 'tab' },
@@ -1103,13 +1695,17 @@ const VIEWS = [
   { sep: 'Relationships' },
   { id: 'graph', label: 'Relationship map' },
   { id: 'relationships', label: 'Relationship list' },
+  { sep: 'Checks and tools' },
   { id: 'issues', label: 'Issues' },
+  { id: 'compare', label: 'Compare versions' },
+  { id: 'config', label: 'Splunk config', count: () => CONFIG.macros.size + CONFIG.saved.size + CONFIG.datamodels.size || '' },
 ];
 
 function renderNav() {
   $('#nav').innerHTML = VIEWS.map(v => {
     if (v.sep) return `<hr><div class="navlabel">${esc(v.sep)}</div>`;
-    let count = '';
+    if (v.when && !v.when()) return '';
+    let count = v.count ? v.count() : '';
     if (v.kinds) count = v.kinds.reduce((a, k) => a + M.byKind(k).length, 0);
     else if (v.kind) {
       const c = M.byKind(v.kind).length;
@@ -1124,13 +1720,15 @@ function renderNav() {
 
 function render() {
   renderNav();
+  if (!VIEWS.some(x => x.id === view && (!x.when || x.when()))) view = 'overview';
   const v = VIEWS.find(x => x.id === view);
   $('#view-title').textContent = v.label;
   const root = $('#view');
   root.innerHTML = ({
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
-    graph: () => '', relationships: viewRelationships, issues: viewIssues
+    graph: () => '', relationships: viewRelationships, issues: viewIssues,
+    app: viewApp, compare: viewCompare, config: viewConfig
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -1153,7 +1751,9 @@ function viewOverview() {
       <dt>Layout</dt><dd>${esc(M.layoutSummary)}</dd>
       <dt>Source</dt><dd>${esc(M.format)}</dd>
       <dt>Relationships</dt><dd>${M.edges.length} connections between ${M.nodes.size - 1} items</dd>
+      ${hasConfig() ? `<dt>Splunk config</dt><dd>${plural(CONFIG.macros.size, 'macro')}, ${plural(CONFIG.saved.size, 'saved search', 'saved searches')} and ${plural(CONFIG.datamodels.size, 'data model')} loaded and expanded</dd>` : ''}
     </dl>
+    ${(M.src.repairs || []).length || (M.src.notes || []).length ? `<div class="notes"><b>While loading:</b><ul>${[...(M.src.repairs || []).map(r => 'Repaired: ' + r), ...(M.src.notes || [])].map(r => `<li>${esc(r)}</li>`).join('')}</ul>${(M.src.repairs || []).length ? '<button class="btn small" data-view="issues">Download the clean definition from the Issues page</button>' : ''}</div>` : ''}
   </div>
   <div class="stats">
     ${stat('tabs', 'tab', tabs.length, 'Tabs', tabs.map(t => esc(t.label)).join(' · ') || '—')}
@@ -1396,6 +1996,7 @@ function viewMacros() {
   table([
     { h: 'Macro', f: n => chip(n.id) + issueMark(n.id) },
     { h: 'Arguments', f: n => String(n.arity) },
+    { h: 'Definition', cls: 'q', f: n => n.config ? `<code>${esc(n.config.definition)}</code>` : '<span class="muted small">Paste macros.conf on the Splunk config page to see it.</span>' },
     { h: 'Calls as written', cls: 'q', f: n => n.calls.map(c => `<code>\`${esc(c)}\`</code>`).join('') },
     { h: 'Used by', f: n => chips(outs(n.id, ['macro-used']).map(e => e.to)) },
     { h: 'Inherited by chain searches', f: n => chips(dataDown(n.id).filter(x => x.startsWith('ds:') && !outs(n.id, ['macro-used']).some(e => e.to === x))) },
@@ -1435,44 +2036,136 @@ function viewLookups() {
   ], M.byKind('lookup'));
 }
 
-/* ---------- Dashboard mockup ---------- */
-const mockState = { tab: null, defaults: true };
-// Replace $token$ references with the token's default value, when it has one.
-function withDefaults(str) {
+/* ---------- Dashboard mockup (interactive) ---------- */
+const mockState = { tab: null, substitute: true, showHidden: true, values: null };
+// Token values start from the defaults: an input's default first, then dashboard defaults.
+function resetMockValues() {
+  mockState.values = new Map();
+  for (const t of M.byKind('token')) {
+    const d = (t.defaults || []).find(x => x.value !== undefined && x.value !== '');
+    if (d) mockState.values.set(t.key, Array.isArray(d.value) ? d.value.map(String) : String(d.value));
+  }
+}
+const mockValues = () => { if (!mockState.values) resetMockValues(); return mockState.values; };
+const hasValue = key => { const v = mockValues().get(key); return v !== undefined && !(Array.isArray(v) && !v.length); };
+// The text a token expands to, honouring multiselect prefixes and delimiters and timerange .earliest/.latest.
+function tokenText(name) {
+  const key0 = String(name).split('|')[0].replace(/^form\./, '');
+  let key = key0, prop = '';
+  if (!M.nodes.has('token:' + key)) { const i = key.lastIndexOf('.'); if (i > 0 && M.nodes.has('token:' + key.slice(0, i))) { prop = key.slice(i + 1); key = key.slice(0, i); } }
+  const v = mockValues().get(key);
+  if (v === undefined) return undefined;
+  if (Array.isArray(v)) {
+    const inp = ins('token:' + key, ['sets']).map(e => M.nodes.get(e.from)).find(n => n?.kind === 'input');
+    const o = inp?.raw?.options || {};
+    const body = v.map(x => (o.valuePrefix || '') + x + (o.valueSuffix || '')).join(o.delimiter ?? ' ');
+    return (o.prefix || '') + body + (o.suffix || '');
+  }
+  if (prop === 'earliest' || prop === 'latest') { const [e, l] = String(v).split(','); return prop === 'earliest' ? e : (l || 'now'); }
+  return String(v);
+}
+function withValues(str) {
   str = String(str ?? '');
-  if (!mockState.defaults) return str;
-  return str.replace(/\$\$|\$([^$\s]+?)\$/g, (all, name) => {
-    if (!name) return '$';
-    const key = name.split('|')[0];
-    let t = M.nodes.get('token:' + key), prop = '';
-    if (!t) { const i = key.lastIndexOf('.'); if (i > 0) { t = M.nodes.get('token:' + key.slice(0, i)); prop = key.slice(i + 1); } }
-    const d = t?.defaults?.[0]?.value;
-    if (d === undefined) return all;
-    if (prop && typeof d === 'string' && d.includes(',')) { const [e, l] = d.split(','); return prop === 'earliest' ? e : prop === 'latest' ? l : all; }
-    return Array.isArray(d) ? d.join(', ') : String(d);
-  });
+  if (!mockState.substitute) return str;
+  return str.replace(/\$\$|\$([^$\s]+?)\$/g, (all, name) => { if (!name) return '$'; const v = tokenText(name); return v === undefined ? all : v; });
+}
+/* Condition expressions: comparisons (= == != < > <= >=), AND/OR/NOT (&& || !), parentheses,
+   strings, numbers, true/false/null, and $tokens$. Anything else is reported as "can't evaluate". */
+function evalExpr(src) {
+  const toks = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i], rest = src.slice(i);
+    if (/\s/.test(ch)) { i++; continue; }
+    if (ch === '"' || ch === "'") {
+      let j = i + 1, s = '';
+      while (j < src.length && src[j] !== ch) { if (src[j] === '\\') j++; s += src[j++] ?? ''; }
+      toks.push({ t: 'val', v: withValuesForce(s) }); i = j + 1; continue;
+    }
+    let m;
+    if ((m = rest.match(/^\$([^$\s]+)\$/))) { const v = tokenText(m[1]); toks.push({ t: 'val', v: v === undefined ? null : v }); i += m[0].length; continue; }
+    if ((m = rest.match(/^(==|!=|<=|>=|&&|\|\||=|<|>|!|\(|\))/))) { toks.push({ t: 'op', v: m[1] }); i += m[1].length; continue; }
+    if ((m = rest.match(/^-?\d+(\.\d+)?/))) { toks.push({ t: 'val', v: +m[0] }); i += m[0].length; continue; }
+    if ((m = rest.match(/^[A-Za-z_][\w.]*/))) {
+      const u = m[0].toUpperCase();
+      if (u === 'AND') toks.push({ t: 'op', v: '&&' }); else if (u === 'OR') toks.push({ t: 'op', v: '||' }); else if (u === 'NOT') toks.push({ t: 'op', v: '!' });
+      else if (u === 'TRUE' || u === 'FALSE') toks.push({ t: 'val', v: u === 'TRUE' }); else if (u === 'NULL') toks.push({ t: 'val', v: null });
+      else throw new Error('unsupported word ' + m[0]);
+      i += m[0].length; continue;
+    }
+    throw new Error('unexpected ' + ch);
+  }
+  let p = 0;
+  const isOp = v => toks[p]?.t === 'op' && toks[p].v === v;
+  const num = x => x !== null && x !== '' && !isNaN(Number(x));
+  const compare = (a, op, b) => {
+    if (op === '=') op = '==';
+    if (a === null || b === null) return op === '==' ? a === b : op === '!=' ? a !== b : false;
+    if (num(a) && num(b)) { a = Number(a); b = Number(b); } else { a = String(a); b = String(b); }
+    return { '==': a === b, '!=': a !== b, '<': a < b, '>': a > b, '<=': a <= b, '>=': a >= b }[op];
+  };
+  const or = () => { let a = and(); while (isOp('||')) { p++; const b = and(); a = truthy(a) || truthy(b); } return a; };
+  const and = () => { let a = not(); while (isOp('&&')) { p++; const b = not(); a = truthy(a) && truthy(b); } return a; };
+  const not = () => { if (isOp('!')) { p++; return !truthy(not()); } return cmp(); };
+  const cmp = () => {
+    const a = prim(), o = toks[p];
+    if (o?.t === 'op' && ['==', '=', '!=', '<', '>', '<=', '>='].includes(o.v)) { p++; return compare(a, o.v, prim()); }
+    return a;
+  };
+  const prim = () => {
+    const k = toks[p++];
+    if (!k) throw new Error('unexpected end');
+    if (k.t === 'op' && k.v === '(') { const v = or(); if (!isOp(')')) throw new Error('missing )'); p++; return v; }
+    if (k.t === 'val') return k.v;
+    throw new Error('unexpected ' + k.v);
+  };
+  const v = or();
+  if (p < toks.length) throw new Error('unexpected ' + toks[p].v);
+  return v;
+}
+const truthy = v => v !== null && v !== undefined && v !== false && v !== '' && v !== 0 && v !== 'false';
+const withValuesForce = s => String(s).replace(/\$([^$\s]+?)\$/g, (all, n) => tokenText(n) ?? '');
+// true / false, or null when the expression can't be evaluated here.
+function evalCondition(c) {
+  const cl = c?.raw?._classic;
+  if (cl) return cl.depends.every(hasValue) && !cl.rejects.some(hasValue);
+  try { return truthy(evalExpr(String(c?.value ?? ''))); } catch { return null; }
+}
+// Hidden by a condition? Waiting for tokens that have no value?
+function panelState(n) {
+  let hidden = false, unknown = false;
+  for (const e of ins(n.id, ['visibility'])) {
+    const r = evalCondition(M.nodes.get(e.from));
+    if (r === null) unknown = true;
+    else if ((e.detail === 'show when' && !r) || (e.detail === 'hide when' && r)) hidden = true;
+  }
+  const searchToks = n.kind === 'viz' ? uniq(ins(n.id, ['feeds']).flatMap(e => M.nodes.get(e.from)?.lineage || []).flatMap(id => directTokens(id))) : [];
+  const waiting = searchToks.filter(t => { const tn = M.nodes.get(t); return tn && tn.subtype !== 'env' && tn.subtype !== 'smart' && !hasValue(tn.key); });
+  return { hidden, unknown, waiting };
 }
 function mockInput(n, inCanvas) {
   const t = shortType(n.type);
-  const dv = n.defaultValue;
-  const labelOf = v => { const it = (n.items || []).find(i => String(i?.value) === String(v)); return it ? fmt(it.label ?? it.value) : fmt(v); };
+  const tok = n.token;
+  const v = tok ? mockValues().get(tok) : undefined;
+  const items = (n.items || []).map(i => ({ label: fmt(i?.label ?? i?.value), value: fmt(i?.value ?? i?.label) }));
+  const dyn = ins(n.id, ['populates']).length > 0;
+  const attrs = `data-mock-token="${esc(tok || '')}" data-mock-type="${esc(t)}" ${tok ? '' : 'disabled'} aria-label="${esc(n.title || n.key)}"`;
   let ctl;
-  if (t === 'timerange') {
-    const [e, l] = String(dv ?? '').split(',');
-    ctl = `<div class="mock-ctl">🕑 ${esc(dv === undefined ? 'Time range' : `${e || '…'} → ${l || 'now'}`)}<span class="caret">▾</span></div>`;
-  } else if (t === 'multiselect') {
-    const vals = Array.isArray(dv) ? dv : dv === undefined ? [] : [dv];
-    ctl = `<div class="mock-ctl">${vals.map(v => `<span class="pill">${esc(labelOf(v))}</span>`).join('') || '<span class="muted">Select…</span>'}<span class="caret">▾</span></div>`;
-  } else if (t === 'checkbox' || t === 'radio') {
-    const vals = Array.isArray(dv) ? dv.map(String) : [String(dv)];
-    ctl = `<div class="mock-opts">${(n.items || []).slice(0, 6).map(i => `<span>${vals.includes(String(i?.value)) ? (t === 'radio' ? '◉' : '☑') : (t === 'radio' ? '○' : '☐')} ${esc(fmt(i?.label ?? i?.value))}</span>`).join('') || '<span class="muted">options from search</span>'}</div>`;
-  } else if (t === 'text' || t === 'number') {
-    ctl = `<div class="mock-ctl">${dv !== undefined ? esc(fmt(dv)) : '<span class="muted">Enter a value</span>'}</div>`;
+  if (t === 'dropdown' || t === 'radio') {
+    const opts = [...items];
+    if (v !== undefined && !opts.some(o => o.value === String(v))) opts.push({ label: String(v), value: String(v) });
+    ctl = `<select class="mock-ctl" ${attrs}><option value="">${dyn ? '(options come from a search)' : 'Select…'}</option>${opts.map(o => `<option value="${esc(o.value)}" ${String(v) === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+  } else if (t === 'multiselect' || t === 'checkbox') {
+    const cur = Array.isArray(v) ? v : v === undefined ? [] : [String(v)];
+    const opts = [...items];
+    for (const c of cur) if (!opts.some(o => o.value === c)) opts.push({ label: c, value: c });
+    ctl = `<div class="mock-opts" ${attrs} data-multi="1">${opts.map(o => `<label><input type="checkbox" value="${esc(o.value)}" ${cur.includes(o.value) ? 'checked' : ''}> ${esc(o.label)}</label>`).join('') || '<span class="muted small">options come from a search</span>'}</div>`;
   } else {
-    ctl = `<div class="mock-ctl">${dv !== undefined ? esc(labelOf(dv)) : '<span class="muted">Select…</span>'}<span class="caret">▾</span></div>`;
+    const ph = t === 'timerange' ? 'earliest,latest' : t === 'number' ? 'number' : 'value';
+    ctl = `<input class="mock-ctl" ${attrs} value="${esc(v === undefined ? '' : fmt(v))}" placeholder="${ph}"${t === 'timerange' ? ' title="earliest,latest, for example -24h@h,now"' : ''}>`;
   }
-  const inner = `<div class="lbl" title="${esc(n.title || n.key)}">${esc(n.title || n.key)}</div>${ctl}`;
-  return inCanvas ? inner : `<div class="mock-input mock-item" data-id="${esc(n.id)}" title="${esc('Input: ' + n.key + (n.token ? ' → $' + n.token + '$' : ''))}">${inner}</div>`;
+  const inner = `<div class="lbl"><button class="linklike" data-open="${esc(n.id)}" title="Open details">${esc(n.title || n.key)}</button>${tok ? ` <span class="muted">$${esc(tok)}$</span>` : ''}</div>${ctl}`;
+  return inCanvas ? inner : `<div class="mock-input">${inner}</div>`;
 }
 // Placeholder drawing for a visualization type. Shapes are illustrative only, not data.
 function vizSketch(n) {
@@ -1482,7 +2175,7 @@ function vizSketch(n) {
   if (/singlevalue|gauge|marker/.test(t)) return `<div class="big">1,234</div>`;
   if (t === 'markdown') {
     const md = String(n.raw?.options?.markdown ?? '');
-    const lines = withDefaults(md).split('\n').slice(0, 8).map(l => {
+    const lines = withValues(md).split('\n').slice(0, 8).map(l => {
       const h = l.match(/^(#{1,6})\s*(.*)$/);
       const txt = esc((h ? h[2] : l).replace(/\*\*|__|`/g, ''));
       return h ? `<div style="font-weight:650;font-size:${Math.max(12, 18 - h[1].length * 2)}px">${txt}</div>` : `<div>${txt || '&nbsp;'}</div>`;
@@ -1506,58 +2199,497 @@ function vizSketch(n) {
 function mockPanel(item, style) {
   const n = M.nodes.get(item.id);
   if (!n) return '';
-  if (n.kind === 'input') return `<div class="mock-panel input-item mock-item" data-id="${esc(n.id)}" style="${style}" title="${esc('Input: ' + n.key)}">${mockInput(n, true)}</div>`;
+  const st = panelState(n);
+  if (st.hidden && !mockState.showHidden) return '';
+  const hiddenCls = st.hidden ? ' hidden-panel' : '';
+  if (n.kind === 'input') return `<div class="mock-panel input-item${hiddenCls}" style="${style}">${mockInput(n, true)}</div>`;
   const t = shortType(n.type).toLowerCase();
   const shape = t === 'rectangle' || t === 'ellipse';
   const ds = ins(n.id, ['feeds']).map(e => M.nodes.get(e.from)?.label).filter(Boolean);
   const flags = [];
-  if (ins(n.id, ['visibility']).length) flags.push('<span title="Shown or hidden by a condition">conditional</span>');
+  if (st.hidden) flags.push('<span class="warn">hidden by condition</span>');
+  else if (ins(n.id, ['visibility']).length) flags.push(`<span title="Shown or hidden by a condition">${st.unknown ? 'condition: can\'t evaluate' : 'conditional'}</span>`);
   if (/hidden when no data/.test(n.visibility || '')) flags.push('<span>hides if empty</span>');
-  if (outs(n.id, ['drilldown-sets']).length || n.drilldowns.length) flags.push('<span title="Has a drilldown">drilldown</span>');
-  if (issuesFor(n.id).some(i => i.severity === 'error')) flags.push('<span style="color:var(--sev-error)">error</span>');
-  const title = n.title ? `<div class="t" title="${esc(n.title)}">${esc(withDefaults(n.title))}</div>` : '';
+  const sets = outs(n.id, ['drilldown-sets']).map(e => M.nodes.get(e.to)?.label);
+  if (sets.length || n.drilldowns.length) flags.push(`<span title="${esc(n.drilldowns.map(d => d.text).join('; '))}">drilldown${sets.length ? ' → ' + esc(sets.join(', ')) : ''}</span>`);
+  if (issuesFor(n.id).some(i => i.severity === 'error')) flags.push('<span class="err">error</span>');
+  const title = n.title ? `<div class="t" title="${esc(n.title)}">${esc(withValues(n.title))}</div>` : '';
   const tip = `${n.key} · ${n.type}${ds.length ? ' · data: ' + ds.join(', ') : ''}`;
-  return `<div class="mock-panel mock-item${shape ? ' shape' : ''}" data-id="${esc(n.id)}" style="${style}" title="${esc(tip)}">
-    ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}${title}<div class="b">${vizSketch(n)}</div>
+  const waiting = st.waiting.length ? `<div class="waiting">Waiting for input: ${esc(st.waiting.map(x => M.nodes.get(x).label).join(', '))}</div>` : '';
+  return `<div class="mock-panel mock-item${shape ? ' shape' : ''}${hiddenCls}" data-id="${esc(n.id)}" style="${style}" title="${esc(tip)}">
+    ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}${title}<div class="b${waiting ? ' faded' : ''}">${vizSketch(n)}</div>${waiting}
     ${!shape && t !== 'markdown' ? `<div class="f">${esc(shortType(n.type))}${ds.length ? ' · ' + esc(ds.join(', ')) : ''}</div>` : ''}</div>`;
 }
-function mockCanvas(tab) {
+// Canvas size and the items that have positions.
+function canvasGeometry(tab) {
   const items = tab.items || [];
-  if (!items.length) return '<p class="muted">This tab is empty.</p>';
   const placed = items.filter(i => i.position && i.position.x !== undefined && i.position.w);
-  const unplaced = items.filter(i => !placed.includes(i));
+  const W = Number(tab.options?.width) || Math.max(1200, ...placed.map(i => i.position.x + i.position.w));
+  const H = Number(tab.options?.height) && tab.layoutType === 'absolute' ? Number(tab.options.height) : Math.max(1, ...placed.map(i => i.position.y + i.position.h));
+  return { items, placed, unplaced: items.filter(i => !placed.includes(i)), W, H };
+}
+function mockCanvas(tab) {
+  const g = canvasGeometry(tab);
+  if (!g.items.length) return '<p class="muted">This tab is empty.</p>';
   let html = '';
-  if (placed.length) {
-    const W = Number(tab.options?.width) || Math.max(1200, ...placed.map(i => i.position.x + i.position.w));
-    const H = Number(tab.options?.height) && tab.layoutType === 'absolute' ? Number(tab.options.height) : Math.max(...placed.map(i => i.position.y + i.position.h));
+  if (g.placed.length) {
     const pct = (v, of) => (v / of * 100).toFixed(3) + '%';
-    html += `<div class="mock-canvas" style="aspect-ratio: ${W} / ${H}">` + placed.map(i => {
+    html += `<div class="mock-canvas" style="aspect-ratio: ${g.W} / ${g.H}">` + g.placed.map(i => {
       const p = i.position;
       // A small inset so neighbouring grid panels read as separate panels.
-      return mockPanel(i, `left:calc(${pct(p.x, W)} + 3px);top:calc(${pct(p.y, H)} + 3px);width:calc(${pct(p.w, W)} - 6px);height:calc(${pct(p.h, H)} - 6px)`);
+      return mockPanel(i, `left:calc(${pct(p.x, g.W)} + 3px);top:calc(${pct(p.y, g.H)} + 3px);width:calc(${pct(p.w, g.W)} - 6px);height:calc(${pct(p.h, g.H)} - 6px)`);
     }).join('') + `</div>`;
   }
-  if (unplaced.length) html += `<div class="mock-flow" style="margin-top:10px">${unplaced.map(i => mockPanel(i, '')).join('')}</div>`;
+  if (g.unplaced.length) html += `<div class="mock-flow" style="margin-top:10px">${g.unplaced.map(i => mockPanel(i, '')).join('')}</div>`;
   return html;
 }
+function mockTabs() { return M.byKind('tab').filter(t => !t.global).sort((a, b) => a.order - b.order); }
 function viewMockup() {
-  const tabs = M.byKind('tab').filter(t => !t.global).sort((a, b) => a.order - b.order);
+  const tabs = mockTabs();
   const global = M.nodes.get('tab:__global__');
   if (!tabs.length && !global) return '<p class="muted">This dashboard has no layout to draw.</p>';
   if (!tabs.some(t => t.id === mockState.tab)) mockState.tab = tabs[0]?.id || null;
   const cur = M.nodes.get(mockState.tab);
   const gInputs = (global?.items || []).map(i => M.nodes.get(i.id)).filter(Boolean);
+  const editable = M.byKind('token').filter(t => t.subtype !== 'env');
   return `<div class="mock-controls">
-      <label><input type="checkbox" id="mock-defaults" ${mockState.defaults ? 'checked' : ''}> Fill titles with default token values</label>
-      <span class="muted small">Positions and sizes come from the layout. Charts are placeholders for each visualization type, not real data. Click any panel or input to see its details.</span>
+      <label><input type="checkbox" id="mock-sub" ${mockState.substitute ? 'checked' : ''}> Show token values in titles</label>
+      <label><input type="checkbox" id="mock-hidden" ${mockState.showHidden ? 'checked' : ''}> Show hidden panels (dimmed)</label>
+      <button class="btn small" id="mock-reset">Reset token values</button>
+      <button class="btn small" id="mock-svg">Export SVG</button>
+      <button class="btn small" id="mock-png">Export PNG</button>
     </div>
+    <p class="muted small" style="margin:0 0 10px">Change inputs or token values to see titles, conditional panels and "waiting for input" states update. Positions come from the layout. Charts are placeholders, not real data. Click a panel, or an input's name, for details.</p>
     <div class="mock-scroll"><div class="mock-dash">
-      <div class="mock-head"><h3>${esc(M.title)}</h3>${M.description ? `<span class="muted small">${esc(M.description)}</span>` : ''}</div>
+      <div class="mock-head"><h3>${esc(withValues(M.title))}</h3>${M.description ? `<span class="muted small">${esc(M.description)}</span>` : ''}</div>
       ${tabs.length > 1 || cur?.isTab ? `<div class="mock-tabs" role="tablist">${tabs.map(t => `<button role="tab" data-mocktab="${esc(t.id)}" aria-selected="${t.id === mockState.tab}">${esc(t.label)}</button>`).join('')}</div>` : ''}
       ${gInputs.length ? `<div class="mock-inputs">${gInputs.map(n => mockInput(n, false)).join('')}</div>` : ''}
       ${cur ? mockCanvas(cur) : ''}
       ${cur ? `<div class="muted small" style="margin-top:8px">${esc(cur.layoutType || 'canvas')} layout${cur.options?.width ? ` · ${cur.options.width}×${cur.options.height || '?'}` : ''} · ${plural((cur.items || []).length, 'item')}</div>` : ''}
+    </div></div>
+    <div class="section-title">Token values</div>
+    <p class="muted small" style="margin:0 0 6px">Set a token to simulate a drilldown click or a search result. Leave it empty for "no value". Separate several values with commas for a multiselect.</p>
+    ${table([
+      { h: 'Token', f: t => chip(t.id) },
+      { h: 'Set by', f: t => chips(ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => e.from)) },
+      { h: 'Value', f: t => { const v = mockValues().get(t.key); return `<input class="mock-ctl" style="min-width:220px" data-mock-token="${esc(t.key)}" data-mock-type="${Array.isArray(v) ? 'list' : 'text'}" value="${esc(Array.isArray(v) ? v.join(',') : v ?? '')}" placeholder="(no value)" aria-label="Value of ${esc(t.label)}">`; } },
+      { h: 'Used by', f: t => chips(uniq(outs(t.id, ['uses-token']).map(e => e.to))) },
+    ], editable)}`;
+}
+function onMockChange(el) {
+  const box = el.closest('[data-mock-token]');
+  const tok = box?.dataset.mockToken;
+  if (!tok) return false;
+  let v;
+  if (box.dataset.multi) v = [...box.querySelectorAll('input:checked')].map(x => x.value);
+  else if (box.dataset.mockType === 'list' || box.dataset.mockType === 'multiselect' || box.dataset.mockType === 'checkbox') v = box.value.split(',').map(x => x.trim()).filter(Boolean);
+  else v = box.value;
+  if (v === '' || (Array.isArray(v) && !v.length)) mockValues().delete(tok); else mockValues().set(tok, v);
+  render();
+  return true;
+}
+
+/* ---------- Mockup as SVG / PNG ---------- */
+function mockupSvg(tabId = mockState.tab) {
+  const cs = getComputedStyle(document.documentElement);
+  const col = (v, d) => cs.getPropertyValue(v).trim() || d;
+  const C = { bg: col('--panel', '#fff'), canvas: col('--panel-2', '#f1f3f6'), border: col('--border', '#dde1e7'), text: col('--text', '#1b1f24'), muted: col('--muted', '#5f6b7a'), accent: col('--accent', '#2f6fde'), warn: col('--sev-warning', '#b7791f') };
+  const FONT = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  const T = (x, y, s, size = 12, color = C.text, weight = 400, anchor = 'start') => `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-family="${FONT}" font-size="${size}" fill="${color}" font-weight="${weight}" text-anchor="${anchor}">${esc(s)}</text>`;
+  const fit = (s, px, size) => { s = String(s ?? ''); const max = Math.max(1, Math.floor(px / (size * 0.56))); return s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s; };
+  const R = (x, y, w, h, fill, stroke, extra = '') => `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0, w).toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="4" fill="${fill}" stroke="${stroke}" ${extra}/>`;
+  const W = 1232, PAD = 16;
+  let y = PAD, out = '';
+  out += T(PAD, y + 18, fit(withValues(M.title), W - 2 * PAD, 18), 18, C.text, 650); y += 34;
+  const tabs = mockTabs(), tab = M.nodes.get(tabId);
+  if (tabs.length > 1 || tab?.isTab) {
+    let x = PAD;
+    for (const t of tabs) {
+      const w = t.label.length * 7.2 + 28;
+      out += T(x + 14, y + 18, t.label, 13, t.id === tabId ? C.text : C.muted, t.id === tabId ? 600 : 400);
+      if (t.id === tabId) out += `<rect x="${x}" y="${y + 27}" width="${w}" height="2" fill="${C.accent}"/>`;
+      x += w;
+    }
+    out += `<rect x="${PAD}" y="${y + 29}" width="${W - 2 * PAD}" height="1" fill="${C.border}"/>`;
+    y += 40;
+  }
+  const inputBox = (n, x, yy, w) => {
+    const v = n.token ? tokenText(n.token) : undefined;
+    return T(x, yy + 11, fit(n.title || n.key, w, 11), 11, C.muted) + R(x, yy + 16, w, 26, C.bg, C.border) + T(x + 8, yy + 33, fit(v ?? '—', w - 16, 12), 12, v === undefined ? C.muted : C.text);
+  };
+  const gInputs = (M.nodes.get('tab:__global__')?.items || []).map(i => M.nodes.get(i.id)).filter(Boolean);
+  if (gInputs.length) {
+    let x = PAD;
+    for (const n of gInputs) { if (x + 180 > W - PAD) { x = PAD; y += 52; } out += inputBox(n, x, y, 170); x += 180; }
+    y += 52;
+  }
+  if (tab) {
+    const g = canvasGeometry(tab);
+    const scale = (W - 2 * PAD) / g.W, ch = g.H * scale;
+    out += R(PAD, y, W - 2 * PAD, ch, C.canvas, 'none');
+    for (const it of g.placed) {
+      const n = M.nodes.get(it.id);
+      if (!n) continue;
+      const st = panelState(n);
+      if (st.hidden && !mockState.showHidden) continue;
+      const p = it.position, x0 = PAD + p.x * scale + 3, y0 = y + p.y * scale + 3, w = p.w * scale - 6, h = p.h * scale - 6;
+      let g2 = '';
+      if (n.kind === 'input') g2 += inputBox(n, x0 + 4, y0 + Math.max(0, (h - 44) / 2), Math.min(w - 8, 260));
+      else {
+        const t = shortType(n.type).toLowerCase(), shape = t === 'rectangle' || t === 'ellipse';
+        if (!shape) g2 += R(x0, y0, w, h, C.bg, C.border);
+        let top = y0 + 8;
+        if (n.title) { g2 += T(x0 + 8, y0 + 17, fit(withValues(n.title), w - 16, 12), 12, C.text, 600); top = y0 + 24; }
+        const foot = shape || t === 'markdown' ? 0 : 16;
+        const bx = x0 + 8, bw = w - 16, bh = Math.max(0, y0 + h - foot - 6 - top);
+        const sk = vizSketch(n);
+        if (sk.startsWith('<svg')) g2 += sk.replace('<svg ', `<svg x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" color="${C.accent}" style="color:${C.accent}" opacity="${st.waiting.length ? 0.3 : 1}" `);
+        else if (sk.includes('class="big"')) g2 += T(x0 + w / 2, top + bh / 2 + 10, '1,234', Math.min(34, Math.max(16, bh / 3)), C.accent, 650, 'middle');
+        else if (t === 'markdown') String(withValues(n.raw?.options?.markdown ?? '')).split('\n').slice(0, Math.max(1, Math.floor(bh / 16))).forEach((l, i) => {
+          const hd = l.match(/^(#{1,6})\s*(.*)$/);
+          g2 += T(bx, top + 12 + i * 16, fit((hd ? hd[2] : l).replace(/\*\*|__|`/g, ''), bw, 12), hd ? 13 : 12, C.text, hd ? 650 : 400);
+        });
+        else g2 += T(bx, top + 14, shortType(n.type), 11, C.muted);
+        if (st.waiting.length) g2 += T(x0 + w / 2, top + bh / 2, fit('Waiting for input: ' + st.waiting.map(x => M.nodes.get(x).label).join(', '), w - 16, 11), 11, C.warn, 600, 'middle');
+        if (foot) g2 += T(x0 + 8, y0 + h - 7, fit(shortType(n.type) + (ins(n.id, ['feeds']).length ? ' · ' + ins(n.id, ['feeds']).map(e => M.nodes.get(e.from)?.label).join(', ') : ''), w - 16, 10), 10, C.muted);
+      }
+      out += st.hidden ? `<g opacity="0.3">${g2}</g>` : g2;
+    }
+    y += ch + PAD;
+  }
+  const H = Math.ceil(y + PAD);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="${C.bg}"/>${out}</svg>`;
+}
+function mockFileName(ext) {
+  const tab = M.nodes.get(mockState.tab);
+  return `${slug(M.title)}-mockup${tab && mockTabs().length > 1 ? '-' + slug(tab.label) : ''}.${ext}`;
+}
+async function exportMockupPng() {
+  const svg = mockupSvg();
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('The mockup image could not be drawn.')); img.src = url; });
+    const c = document.createElement('canvas');
+    c.width = img.width * 2; c.height = img.height * 2;
+    const g = c.getContext('2d');
+    g.scale(2, 2); g.drawImage(img, 0, 0);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    await download(mockFileName('png'), blob, 'image/png');
+  } catch (e) { alert(e.message); }
+  finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- Issues and fixes ---------- */
+let FIX_SEL = new Set();
+function viewIssues() {
+  const repairs = M.src.repairs || [];
+  const fixable = M.issues.map((x, i) => [x, i]).filter(([x]) => x.fix);
+  const bar = `<div class="card fixbar">
+    ${fixable.length ? `<b>${plural(fixable.length, 'issue')} can be fixed automatically.</b> Tick the fixes you want, then download the corrected definition or load it here.`
+      : '<b>No issue here has a safe automatic fix.</b>'}
+    ${repairs.length ? ` Loading also repaired the source (${repairs.length}), so a downloaded definition is clean, valid JSON.` : ''}
+    <div class="loader-actions" style="margin-top:8px">
+      ${fixable.length ? `<button class="btn small" id="fix-all">Select all fixes</button><button class="btn small" id="fix-none">Clear selection</button>` : ''}
+      <button class="btn primary small" id="fix-download">Download definition${FIX_SEL.size ? ` with ${plural(FIX_SEL.size, 'fix', 'fixes')}` : ''}</button>
+      ${FIX_SEL.size ? `<button class="btn small" id="fix-load">Load the fixed version</button>` : ''}
     </div></div>`;
+  if (!M.issues.length) return bar + '<p>No issues found. Every reference resolves, every item is placed, every token is defined, and the SPL checks passed.</p>';
+  return bar + table([
+    { h: 'Severity', f: i => sevBadge(i.severity) },
+    { h: 'Item', f: i => chip(i.ref) },
+    { h: 'Issue', f: i => esc(i.message) },
+    { h: 'Fix', f: i => { const k = M.issues.indexOf(i); return i.fix ? `<label class="small"><input type="checkbox" data-fix="${k}" ${FIX_SEL.has(k) ? 'checked' : ''}> ${esc(i.fix.label)}</label>` : ''; } },
+  ], M.issues);
+}
+// The definition with the selected fixes applied (and internal converter fields removed).
+function fixedDefinition() {
+  const d = structuredClone(M.src.def);
+  for (const k of FIX_SEL) { try { M.issues[k]?.fix?.apply(d); } catch (e) { console.warn('Fix failed', e); } }
+  return stripInternal(d);
+}
+function definitionFile(d) {
+  const json = JSON.stringify(d, null, 2);
+  const s = M.src;
+  if (s.xmlText && !s.classic && /<definition>[\s\S]*?<\/definition>/.test(s.xmlText)) {
+    const cdata = '<definition><![CDATA[\n' + json.replace(/]]>/g, ']]]]><![CDATA[>') + '\n]]></definition>';
+    return { name: slug(M.title) + '.xml', text: s.xmlText.replace(/<definition>[\s\S]*?<\/definition>/, () => cdata), type: 'application/xml' };
+  }
+  return { name: slug(M.title) + (s.classic ? '-studio' : '') + '.json', text: json + '\n', type: 'application/json' };
+}
+function downloadDefinition() { const f = definitionFile(fixedDefinition()); download(f.name, f.text, f.type); }
+function loadFixed() {
+  const fixed = fixedDefinition();
+  const src = { ...M.src, def: fixed, repairs: [], notes: [`Loaded with ${plural(FIX_SEL.size, 'fix', 'fixes')} applied. Download the definition from the Issues page to keep it.`] };
+  DASH[CUR_I] = { src, model: buildModel(src) };
+  selectDash(CUR_I, 'issues');
+}
+
+/* ---------- All dashboards (app-wide) ---------- */
+function sharedItems() {
+  const map = new Map();
+  const add = (kind, name, i, detail) => {
+    const k = kind + '\u0001' + name;
+    if (!map.has(k)) map.set(k, { kind, name, uses: new Map() });
+    const u = map.get(k).uses;
+    if (!u.has(i)) u.set(i, new Set());
+    if (detail) u.get(i).add(detail);
+  };
+  DASH.forEach((x, i) => {
+    const m = x.model;
+    for (const n of m.byKind('index')) add('Index', n.label, i);
+    for (const n of m.byKind('sourcetype')) add('Sourcetype', n.label, i);
+    for (const n of m.byKind('lookup')) add('Lookup', n.label, i, n.accessLabel);
+    for (const n of m.byKind('macro')) add('Macro', n.key, i);
+    for (const n of m.byKind('datamodel')) add('Data model', n.label, i, [...n.datasets].join(', '));
+    for (const n of m.byKind('ds')) {
+      if (n.type === 'ds.savedSearch' && n.ref) add('Saved search', n.ref, i, 'data source');
+      for (const r of String(n.query || '').matchAll(/(?:^|\||\[)\s*savedsearch\s+("([^"]+)"|[^\s|\]]+)/gi)) add('Saved search', r[2] || r[1], i, '| savedsearch');
+    }
+  });
+  return [...map.values()].sort((a, b) => b.uses.size - a.uses.size || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+}
+function viewApp() {
+  const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
+  const dashBtn = (i, detail) => `<button class="chip k-tab" data-dash="${i}" title="Open this dashboard">${esc(DASH[i].model.title)}${detail ? ` <span class="det">${esc(detail)}</span>` : ''}</button>`;
+  const shared = sharedItems();
+  return `${LOAD_ERRORS.length ? `<div class="error" style="margin-bottom:12px"><b>Some sources could not be loaded:</b><br>${LOAD_ERRORS.map(esc).join('<br>')}</div>` : ''}
+  <p class="muted small">${plural(DASH.length, 'dashboard')} loaded. Open one to see its full inventory, or use the table below to see what the dashboards share.</p>
+  ${table([
+    { h: 'Dashboard', f: x => dashBtn(x.i) },
+    { h: 'Source', f: x => `<span class="small">${esc(x.d.src.name || '')}</span><div class="muted small">${esc(x.d.model.format)}</div>` },
+    { h: 'Tabs', f: x => String(x.d.model.byKind('tab').filter(t => !t.global).length) },
+    { h: 'Panels', f: x => String(x.d.model.byKind('viz').length) },
+    { h: 'Searches', f: x => String(x.d.model.byKind('ds').length) },
+    { h: 'Inputs', f: x => String(x.d.model.byKind('input').length) },
+    { h: 'Tokens', f: x => String(x.d.model.byKind('token').length) },
+    { h: 'Errors', f: x => { const n = sev(x.d.model, 'error'); return n ? badge(n, 'sev-error') : '0'; } },
+    { h: 'Warnings', f: x => { const n = sev(x.d.model, 'warning'); return n ? badge(n, 'sev-warning') : '0'; } },
+  ], DASH.map((d, i) => ({ d, i })))}
+  <div class="section-title">Shared across dashboards</div>
+  <p class="muted small" style="margin:0 0 6px">Indexes, sourcetypes, lookups, macros, data models and saved searches, with every dashboard that uses each. The most widely shared are listed first.</p>
+  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="app-csv">Download app inventory (.csv)</button></div>
+  ${table([
+    { h: 'Kind', f: r => badge(r.kind) },
+    { h: 'Name', f: r => `<code>${esc(r.name)}</code>` },
+    { h: 'Dashboards', f: r => String(r.uses.size) },
+    { h: 'Used by', f: r => `<div class="stack">${[...r.uses].map(([i, d]) => dashBtn(i, [...d].join(', '))).join('')}</div>` },
+  ], shared)}`;
+}
+function exportAppCsv() {
+  const rows = [['Dashboard', 'Source', 'Kind', 'Name', 'Detail']];
+  for (const r of sharedItems()) for (const [i, d] of r.uses) rows.push([DASH[i].model.title, DASH[i].src.name || '', r.kind, r.name, [...d].join('; ')]);
+  download('app-inventory.csv', '﻿' + csv(rows), 'text/csv;charset=utf-8');
+}
+
+/* ---------- Compare two versions ---------- */
+let COMPARE = null; // { model, label }
+function flattenObj(o, p = '', out = {}) {
+  if (isObj(o)) { const ks = Object.keys(o); if (!ks.length && p) out[p] = '{}'; for (const k of ks) flattenObj(o[k], p ? p + '.' + k : k, out); }
+  else if (Array.isArray(o)) {
+    if (o.every(v => !isObj(v) && !Array.isArray(v))) out[p] = JSON.stringify(o);
+    else o.forEach((v, i) => flattenObj(v, `${p}[${i}]`, out));
+  } else out[p] = JSON.stringify(o);
+  return out;
+}
+function itemSignature(n, m) {
+  const ids = (list) => uniq(list).sort();
+  const lbl = id => { const x = m.nodes.get(id); return x ? `${x.kind}:${x.kind === 'token' ? x.label : x.key}` : id; };
+  const inn = (rels) => ids((m.inE.get(n.id) || []).filter(e => rels.includes(e.rel)).map(e => lbl(e.from)));
+  const outn = (rels) => ids((m.outE.get(n.id) || []).filter(e => rels.includes(e.rel)).map(e => lbl(e.to)));
+  switch (n.kind) {
+    case 'tab': return { label: n.label, layoutType: n.layoutType, options: n.options || {}, placement: Object.fromEntries((n.items || []).map(i => [lbl(i.id), i.position ? `x${i.position.x} y${i.position.y} ${i.position.w}×${i.position.h}` : 'placed'])) };
+    case 'token': return { status: n.status, setBy: inn(['sets', 'drilldown-sets', 'default', 'smart-source']), defaults: (n.defaults || []).map(d => fmt(d.value)), usedBy: outn(['uses-token']) };
+    case 'index': case 'sourcetype': return { searchedBy: outn(['searches']) };
+    case 'lookup': return { access: n.accessLabel, readBy: outn(['lookup-read']), writtenBy: inn(['lookup-write']) };
+    case 'macro': return { usedBy: outn(['macro-used']) };
+    case 'datamodel': return { datasets: [...n.datasets].sort(), readBy: outn(['datamodel-read']) };
+    case 'dashboard': return { title: n.label, description: n.description || '' };
+    default: return stripInternal(structuredClone(n.raw ?? {}));
+  }
+}
+const DIFF_KINDS = ['dashboard', 'tab', 'input', 'ds', 'viz', 'condition', 'token', 'index', 'sourcetype', 'lookup', 'datamodel', 'macro'];
+function diffModels(A, B) {
+  const rows = [];
+  for (const kind of DIFF_KINDS) {
+    const a = new Map(A.byKind(kind).map(n => [n.key, n])), b = new Map(B.byKind(kind).map(n => [n.key, n]));
+    for (const key of uniq([...a.keys(), ...b.keys()])) {
+      const na = a.get(key), nb = b.get(key);
+      if (!nb) { rows.push({ kind, key, label: na.label, status: 'removed', id: na.id, changes: [] }); continue; }
+      if (!na) { rows.push({ kind, key, label: nb.label, status: 'added', changes: [] }); continue; }
+      const fa = flattenObj(itemSignature(na, A)), fb = flattenObj(itemSignature(nb, B));
+      const changes = uniq([...Object.keys(fa), ...Object.keys(fb)]).filter(k => fa[k] !== fb[k]).map(k => ({ path: k, a: fa[k], b: fb[k] }));
+      if (changes.length) rows.push({ kind, key, label: nb.label, status: 'changed', id: na.id, changes, queryA: na.query, queryB: nb.query });
+    }
+  }
+  return rows;
+}
+// Line diff (longest common subsequence) for SPL.
+function lineDiff(a, b) {
+  const x = String(a ?? '').split('\n'), y = String(b ?? '').split('\n');
+  const n = x.length, m = y.length, L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) { if (x[i] === y[j]) { out.push([' ', x[i]]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push(['-', x[i++]]); else out.push(['+', y[j++]]); }
+  while (i < n) out.push(['-', x[i++]]);
+  while (j < m) out.push(['+', y[j++]]);
+  return out;
+}
+const shortVal = v => { v = v === undefined ? '(none)' : String(v); return v.length > 140 ? v.slice(0, 139) + '…' : v; };
+function viewCompare() {
+  if (!COMPARE) {
+    return `<div class="card">
+      <p style="margin-top:0">Compare <b>${esc(M.title)}</b> (A, the dashboard open now) with another version (B). Paste or choose the other definition${DASH.length > 1 ? ', or pick one of the loaded dashboards' : ''}.</p>
+      ${DASH.length > 1 ? `<p><label>Loaded dashboard: <select id="cmp-pick"><option value="">Choose…</option>${DASH.map((d, i) => i === CUR_I ? '' : `<option value="${i}">${esc(d.model.title)}</option>`).join('')}</select></label></p>` : ''}
+      <textarea id="cmp-source" class="cmp-source" spellcheck="false" placeholder="Paste version B: Studio JSON, dashboard XML or a REST response."></textarea>
+      <div class="loader-actions"><button class="btn primary" id="cmp-run">Compare</button><label class="btn">Choose file… <input type="file" id="cmp-file" accept=".json,.xml,.txt" hidden></label></div>
+      <div class="error" id="cmp-error" hidden></div></div>`;
+  }
+  const rows = diffModels(M, COMPARE.model);
+  const count = s => rows.filter(r => r.status === s).length;
+  const stBadge = s => badge(s, s === 'added' ? 'ok' : s === 'removed' ? 'sev-error' : 'sev-warning');
+  const item = r => r.id && M.nodes.has(r.id) ? chip(r.id) : `<span class="chip k-${r.kind}" style="cursor:default">${esc(r.kind === 'token' ? r.label : r.label || r.key)}</span>`;
+  const changes = r => {
+    if (r.status !== 'changed') return '';
+    const q = r.changes.find(c => c.path === 'options.query');
+    let html = r.changes.filter(c => c.path !== 'options.query').slice(0, 12).map(c => `<div class="small"><code>${esc(c.path)}</code>: <span class="del">${esc(shortVal(c.a))}</span> → <span class="ins">${esc(shortVal(c.b))}</span></div>`).join('');
+    if (r.changes.length > 13) html += `<div class="muted small">…and ${r.changes.length - 12} more</div>`;
+    if (q) html += `<pre class="diff">${lineDiff(r.queryA, r.queryB).map(([t, l]) => `<span class="${t === '+' ? 'ins' : t === '-' ? 'del' : ''}">${t} ${esc(l)}</span>`).join('\n')}</pre>`;
+    return html;
+  };
+  return `<div class="card">
+      <b>A:</b> ${esc(M.title)} <span class="muted small">(open now)</span> &nbsp; <b>B:</b> ${esc(COMPARE.label)}
+      <div class="loader-actions" style="margin-top:8px"><button class="btn small" id="cmp-clear">Compare with something else</button><button class="btn small" id="cmp-md">Download changes (.md)</button></div>
+    </div>
+    <div class="stats">
+      <div class="stat" style="--kc: var(--k-viz)"><div class="n">${count('added')}</div><div class="l">Added in B</div></div>
+      <div class="stat" style="--kc: var(--sev-error)"><div class="n">${count('removed')}</div><div class="l">Removed in B</div></div>
+      <div class="stat" style="--kc: var(--sev-warning)"><div class="n">${count('changed')}</div><div class="l">Changed</div></div>
+    </div>
+    ${rows.length ? table([
+      { h: 'Change', f: r => stBadge(r.status) },
+      { h: 'Kind', f: r => esc(KINDS[r.kind].label) },
+      { h: 'Item', f: item },
+      { h: 'What changed', f: changes },
+    ], rows) : '<p>No differences: the two versions define the same items with the same settings.</p>'}`;
+}
+function startCompare(text, label) {
+  const err = $('#cmp-error');
+  try {
+    const list = parseSources(text, label).filter(x => !x.error);
+    if (!list.length) throw new Error('No dashboard was found in version B.');
+    COMPARE = { model: buildModel(list[0]), label: list[0].def?.title || label || 'version B' };
+    render();
+  } catch (e) { if (err) { err.textContent = e.message; err.hidden = false; } }
+}
+function exportDiffMd() {
+  const rows = diffModels(M, COMPARE.model);
+  let md = `# Changes: ${M.title}\n\n- A: ${M.title}\n- B: ${COMPARE.label}\n\n`;
+  for (const s of ['added', 'removed', 'changed']) {
+    const list = rows.filter(r => r.status === s);
+    md += `## ${s[0].toUpperCase() + s.slice(1)} (${list.length})\n\n`;
+    for (const r of list) {
+      md += `- **${KINDS[r.kind].label}** ${r.label || r.key} (\`${r.key}\`)\n`;
+      for (const c of r.changes) md += c.path === 'options.query' ? `  - query:\n\n\`\`\`diff\n${lineDiff(r.queryA, r.queryB).map(([t, l]) => t + ' ' + l).join('\n')}\n\`\`\`\n\n` : `  - \`${c.path}\`: ${shortVal(c.a)} → ${shortVal(c.b)}\n`;
+    }
+    md += '\n';
+  }
+  download(slug(M.title) + '-changes.md', md, 'text/markdown;charset=utf-8');
+}
+
+/* ---------- Splunk configuration view ---------- */
+function viewConfig() {
+  const usedHere = key => M.nodes.has('macro:' + key);
+  return `<p class="muted small" style="margin-top:0">Macro bodies, saved searches and data models live outside the dashboard. Paste them here (or choose the files) and the page expands them before it looks for indexes, sourcetypes, lookups, data models and commands. Items found this way are marked "via expansion" or "via saved search". It also checks macro argument counts. Nothing leaves this page.</p>
+  <div class="cfg-grid">
+    <div><label class="lbl2" for="cfg-conf">macros.conf and savedsearches.conf (one or both, pasted together)</label><textarea id="cfg-conf" class="cfg-text" spellcheck="false" placeholder="[my_macro(1)]&#10;args = field&#10;definition = stats count by $field$">${esc(CONFIG.conf)}</textarea></div>
+    <div><label class="lbl2" for="cfg-dm">Data model JSON (one or more models, or a REST response)</label><textarea id="cfg-dm" class="cfg-text" spellcheck="false" placeholder='{"modelName": "Web", "objects": [ … ]}'>${esc(CONFIG.dm)}</textarea></div>
+  </div>
+  <div class="loader-actions" style="margin:8px 0 4px">
+    <button class="btn primary" id="cfg-apply">Apply${DASH.length > 1 ? ' to all loaded dashboards' : ''}</button>
+    <label class="btn">Choose .conf / .json files… <input type="file" id="cfg-file" multiple accept=".conf,.json,.txt" hidden></label>
+    <button class="btn" id="cfg-sample">Load sample config</button>
+    <button class="btn" id="cfg-clear">Clear</button>
+  </div>
+  ${CONFIG.errors.length ? `<div class="error">${CONFIG.errors.map(esc).join('<br>')}</div>` : ''}
+  <div class="section-title">Macros (${CONFIG.macros.size})</div>
+  ${table([
+    { h: 'Macro', f: m => usedHere(m.key) ? chip('macro:' + m.key) : `<code>\`${esc(m.key)}\`</code>` },
+    { h: 'Arguments', f: m => esc(m.args.join(', ')) || '—' },
+    { h: 'Definition', cls: 'q', f: m => `<code>${esc(m.definition)}</code>${m.iseval ? ' <span class="badge">eval</span>' : ''}` },
+    { h: 'Used in this dashboard', f: m => usedHere(m.key) ? 'yes' : '<span class="muted">no</span>' },
+  ], [...CONFIG.macros.values()])}
+  <div class="section-title">Saved searches (${CONFIG.saved.size})</div>
+  ${table([
+    { h: 'Name', f: s => `<code>${esc(s.name)}</code>` },
+    { h: 'Search', cls: 'q', f: s => `<code>${esc(s.search)}</code>` },
+    { h: 'Time range', f: s => s.earliest || s.latest ? `<code>${esc(s.earliest || '…')}</code> → <code>${esc(s.latest || 'now')}</code>` : '—' },
+    { h: 'Schedule', f: s => s.cron ? `<code>${esc(s.cron)}</code>` : '—' },
+  ], [...CONFIG.saved.values()])}
+  <div class="section-title">Data models (${CONFIG.datamodels.size})</div>
+  ${table([
+    { h: 'Data model', f: d => M.nodes.has('datamodel:' + d.name) ? chip('datamodel:' + d.name) : `<code>${esc(d.name)}</code>` },
+    { h: 'Datasets and constraints', cls: 'q', f: d => d.objects.map(o => `<div class="small"><b>${esc(o.name)}</b>${o.parent ? ` <span class="muted">(child of ${esc(o.parent)})</span>` : ''}${o.constraints.length ? `: <code>${esc(o.constraints.join(' '))}</code>` : ''}</div>`).join('') },
+  ], [...CONFIG.datamodels.values()])}`;
+}
+function setConfig(conf, dm) {
+  applyConfig(conf, dm);
+  if (!DASH.length) return;
+  DASH = DASH.map(x => ({ src: x.src, model: buildModel(x.src) }));
+  M = DASH[CUR_I].model;
+  FIX_SEL = new Set();
+  render();
+}
+async function readConfigFiles(files) {
+  let conf = $('#cfg-conf')?.value ?? CONFIG.conf, dm = $('#cfg-dm')?.value ?? CONFIG.dm;
+  for (const f of files) {
+    const t = await f.text();
+    if (/\.json$/i.test(f.name) || /^\s*[{[]/.test(t)) dm = (dm ? dm + '\n' : '') + t; else conf = (conf ? conf + '\n' : '') + t;
+  }
+  return { conf, dm };
+}
+
+/* ---------- Printable summary ---------- */
+function exportSummary() {
+  const tabs = mockTabs();
+  const prevTab = mockState.tab;
+  const mocks = tabs.length ? tabs.map(t => ({ t, svg: mockupSvg(t.id) })) : [];
+  mockState.tab = prevTab;
+  const sev = s => M.issues.filter(i => i.severity === s).length;
+  const lbl = id => M.nodes.get(id)?.label ?? id;
+  const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p class="m">None.</p>';
+  const vals = (n, f) => (n['eff_' + f] || []).map(v => (v.excluded ? 'NOT ' : '') + v.value).join(', ');
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(M.title)} · summary</title>
+<style>
+body{font:12.5px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1b1f24;background:#fff;margin:24px auto;max-width:1000px;padding:0 16px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;border-bottom:1px solid #dde1e7;padding-bottom:3px}
+.m{color:#5f6b7a}table{border-collapse:collapse;width:100%;margin:4px 0 8px}th,td{border:1px solid #dde1e7;padding:4px 6px;text-align:left;vertical-align:top}
+th{background:#f1f3f6}code{font:11.5px ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}.box{border:1px solid #dde1e7;border-radius:6px;padding:6px 8px}.box b{font-size:18px;display:block}
+.mock svg{width:100%;height:auto;border:1px solid #dde1e7;border-radius:6px}.e{color:#c53030}.w{color:#b7791f}
+.noprint{margin:10px 0}@media print{.noprint{display:none}body{margin:0}h2{break-after:avoid}.mock,table{break-inside:avoid}}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">Print</button></div>
+<h1>${esc(M.title)}</h1>
+<div class="m">${esc(M.description || '')}</div>
+<div class="m">${esc(M.format)} · ${esc(M.layoutSummary)} · generated ${esc(new Date().toISOString().slice(0, 16).replace('T', ' '))}</div>
+<h2>Summary</h2>
+<div class="grid">${[['Tabs', tabs.length], ['Inputs', M.byKind('input').length], ['Data sources', M.byKind('ds').length], ['Visualizations', M.byKind('viz').length], ['Tokens', M.byKind('token').length], ['Indexes', M.byKind('index').length], ['Lookups', M.byKind('lookup').length], ['Macros', M.byKind('macro').length], ['Errors', sev('error')], ['Warnings', sev('warning')]].map(([l, n]) => `<div class="box"><b>${n}</b>${l}</div>`).join('')}</div>
+${mocks.length ? `<h2>Layout</h2>${mocks.map(x => `<div class="mock"><div class="m">${esc(x.t.label)}</div>${x.svg}</div>`).join('')}` : ''}
+<h2>Inputs and tokens</h2>
+${tbl(['Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(t => [`<code>${esc(t.label)}</code>`, esc(t.status), esc(ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => lbl(e.from)).join(', ')), `<code>${esc((t.defaults || []).map(d => fmt(d.value)).join(', '))}</code>`, esc(uniq(outs(t.id, ['uses-token']).map(e => lbl(e.to))).join(', '))]))}
+<h2>Data sources</h2>
+${tbl(['Data source', 'Type', 'Reads', 'Time range', 'Feeds'], M.byKind('ds').map(n => [`<b>${esc(n.label)}</b><div class="m">${esc(n.key)}</div>`, esc(dsTypeLabel(n.type)) + (n.extend ? `<div class="m">extends ${esc(lbl('ds:' + n.extend))}</div>` : ''),
+  esc([vals(n, 'index') && 'index: ' + vals(n, 'index'), vals(n, 'sourcetype') && 'sourcetype: ' + vals(n, 'sourcetype'), (n.eff_lookups || []).length && 'lookup: ' + n.eff_lookups.map(l => `${l.name} (${l.mode})`).join(', '), (n.eff_datamodels || []).length && 'data model: ' + n.eff_datamodels.map(d => d.model).join(', '), (n.eff_macros || []).length && 'macro: ' + uniq(n.eff_macros.map(x => x.key)).join(', ')].filter(Boolean).join(' · ')),
+  n.earliest ? `<code>${esc(n.earliest.v)} → ${esc(n.latest.v)}</code>` : '', esc(outs(n.id, ['feeds', 'populates', 'extends']).map(e => lbl(e.to)).join(', '))]))}
+<h2>Visualizations</h2>
+${tbl(['Visualization', 'Type', 'Tab', 'Data source', 'Drilldown'], M.byKind('viz').map(n => [esc(withValues(n.label)), esc(shortType(n.type)), esc(tabsOf(n.id).map(lbl).join(', ')), esc(ins(n.id, ['feeds']).map(e => M.nodes.get(e.from).lineage.map(lbl).join(' › ')).join('; ')), esc(n.drilldowns.map(d => d.text).join('; '))]))}
+<h2>Issues</h2>
+${tbl(['Severity', 'Item', 'Issue'], M.issues.map(i => [`<span class="${i.severity[0]}">${esc(i.severity)}</span>`, esc(lbl(i.ref)), esc(i.message)]))}
+</body></html>`;
+  download(slug(M.title) + '-summary.html', html, 'text/html;charset=utf-8');
 }
 
 function viewConditions() {
@@ -1587,10 +2719,6 @@ function issueTable(list) {
     { h: 'Item', f: i => chip(i.ref) },
     { h: 'Issue', f: i => esc(i.message) },
   ], list);
-}
-function viewIssues() {
-  if (!M.issues.length) return '<p>No issues found. Every reference resolves, every item is placed, and every token is defined.</p>';
-  return issueTable(M.issues);
 }
 
 /* ============================================================
@@ -1775,11 +2903,13 @@ function openDrawer(id, push = true) {
     P('Default value', (n.defaults || []).map(d => `<code>${esc(fmt(d.value))}</code> <span class="muted small">from</span> ${chip(d.from)}`).join('<br>'));
   } else if (n.kind === 'datamodel') {
     P('Datasets', [...n.datasets].map(d => `<code>${esc(d)}</code>`).join(' '));
+    P('Constraints', n.config ? n.config.objects.map(o => `<div class="small"><b>${esc(o.name)}</b>${o.constraints.length ? `: <code>${esc(o.constraints.join(' '))}</code>` : ''}</div>`).join('') : '<span class="muted">Not loaded. Paste the data model JSON on the Splunk config page.</span>');
     P('Read by', chips(outs(n.id, ['datamodel-read']).map(e => [e.to, e.detail]), ''));
     P('Feeds visualizations', chips(dataDown(n.id).filter(x => x.startsWith('viz:')), ''));
   } else if (n.kind === 'macro') {
     P('Name', `<code>${esc(n.name)}</code>`); P('Arguments', String(n.arity));
     P('Calls as written', n.calls.map(c => `<code>\`${esc(c)}\`</code>`).join('<br>'));
+    P('Definition', n.config ? `<code>${esc(n.config.definition)}</code>${n.config.args.length ? `<div class="muted small">arguments: ${esc(n.config.args.join(', '))}</div>` : ''}` : '<span class="muted">Not loaded. Paste macros.conf on the Splunk config page.</span>');
     P('Feeds visualizations', chips(dataDown(n.id).filter(x => x.startsWith('viz:')), ''));
   } else if (n.kind === 'command') {
     P('Category', esc(n.category)); P('Uses', String(n.uses));
@@ -1806,6 +2936,7 @@ function openDrawer(id, push = true) {
     if (n.type === 'ds.savedSearch') html += `<h4>Search</h4><pre>| savedsearch "${esc(n.ref)}"</pre>`;
     else if (n.query) html += `<h4>Query</h4><pre>${esc(n.query)}</pre>`;
     if (n.depth > 0) html += `<h4>Effective SPL (base + chain)</h4><pre>${esc(n.effectiveQuery)}</pre>`;
+    if (n.expandedQuery) html += `<h4>Expanded SPL (macros, saved searches and data model constraints resolved, for analysis only)</h4><pre>${esc(n.expandedQuery)}</pre>`;
   }
 
   const groups = new Map();
@@ -1879,14 +3010,14 @@ function slug(s) { return String(s || 'dashboard').toLowerCase().replace(/[^a-z0
 // Inside the claude.ai artifact viewer, files go through the viewer's save prompt;
 // opened as a local file, fall back to a normal browser download.
 const downloadsCap = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
-async function download(name, text, type) {
+async function download(name, data, type) {
   const cap = await downloadsCap;
   if (cap) {
-    try { await cap.save({ filename: name, data: text }); }
+    try { await cap.save({ filename: name, data }); }
     catch (e) { if (e && e.code !== 'declined') alert('Could not save the file: ' + (e.message || e.code || e)); }
     return;
   }
-  const blob = new Blob([text], { type });
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -1997,57 +3128,161 @@ function exportMarkdown() {
 }
 
 /* ============================================================
-   Wiring
+   Loading and wiring
    ============================================================ */
-function analyze(text) {
+let DASH = [];        // every loaded dashboard: [{ src, model }]
+let CUR_I = 0;        // the one shown
+let LOAD_ERRORS = []; // sources that failed while others loaded
+// files: [{ name, text }]. Each may hold one dashboard or many (REST list, JSON array).
+function loadDashboards(files) {
   const err = $('#load-error');
   err.hidden = true;
-  try {
-    M = buildModel(parseSource(text));
-  } catch (e) {
-    err.textContent = e.message; err.hidden = false;
-    return;
+  const ok = [], errors = [];
+  for (const f of files) {
+    try {
+      for (const s of parseSources(f.text, f.name)) {
+        if (s.error) errors.push(`${s.name || f.name || 'dashboard'}: ${s.error}`);
+        else ok.push(s);
+      }
+    } catch (e) { errors.push((files.length > 1 ? (f.name || 'pasted text') + ': ' : '') + e.message); }
   }
-  view = 'overview'; graphState.focus = ''; graphState.selected = null; mockState.tab = null;
-  $('#filter').value = '';
+  const built = [];
+  for (const s of ok) {
+    try { built.push({ src: s, model: buildModel(s) }); }
+    catch (e) { errors.push(`${s.name || s.def?.title || 'dashboard'}: could not be analysed (${e.message}).`); console.error(e); }
+  }
+  if (!built.length) { err.textContent = errors.join('\n') || 'No dashboard was found.'; err.hidden = false; return; }
+  DASH = built; LOAD_ERRORS = errors;
   $('#loader').hidden = true; $('#app').hidden = false; $('#btn-new').hidden = false;
-  $('#dash-title').textContent = M.title;
-  document.title = M.title + ' · Studio Dashboard Inventory';
-  render();
+  COMPARE = null;
+  selectDash(0, built.length > 1 ? 'app' : 'overview');
   window.scrollTo(0, 0);
 }
+function selectDash(i, v = 'overview') {
+  CUR_I = i; M = DASH[i].model;
+  FIX_SEL = new Set();
+  mockState.tab = null; mockState.values = null;
+  graphState.focus = ''; graphState.selected = null;
+  if (COMPARE && v !== 'compare') COMPARE = null;
+  view = v;
+  $('#filter').value = '';
+  closeDrawer();
+  const sw = $('#dash-switch');
+  sw.hidden = DASH.length < 2;
+  sw.innerHTML = DASH.map((d, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${esc(d.model.title)}</option>`).join('');
+  $('#dash-title').textContent = DASH.length > 1 ? '' : M.title;
+  document.title = M.title + ' · Studio Dashboard Inventory';
+  render();
+}
+async function filesToList(fileList) { return Promise.all([...fileList].map(async f => ({ name: f.name, text: await f.text() }))); }
+function analyzeLoader() {
+  applyConfig($('#ldr-conf').value, $('#ldr-dm').value);
+  loadDashboards([{ name: '', text: $('#source').value }]);
+}
 
-$('#btn-analyze').onclick = () => analyze($('#source').value);
-$('#btn-sample').onclick = () => { $('#source').value = $('#sample').textContent.trim(); analyze($('#source').value); };
-$('#file').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(t => { $('#source').value = t; analyze(t); }); e.target.value = ''; };
-const src = $('#source');
-src.addEventListener('dragover', e => { e.preventDefault(); src.classList.add('dragover'); });
-src.addEventListener('dragleave', () => src.classList.remove('dragover'));
-src.addEventListener('drop', e => {
-  e.preventDefault(); src.classList.remove('dragover');
-  const f = e.dataTransfer.files[0];
-  if (f) f.text().then(t => { src.value = t; analyze(t); });
+$('#btn-analyze').onclick = analyzeLoader;
+$('#btn-sample').onclick = () => { $('#source').value = $('#sample').textContent.trim(); analyzeLoader(); };
+$('#file').onchange = async e => {
+  const list = await filesToList(e.target.files);
+  e.target.value = '';
+  if (!list.length) return;
+  if (list.length === 1) $('#source').value = list[0].text;
+  applyConfig($('#ldr-conf').value, $('#ldr-dm').value);
+  loadDashboards(list);
+};
+$('#ldr-cfg-file').onchange = async e => {
+  for (const f of e.target.files) {
+    const t = await f.text();
+    const box = /\.json$/i.test(f.name) || /^\s*[{[]/.test(t) ? $('#ldr-dm') : $('#ldr-conf');
+    box.value = (box.value ? box.value + '\n' : '') + t;
+  }
+  e.target.value = '';
+  $('#ldr-config').open = true;
+};
+$('#ldr-cfg-sample').onclick = () => { $('#ldr-conf').value = $('#sample-conf').textContent.trim(); $('#ldr-dm').value = $('#sample-dm').textContent.trim(); };
+const srcBox = $('#source');
+srcBox.addEventListener('dragover', e => { e.preventDefault(); srcBox.classList.add('dragover'); });
+srcBox.addEventListener('dragleave', () => srcBox.classList.remove('dragover'));
+srcBox.addEventListener('drop', async e => {
+  e.preventDefault(); srcBox.classList.remove('dragover');
+  const list = await filesToList(e.dataTransfer.files);
+  if (!list.length) return;
+  if (list.length === 1) srcBox.value = list[0].text;
+  applyConfig($('#ldr-conf').value, $('#ldr-dm').value);
+  loadDashboards(list);
 });
-$('#btn-new').onclick = () => { closeDrawer(); $('#app').hidden = true; $('#loader').hidden = false; $('#btn-new').hidden = true; $('#dash-title').textContent = ''; document.title = 'Studio Dashboard Inventory'; };
+$('#btn-new').onclick = () => {
+  closeDrawer();
+  $('#app').hidden = true; $('#loader').hidden = false; $('#btn-new').hidden = true; $('#dash-switch').hidden = true;
+  $('#dash-title').textContent = ''; document.title = 'Studio Dashboard Inventory';
+  $('#ldr-conf').value = CONFIG.conf; $('#ldr-dm').value = CONFIG.dm;
+};
+$('#dash-switch').onchange = e => selectDash(+e.target.value, view === 'app' ? 'overview' : view);
 $('#filter').addEventListener('input', applyFilter);
-document.addEventListener('change', e => { if (e.target.id === 'mock-defaults') { mockState.defaults = e.target.checked; render(); } });
+
+// Export menu
+const exportMenu = $('#export-menu');
+$('#btn-export').onclick = e => { e.stopPropagation(); exportMenu.hidden = !exportMenu.hidden; $('#btn-export').setAttribute('aria-expanded', String(!exportMenu.hidden)); };
+exportMenu.addEventListener('click', () => { exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false'); });
+$('#btn-export-summary').onclick = exportSummary;
+$('#btn-export-md').onclick = exportMarkdown;
 $('#btn-export-inv').onclick = exportInventory;
 $('#btn-export-rel').onclick = exportRelationships;
 $('#btn-export-json').onclick = exportJson;
-$('#btn-export-md').onclick = exportMarkdown;
+$('#btn-export-def').onclick = downloadDefinition;
+$('#btn-export-svg').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'); };
+$('#btn-export-png').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; exportMockupPng(); };
+
 $('#drawer-close').onclick = closeDrawer;
 $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawer(); exportMenu.hidden = true; }
+  if (e.key === 'Enter' && e.target.matches?.('input[data-mock-token]')) onMockChange(e.target);
+});
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.id === 'mock-sub') { mockState.substitute = t.checked; render(); return; }
+  if (t.id === 'mock-hidden') { mockState.showHidden = t.checked; render(); return; }
+  if (t.dataset?.fix !== undefined) { const k = +t.dataset.fix; if (t.checked) FIX_SEL.add(k); else FIX_SEL.delete(k); render(); return; }
+  if (t.id === 'cmp-pick' && t.value !== '') { COMPARE = { model: DASH[+t.value].model, label: DASH[+t.value].model.title }; render(); return; }
+  if (t.id === 'cmp-file' && t.files[0]) { const f = t.files[0]; startCompare(await f.text(), f.name); return; }
+  if (t.id === 'cfg-file' && t.files.length) { const c = await readConfigFiles(t.files); setConfig(c.conf, c.dm); return; }
+  if (t.closest?.('[data-mock-token]')) onMockChange(t);
+});
 document.addEventListener('click', e => {
+  if (!e.target.closest('.menu')) { exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false'); }
+  const id = e.target.closest('[id]')?.id;
+  const actions = {
+    'mock-reset': () => { resetMockValues(); render(); },
+    'mock-svg': () => download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'),
+    'mock-png': exportMockupPng,
+    'fix-all': () => { M.issues.forEach((x, k) => { if (x.fix) FIX_SEL.add(k); }); render(); },
+    'fix-none': () => { FIX_SEL.clear(); render(); },
+    'fix-download': downloadDefinition,
+    'fix-load': loadFixed,
+    'app-csv': exportAppCsv,
+    'cmp-run': () => startCompare($('#cmp-source').value, 'version B'),
+    'cmp-clear': () => { COMPARE = null; render(); },
+    'cmp-md': exportDiffMd,
+    'cfg-apply': () => setConfig($('#cfg-conf').value, $('#cfg-dm').value),
+    'cfg-sample': () => setConfig($('#sample-conf').textContent.trim(), $('#sample-dm').textContent.trim()),
+    'cfg-clear': () => setConfig('', ''),
+  };
+  if (actions[id] && e.target.closest('button')) { actions[id](); return; }
   const v = e.target.closest('[data-view]');
   if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  const dsh = e.target.closest('[data-dash]');
+  if (dsh) { selectDash(+dsh.dataset.dash, 'overview'); window.scrollTo(0, 0); return; }
   const mt = e.target.closest('[data-mocktab]');
   if (mt) { mockState.tab = mt.dataset.mocktab; render(); return; }
+  const op = e.target.closest('[data-open]');
+  if (op) { openDrawer(op.dataset.open); return; }
   const c = e.target.closest('.chip[data-id], .mock-item[data-id]');
   if (c) { openDrawer(c.dataset.id); return; }
   const th = e.target.closest('#view th');
   if (th) sortTable(th);
 });
 </script>
+
 </body>
 </html>
