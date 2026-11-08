@@ -170,6 +170,8 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .mock-panel .big { font-size: clamp(16px, 2.4vw, 34px); font-weight: 650; color: var(--accent); }
 .mock-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .mock-flow .mock-panel { position: relative; min-height: 180px; }
+/* Status message */
+#toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 60; font-size: 13px; }
 /* Menus, notes, fixes, compare, config */
 .menu { position: relative; }
 .menu-list { position: absolute; right: 0; top: 100%; margin-top: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 30; display: flex; flex-direction: column; min-width: 240px; padding: 4px; }
@@ -301,8 +303,9 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
       <div class="menu">
         <button class="btn" id="btn-export" aria-haspopup="true" aria-expanded="false">Export ▾</button>
         <div class="menu-list" id="export-menu" hidden>
+          <button id="btn-export-pdf"><b>Full report (.pdf)</b></button>
+          <button id="btn-export-md"><b>Full report (.md)</b></button>
           <button id="btn-export-summary">Printable summary (.html)</button>
-          <button id="btn-export-md">Report (.md)</button>
           <button id="btn-export-inv">Inventory (.csv)</button>
           <button id="btn-export-rel">Relationships (.csv)</button>
           <button id="btn-export-json">Model (.json)</button>
@@ -2303,9 +2306,10 @@ function onMockChange(el) {
 }
 
 /* ---------- Mockup as SVG / PNG ---------- */
-function mockupSvg(tabId = mockState.tab) {
+function mockupSvg(tabId = mockState.tab, light = false) {
   const cs = getComputedStyle(document.documentElement);
-  const col = (v, d) => cs.getPropertyValue(v).trim() || d;
+  // light: use the light palette whatever the page theme (for documents and print)
+  const col = (v, d) => (light ? '' : cs.getPropertyValue(v).trim()) || d;
   const C = { bg: col('--panel', '#fff'), canvas: col('--panel-2', '#f1f3f6'), border: col('--border', '#dde1e7'), text: col('--text', '#1b1f24'), muted: col('--muted', '#5f6b7a'), accent: col('--accent', '#2f6fde'), warn: col('--sev-warning', '#b7791f') };
   const FONT = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   const T = (x, y, s, size = 12, color = C.text, weight = 400, anchor = 'start') => `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-family="${FONT}" font-size="${size}" fill="${color}" font-weight="${weight}" text-anchor="${anchor}">${esc(s)}</text>`;
@@ -2674,7 +2678,7 @@ async function readConfigFiles(files) {
 function exportSummary() {
   const tabs = mockTabs();
   const prevTab = mockState.tab;
-  const mocks = tabs.length ? tabs.map(t => ({ t, svg: mockupSvg(t.id) })) : [];
+  const mocks = tabs.length ? tabs.map(t => ({ t, svg: mockupSvg(t.id, true) })) : [];
   mockState.tab = prevTab;
   const sev = s => M.issues.filter(i => i.severity === s).length;
   const lbl = id => M.nodes.get(id)?.label ?? id;
@@ -3197,6 +3201,411 @@ function exportMarkdown() {
 }
 
 /* ============================================================
+   Full report (PDF or Markdown)
+   One list of blocks describes the report; each format renders it.
+   Blocks: h1 h2 h3 h4 p list code table img
+   ============================================================ */
+function reportBlocks(format) {
+  const B = [];
+  let sec = 0;
+  const h1 = text => B.push({ t: 'h1', text });
+  const h2 = text => B.push({ t: 'h2', text: `${++sec}. ${text}` });
+  const h3 = text => B.push({ t: 'h3', text });
+  const h4 = text => B.push({ t: 'h4', text });
+  const p = text => B.push({ t: 'p', text });
+  const code = (text, lang = 'spl') => B.push({ t: 'code', text: String(text ?? ''), lang });
+  const tbl = (head, rows) => B.push({ t: 'table', head, rows: rows.map(r => r.map(c => c == null ? '' : String(c))) });
+  const lbl = id => M.nodes.get(id)?.label ?? id;
+  const num = id => invNo(id) ? '#' + invNo(id) : '';
+  const L = ids => uniq(ids).map(lbl).join(', ');
+  const vals = (n, f) => (n['eff_' + f] || []).map(v => (v.excluded ? 'NOT ' : '') + v.value + (v.inherited ? ' (from base)' : '') + (v.via ? ` (${v.via})` : '')).join(', ');
+  const lineage = n => ins(n.id, ['feeds']).map(e => M.nodes.get(e.from).lineage.map(lbl).join(' > ')).join('; ');
+  const sev = s => M.issues.filter(i => i.severity === s).length;
+  const tabs = mockTabs();
+
+  h1(M.title);
+  if (M.description) p(M.description);
+  tbl(['Field', 'Value'], [
+    ['Source', M.format], ['Layout', M.layoutSummary], ['Generated', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'],
+    ['Items', invItems().length], ['Relationships', M.edges.length],
+    ['Issues', `${plural(sev('error'), 'error')}, ${plural(sev('warning'), 'warning')}, ${plural(sev('info'), 'note')}`],
+    ['Splunk config', hasConfig() ? `${plural(CONFIG.macros.size, 'macro')}, ${plural(CONFIG.saved.size, 'saved search', 'saved searches')}, ${plural(CONFIG.datamodels.size, 'data model')} (expanded)` : 'not loaded'],
+  ]);
+  if ((M.src.repairs || []).length || (M.src.notes || []).length) B.push({ t: 'list', items: [...(M.src.repairs || []).map(r => ({ text: 'Repaired while loading: ' + r })), ...(M.src.notes || []).map(r => ({ text: r }))] });
+
+  B.push({ t: 'toc' });
+
+  h2('Summary');
+  const ds = M.byKind('ds');
+  tbl(['Item', 'Count', 'Detail'], [
+    ['Tabs', tabs.length, tabs.map(t => t.label).join(', ')],
+    ['Inputs', M.byKind('input').length, uniq(M.byKind('input').map(n => shortType(n.type))).join(', ')],
+    ['Data sources', ds.length, `${plural(ds.filter(n => n.type === 'ds.search').length, 'search', 'searches')}, ${plural(ds.filter(n => n.type === 'ds.chain').length, 'chain search', 'chain searches')}, ${plural(ds.filter(n => n.type === 'ds.savedSearch').length, 'saved search', 'saved searches')}`],
+    ['Visualizations', M.byKind('viz').length, uniq(M.byKind('viz').map(n => shortType(n.type))).join(', ')],
+    ['Tokens', M.byKind('token').length, `${M.byKind('token').filter(t => t.status === 'Defined').length} defined, ${M.byKind('token').filter(t => t.status === 'Undefined').length} undefined`],
+    ['Visibility conditions', M.byKind('condition').length, ''],
+    ['Indexes', M.byKind('index').length, L(M.byKind('index').map(n => n.id))],
+    ['Sourcetypes', M.byKind('sourcetype').length, L(M.byKind('sourcetype').map(n => n.id))],
+    ['Lookups', M.byKind('lookup').length, M.byKind('lookup').map(n => `${n.label} (${n.accessLabel})`).join(', ')],
+    ['Data models', M.byKind('datamodel').length, L(M.byKind('datamodel').map(n => n.id))],
+    ['Macros', M.byKind('macro').length, M.byKind('macro').map(n => n.key).join(', ')],
+    ['SPL commands', M.byKind('command').length, M.byKind('command').sort((a, b) => b.uses - a.uses).map(n => n.label).join(', ')],
+  ]);
+
+  h2('Issues');
+  if (!M.issues.length) p('No issues found.');
+  else tbl(['Severity', '#', 'Item', 'Issue', 'Automatic fix'], M.issues.map(i => [i.severity, num(i.ref), lbl(i.ref), i.message, i.fix?.label || '']));
+
+  h2('Layout');
+  const global = M.nodes.get('tab:__global__');
+  if (global) {
+    h3('Global inputs (all tabs)');
+    tbl(['#', 'Input', 'ID', 'Type', 'Token', 'Default'], (global.items || []).map(i => M.nodes.get(i.id)).filter(Boolean)
+      .map(n => [num(n.id), n.label, n.key, shortType(n.type), n.token ? '$' + n.token + '$' : '', fmt(n.defaultValue)]));
+  }
+  for (const t of tabs) {
+    h3(`${t.label} (${t.key}, ${t.layoutType || 'canvas'} layout)`);
+    if (format !== 'md' && (t.items || []).length) B.push({ t: 'img', svg: mockupSvg(t.id, true), caption: `Mockup of "${t.label}". Positions from the layout; charts are placeholders.` });
+    tbl(['#', 'Item', 'Kind', 'Type', 'Position (x, y, w x h)', 'Data source lineage'], (t.items || []).map(i => {
+      const n = M.nodes.get(i.id), ps = i.position;
+      return [num(n.id), n.label, KINDS[n.kind].label, shortType(n.type), ps && ps.x !== undefined ? `${ps.x}, ${ps.y}, ${ps.w} x ${ps.h}` : '', n.kind === 'viz' ? lineage(n) : (n.token ? 'sets $' + n.token + '$' : '')];
+    }));
+  }
+
+  h2('Inventory');
+  p('Every item, numbered in inventory order. The numbers match the rest of this report and the Inventory page.');
+  tbl(['#', 'Item', 'Kind', 'ID', 'Type', 'Placed on', 'Depends on', 'Used by'], invItems().map(n => [
+    num(n.id), n.label, KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, invType(n),
+    L(tabsOf(n.id).filter(x => x.startsWith('tab:'))),
+    L(ins(n.id).filter(e => e.rel !== 'contains').map(e => e.from)), L(outs(n.id).filter(e => e.rel !== 'contains').map(e => e.to)),
+  ]));
+
+  h2('Inputs');
+  tbl(['#', 'Input', 'ID', 'Type', 'Token', 'Default', 'Options', 'Placed on', 'Uses tokens', 'Visibility'], M.byKind('input').map(n => [
+    num(n.id), n.label, n.key, shortType(n.type), n.token ? '$' + n.token + '$' : '(none)', fmt(n.defaultValue),
+    [L(ins(n.id, ['populates']).map(e => e.from)), n.items ? `${n.items.length} static` : ''].filter(Boolean).join('; '),
+    L(tabsOf(n.id)), L(directTokens(n.id)), n.visibility || '',
+  ]));
+
+  h2('Data sources and searches');
+  h3('Search lineage');
+  const items = [];
+  const walkTree = (id, depth, seen) => {
+    if (seen.has(id)) return;
+    seen = new Set(seen).add(id);
+    const n = M.nodes.get(id);
+    const cons = outs(id, ['feeds', 'populates']).map(e => lbl(e.to));
+    items.push({ depth, text: `${num(id)} ${n.label} (${dsTypeLabel(n.type)})${cons.length ? ' -> ' + cons.join(', ') : ''}` });
+    for (const e of outs(id, ['extends'])) walkTree(e.to, depth + 1, seen);
+  };
+  for (const n of ds.filter(n => n.depth === 0 || n.cycle)) walkTree(n.id, 0, new Set());
+  if (items.length) B.push({ t: 'list', items }); else p('No data sources.');
+  h3('All data sources');
+  tbl(['#', 'Data source', 'ID', 'Type', 'Base search', 'Time range', 'Refresh', 'Used by', 'Uses tokens'], ds.map(n => [
+    num(n.id), n.label, n.key, dsTypeLabel(n.type), n.extend ? lbl('ds:' + n.extend) : '',
+    n.earliest ? `${n.earliest.v} -> ${n.latest.v}${n.earliest.src ? ' (' + n.earliest.src + ')' : ''}` : '', n.refresh ? fmt(n.refresh) : '',
+    L(outs(n.id, ['feeds', 'populates', 'extends']).map(e => e.to)), L(directTokens(n.id)),
+  ]));
+  h3('What each search reads');
+  tbl(['#', 'Data source', 'Indexes', 'Sourcetypes', 'Lookups', 'Data models', 'Macros', 'Other'], ds.map(n => [
+    num(n.id), n.label, vals(n, 'index'), vals(n, 'sourcetype'),
+    (n.eff_lookups || []).map(l => `${l.name} (${l.mode})`).join(', '), uniq((n.eff_datamodels || []).map(d => d.model + (d.dataset ? '.' + d.dataset : ''))).join(', '),
+    uniq((n.eff_macros || []).map(m => m.key)).join(', '), (n.eff_other || []).join(', '),
+  ]));
+  h3('SPL');
+  for (const n of ds) {
+    h4(`${num(n.id)} ${n.label} (${n.key}, ${dsTypeLabel(n.type)})`);
+    code(n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query || '(empty)');
+    if (n.depth > 0) { p('Effective SPL (base and chain together):'); code(n.effectiveQuery); }
+    if (n.expandedQuery) { p('Expanded SPL (macros, saved searches and data model constraints resolved, for analysis):'); code(n.expandedQuery); }
+  }
+
+  h2('Indexes, sourcetypes, lookups, data models and macros');
+  h3('Indexes and sourcetypes');
+  tbl(['#', 'Name', 'Kind', 'Read directly by', 'Feeds visualizations'], [...M.byKind('index'), ...M.byKind('sourcetype')].map(n => [
+    num(n.id), n.label, KINDS[n.kind].label, outs(n.id, ['searches']).map(e => lbl(e.to) + (e.detail ? ` (${e.detail})` : '')).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
+  h3('Lookups');
+  tbl(['#', 'Lookup', 'Access', 'Read by', 'Written by', 'Feeds visualizations'], M.byKind('lookup').map(n => [
+    num(n.id), n.label, n.accessLabel, outs(n.id, ['lookup-read']).map(e => `${lbl(e.to)} (${e.detail})`).join(', '),
+    ins(n.id, ['lookup-write']).map(e => `${lbl(e.from)} (${e.detail})`).join(', '), L(dataDown(n.id).filter(x => x.startsWith('viz:')))]));
+  h3('Data models');
+  tbl(['#', 'Data model', 'Datasets', 'Read by', 'Constraints'], M.byKind('datamodel').map(n => [
+    num(n.id), n.label, [...n.datasets].join(', '), outs(n.id, ['datamodel-read']).map(e => `${lbl(e.to)} (${e.detail})`).join(', '),
+    n.config ? n.config.objects.map(o => `${o.name}: ${o.constraints.join(' ') || '-'}`).join('; ') : 'not loaded']));
+  h3('Macros');
+  tbl(['#', 'Macro', 'Arguments', 'Calls as written', 'Definition', 'Used by'], M.byKind('macro').map(n => [
+    num(n.id), n.key, n.arity, n.calls.map(c => '`' + c + '`').join(' '), n.config ? n.config.definition : 'not loaded', L(outs(n.id, ['macro-used']).map(e => e.to))]));
+
+  h2('SPL commands');
+  tbl(['#', 'Command', 'Category', 'Uses', 'Used by'], M.byKind('command').sort((a, b) => b.uses - a.uses).map(n => [
+    num(n.id), n.label, n.category, n.uses, outs(n.id, ['command-used']).map(e => lbl(e.to) + (e.detail ? ` (${e.detail})` : '')).join(', ')]));
+  h3('Pipeline of each search');
+  tbl(['#', 'Data source', 'Pipeline'], ds.map(n => [num(n.id), n.label, (n.sources?.commands || []).map(c => (c.sub ? `[${c.name}]` : c.name) + (c.implicit && c.name === 'search' ? ' (implicit)' : '')).join(' | ')]));
+
+  h2('Visualizations');
+  tbl(['#', 'Visualization', 'ID', 'Type', 'Placed on', 'Data source lineage', 'Reads from', 'Uses tokens', 'Sets tokens', 'Drilldown', 'Visibility'], M.byKind('viz').map(n => [
+    num(n.id), n.label, n.key, shortType(n.type), L(tabsOf(n.id)), lineage(n), L(vizSources(n.id)), L(directTokens(n.id)),
+    L(outs(n.id, ['drilldown-sets']).map(e => e.to)), n.drilldowns.map(d => d.text).join('; '), n.visibility || '']));
+
+  h2('Tokens');
+  tbl(['#', 'Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(t => [
+    num(t.id), t.label, t.status, ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => `${lbl(e.from)} (${REL[e.rel].rev.toLowerCase()})`).join(', '),
+    (t.defaults || []).map(d => fmt(d.value)).join(', '), L(outs(t.id, ['uses-token']).map(e => e.to))]));
+  h3('Where each token is referenced');
+  tbl(['Token', 'Item', 'Location', 'As written'], M.usages.map(u => [lbl(u.token), `${num(u.node)} ${lbl(u.node)}`.trim(), u.path, u.raw]));
+
+  if (M.byKind('condition').length) {
+    h2('Visibility conditions');
+    tbl(['#', 'Condition', 'ID', 'Expression', 'Uses tokens', 'Controls'], M.byKind('condition').map(n => [
+      num(n.id), n.label, n.key, n.value, L(directTokens(n.id)), outs(n.id, ['visibility']).map(e => `${lbl(e.to)} (${e.detail})`).join(', ')]));
+  }
+
+  h2('Relationships');
+  p('Every connection, in the direction data and token values flow.');
+  tbl(['From', 'Relationship', 'To', 'Detail'], M.edges.map(e => [
+    `${num(e.from)} ${lbl(e.from)} (${KINDS[M.nodes.get(e.from).kind].label})`.trim(), REL[e.rel].fwd, `${num(e.to)} ${lbl(e.to)} (${KINDS[M.nodes.get(e.to).kind].label})`.trim(), e.detail]));
+
+  if (hasConfig()) {
+    h2('Splunk configuration used');
+    tbl(['Macro', 'Arguments', 'Definition'], [...CONFIG.macros.values()].map(m => [m.key, m.args.join(', '), m.definition]));
+    tbl(['Saved search', 'Search', 'Time range', 'Schedule'], [...CONFIG.saved.values()].map(s => [s.name, s.search, `${s.earliest || '...'} -> ${s.latest || 'now'}`, s.cron]));
+    tbl(['Data model', 'Datasets and constraints'], [...CONFIG.datamodels.values()].map(d => [d.name, d.objects.map(o => `${o.name}: ${o.constraints.join(' ') || '-'}`).join('; ')]));
+  }
+
+  h2('Appendix: dashboard definition');
+  p(M.src.classic ? 'Converted from Classic Simple XML to the Studio model.' : 'The definition as loaded, after any repairs.');
+  code(JSON.stringify(stripInternal(structuredClone(M.src.def)), null, 2), 'json');
+  return B;
+}
+
+/* ---------- Markdown ---------- */
+function blocksToMarkdown(B) {
+  const cell = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
+  const anchor = s => s.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  const out = [];
+  for (const b of B) {
+    switch (b.t) {
+      case 'toc': out.push('## Contents\n\n' + B.filter(x => x.t === 'h2').map(x => `- [${x.text}](#${anchor(x.text)})`).join('\n') + '\n'); break;
+      case 'h1': out.push(`# ${b.text}\n`); break;
+      case 'h2': out.push(`## ${b.text}\n`); break;
+      case 'h3': out.push(`### ${b.text}\n`); break;
+      case 'h4': out.push(`#### ${b.text}\n`); break;
+      case 'p': out.push(b.text + '\n'); break;
+      case 'list': out.push(b.items.map(it => '  '.repeat(it.depth || 0) + '- ' + it.text).join('\n') + '\n'); break;
+      case 'code': {
+        let fence = '```';
+        while (b.text.includes(fence)) fence += '`';
+        out.push(`${fence}${b.lang || ''}\n${b.text}\n${fence}\n`);
+        break;
+      }
+      case 'table':
+        out.push(b.rows.length ? `| ${b.head.map(cell).join(' | ')} |\n| ${b.head.map(() => '---').join(' | ')} |\n` + b.rows.map(r => `| ${r.map(cell).join(' | ')} |`).join('\n') + '\n' : '_None._\n');
+        break;
+      case 'img': out.push(`_${b.caption} The mockup image is in the PDF report and under Export → Mockup._\n`); break;
+    }
+  }
+  return out.join('\n');
+}
+async function exportReportMd() {
+  try { download(slug(M.title) + '-report.md', blocksToMarkdown(reportBlocks('md')), 'text/markdown;charset=utf-8'); }
+  catch (e) { console.error(e); toast('The report could not be built: ' + e.message); }
+}
+
+/* ---------- PDF ---------- */
+const PDF_LIBS = ['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'];
+let pdfLibPromise = null;
+function loadPdfLib() {
+  if (window.jspdf?.jsPDF?.API?.autoTable) return Promise.resolve(window.jspdf.jsPDF);
+  pdfLibPromise ||= (async () => {
+    for (const src of PDF_LIBS) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        const timer = setTimeout(() => rej(new Error('timed out')), 20000);
+        s.src = src; s.async = true;
+        s.onload = () => { clearTimeout(timer); res(); };
+        s.onerror = () => { clearTimeout(timer); rej(new Error('blocked or offline')); };
+        document.head.appendChild(s);
+      });
+    }
+    if (!window.jspdf?.jsPDF?.API?.autoTable) throw new Error('the PDF library did not initialise');
+    return window.jspdf.jsPDF;
+  })().catch(e => { pdfLibPromise = null; throw e; });
+  return pdfLibPromise;
+}
+// The built-in PDF fonts cover Latin-1 only; spell out the few symbols this page uses outside it.
+const PDF_MAP = { '→': '->', '←': '<-', '↔': '<->', '≥': '>=', '≤': '<=', '≠': '!=', '…': '...', '“': '"', '”': '"', '‘': "'", '’': "'", '—': '-', '–': '-', '›': '>', '‹': '<', '•': '-', '✓': 'v', '✕': 'x', '▾': 'v', '🕑': '' };
+const pdfSafe = s => String(s ?? '').replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/gu, ch => PDF_MAP[ch] ?? '?');
+// SVG → JPEG data URL on white, for embedding in the PDF.
+async function svgToJpeg(svg, scale = 2) {
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('image')); img.src = url; });
+    const c = document.createElement('canvas');
+    c.width = img.width * scale; c.height = img.height * scale;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
+    g.scale(scale, scale); g.drawImage(img, 0, 0);
+    return { url: c.toDataURL('image/jpeg', 0.92), w: img.width, h: img.height };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function blocksToPdf(B, jsPDF) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4', compress: true });
+  const PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), MG = 36, W = PW - 2 * MG, BOTTOM = PH - MG - 12;
+  const INK = [27, 31, 36], MUTED = [95, 107, 122], ACCENT = [47, 111, 222], LINE = [221, 225, 231];
+  let y = MG;
+  const ensure = h => { if (y + h > BOTTOM) { doc.addPage(); y = MG; } };
+  const text = (s, size, style = 'normal', color = INK, after = 4, font = 'helvetica') => {
+    doc.setFont(font, style); doc.setFontSize(size); doc.setTextColor(...color);
+    for (const line of doc.splitTextToSize(pdfSafe(s), W)) { ensure(size * 1.3); doc.text(line, MG, y + size); y += size * 1.3; }
+    y += after;
+  };
+  doc.setProperties({ title: pdfSafe(M.title + ' - dashboard report'), subject: 'Splunk dashboard inventory report', creator: 'Studio Dashboard Inventory' });
+  // Draw the images first so their size is known: a heading then stays on the same page as its image.
+  const imgs = new Map();
+  for (const b of B) if (b.t === 'img') {
+    const im = await svgToJpeg(b.svg);
+    const r = im.h / im.w, maxH = BOTTOM - MG - 40;
+    let w = W, h = w * r;
+    if (h > maxH) { h = maxH; w = h / r; }
+    imgs.set(b, { ...im, w, h });
+  }
+  const sections = []; // [{ text, page }] for the contents
+  let toc = null;
+  for (let bi = 0; bi < B.length; bi++) {
+    const b = B[bi], next = B[bi + 1];
+    switch (b.t) {
+      case 'h1': text(b.text, 20, 'bold', INK, 6); break;
+      case 'toc': // space for the contents, filled in once page numbers are known
+        toc = { page: doc.getNumberOfPages(), y: y + 6 };
+        y += 36 + B.filter(x => x.t === 'h2').length * 15;
+        break;
+      case 'h2':
+        if (y > MG + 120) { doc.addPage(); y = MG; } else y += 10;
+        sections.push({ text: b.text, page: doc.getNumberOfPages() });
+        doc.outline.add(null, pdfSafe(b.text), { pageNumber: doc.getNumberOfPages() });
+        text(b.text, 15, 'bold', ACCENT, 2);
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.8); doc.line(MG, y, MG + W, y); y += 10;
+        break;
+      case 'h3': y += 4; ensure(next?.t === 'img' ? imgs.get(next).h + 44 : 60); text(b.text, 12, 'bold', INK, 4); break;
+      case 'h4': ensure(40); text(b.text, 9.5, 'bold', INK, 3); break;
+      case 'p': text(b.text, 9.5, 'normal', INK, 5); break;
+      case 'list':
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...INK);
+        for (const it of b.items) {
+          const ind = (it.depth || 0) * 14;
+          doc.splitTextToSize(pdfSafe(it.text), W - ind - 10).forEach((l, k) => { ensure(12); doc.text((k ? '   ' : '- ') + l, MG + ind, y + 9); y += 12; });
+        }
+        y += 5;
+        break;
+      case 'code': {
+        doc.setFont('courier', 'normal'); doc.setFontSize(7.5);
+        const lines = doc.splitTextToSize(pdfSafe(b.text), W - 12);
+        for (const l of lines) { ensure(10); doc.setFillColor(243, 245, 248); doc.rect(MG, y, W, 10, 'F'); doc.setTextColor(...INK); doc.text(l, MG + 6, y + 7.5); y += 10; }
+        y += 8;
+        break;
+      }
+      case 'table':
+        if (!b.rows.length) { text('None.', 9, 'italic', MUTED, 6); break; }
+        ensure(40);
+        doc.autoTable({
+          head: [b.head.map(pdfSafe)], body: b.rows.map(r => r.map(pdfSafe)), startY: y,
+          margin: { left: MG, right: MG, top: MG, bottom: MG + 12 }, theme: 'grid', rowPageBreak: 'auto',
+          styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 3, overflow: 'linebreak', valign: 'top', lineColor: LINE, lineWidth: 0.5, textColor: INK },
+          headStyles: { fillColor: [241, 243, 246], textColor: INK, fontStyle: 'bold' },
+          columnStyles: b.head[0] === '#' ? { 0: { cellWidth: 26, textColor: MUTED } } : {},
+        });
+        y = doc.lastAutoTable.finalY + 12;
+        break;
+      case 'img': {
+        const im = imgs.get(b), w = im.w, h = im.h;
+        ensure(h + 18);
+        doc.setDrawColor(...LINE); doc.rect(MG - 0.5, y - 0.5, w + 1, h + 1);
+        doc.addImage(im.url, 'JPEG', MG, y, w, h);
+        y += h + 6;
+        if (b.caption) text(b.caption, 8, 'italic', MUTED, 8);
+        break;
+      }
+    }
+  }
+  if (toc) {
+    doc.setPage(toc.page);
+    let ty = toc.y;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...INK);
+    doc.text('Contents', MG, ty + 13); ty += 24;
+    doc.setFontSize(10);
+    for (const sct of sections) {
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(...ACCENT);
+      doc.text(pdfSafe(sct.text), MG + 4, ty + 10);
+      doc.setTextColor(...MUTED);
+      doc.text(String(sct.page), MG + Math.min(W, 420), ty + 10, { align: 'right' });
+      doc.link(MG, ty, Math.min(W, 420), 14, { pageNumber: sct.page });
+      ty += 15;
+    }
+  }
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(pdfSafe(M.title), MG, PH - 18);
+    doc.text(`Page ${i} of ${n}`, PW - MG, PH - 18, { align: 'right' });
+  }
+  return doc.output('blob');
+}
+/* ---------- HTML fallback (print to PDF) ---------- */
+function blocksToHtml(B) {
+  const body = B.map(b => {
+    switch (b.t) {
+      case 'h1': return `<h1>${esc(b.text)}</h1>`;
+      case 'h2': return `<h2>${esc(b.text)}</h2>`;
+      case 'h3': return `<h3>${esc(b.text)}</h3>`;
+      case 'h4': return `<h4>${esc(b.text)}</h4>`;
+      case 'p': return `<p>${esc(b.text)}</p>`;
+      case 'list': return `<ul>${b.items.map(it => `<li style="margin-left:${(it.depth || 0) * 18}px">${esc(it.text)}</li>`).join('')}</ul>`;
+      case 'code': return `<pre>${esc(b.text)}</pre>`;
+      case 'table': return b.rows.length ? `<table><thead><tr>${b.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p class="m">None.</p>';
+      case 'img': return `<figure>${b.svg}<figcaption>${esc(b.caption || '')}</figcaption></figure>`;
+      default: return '';
+    }
+  }).join('\n');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(M.title)} · report</title>
+<style>body{font:12px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1b1f24;background:#fff;margin:24px auto;max-width:1100px;padding:0 16px}
+h1{font-size:22px}h2{font-size:16px;color:#2f6fde;border-bottom:1px solid #dde1e7;padding-bottom:3px;margin-top:28px}h3{font-size:13.5px;margin:18px 0 6px}h4{font-size:12px;margin:12px 0 4px}
+table{border-collapse:collapse;width:100%;margin:4px 0 12px}th,td{border:1px solid #dde1e7;padding:3px 6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#f1f3f6}
+pre{background:#f3f5f8;padding:8px;white-space:pre-wrap;word-break:break-word;font:11px ui-monospace,Menlo,Consolas,monospace}figure{margin:6px 0 12px}figure svg{width:100%;height:auto;border:1px solid #dde1e7}figcaption,.m{color:#5f6b7a;font-size:11px}
+.noprint{margin:10px 0}@media print{.noprint{display:none}body{margin:0;max-width:none}h2{break-before:page}table,figure{break-inside:auto}tr{break-inside:avoid}}</style></head>
+<body><div class="noprint"><button onclick="window.print()">Print or save as PDF</button></div>${body}</body></html>`;
+}
+let pdfBusy = false;
+async function exportReportPdf() {
+  if (pdfBusy) return;
+  pdfBusy = true;
+  toast('Building the PDF report…', 0);
+  try {
+    let jsPDF;
+    try { jsPDF = await loadPdfLib(); }
+    catch (e) {
+      download(slug(M.title) + '-report.html', blocksToHtml(reportBlocks('html')), 'text/html;charset=utf-8');
+      toast(`The PDF library couldn't be loaded (${e.message}), so the full report was saved as an HTML file instead. Open it and choose Print, then Save as PDF.`, 12000);
+      return;
+    }
+    const blob = await blocksToPdf(reportBlocks('pdf'), jsPDF);
+    await download(slug(M.title) + '-report.pdf', blob, 'application/pdf');
+    toast('');
+  } catch (e) {
+    console.error(e);
+    toast('The PDF report could not be built: ' + e.message, 10000);
+  } finally { pdfBusy = false; }
+}
+// A small status message at the bottom of the page. ms = 0 keeps it until replaced; '' hides it.
+function toast(msg, ms = 6000) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  clearTimeout(el._t);
+  el.textContent = msg; el.hidden = !msg;
+  if (msg && ms) el._t = setTimeout(() => { el.hidden = true; }, ms);
+}
+
+/* ============================================================
    Loading and wiring
    ============================================================ */
 let DASH = [];        // every loaded dashboard: [{ src, model }]
@@ -3295,7 +3704,8 @@ const exportMenu = $('#export-menu');
 $('#btn-export').onclick = e => { e.stopPropagation(); exportMenu.hidden = !exportMenu.hidden; $('#btn-export').setAttribute('aria-expanded', String(!exportMenu.hidden)); };
 exportMenu.addEventListener('click', () => { exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false'); });
 $('#btn-export-summary').onclick = exportSummary;
-$('#btn-export-md').onclick = exportMarkdown;
+$('#btn-export-md').onclick = exportReportMd;
+$('#btn-export-pdf').onclick = exportReportPdf;
 $('#btn-export-inv').onclick = exportInventory;
 $('#btn-export-rel').onclick = exportRelationships;
 $('#btn-export-json').onclick = exportJson;

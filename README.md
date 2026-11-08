@@ -100,8 +100,10 @@ Explore them through the detail panel (click any item), the **Relationship map**
 
 From the **Export** menu:
 
+- **Full report (.pdf)** and **Full report (.md):** everything about the open dashboard in one document. It covers a summary, issues with their fixes, the layout (a mockup image of each tab in the PDF, and positions of every item), the numbered inventory, inputs, data sources (lineage, time ranges, what each search reads, and the full, effective and expanded SPL), indexes, sourcetypes, lookups, data models and macros, SPL commands and pipelines, visualizations, tokens and where each is referenced, visibility conditions, every relationship, the Splunk config used, and the dashboard definition as an appendix.
+  - The PDF is landscape A4, with a contents page linking to each section, bookmarks, and page numbers. It is built in the browser with [jsPDF](https://github.com/parallax/jsPDF), loaded from jsDelivr the first time you export. If that can't load (for example offline), the report is saved as a print-ready HTML file instead; open it and choose **Print → Save as PDF**.
+  - The Markdown has a linked table of contents and renders on GitHub, GitLab and most wikis.
 - **Printable summary (.html):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
-- **Report (.md):** a documentation-ready Markdown write-up.
 - **Inventory (.csv)** and **Relationships (.csv)**.
 - **Model (.json):** the full parsed model.
 - **Definition, with selected fixes.**
