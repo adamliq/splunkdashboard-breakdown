@@ -552,7 +552,7 @@ async function loadSplunkViews() {
     const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views`, { f: ['label', 'version', 'isDashboard', 'isVisible'] });
     splunkState.views = (r.entry || [])
       .filter(e => e.acl?.app === app && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && !(app === 'dashboard_inventory' && e.name === 'inventory'))
-      .map(e => ({ name: e.name, label: e.content?.label || e.name, kind: String(e.content?.version) === '2' ? 'Studio' : e.content?.version ? 'Classic' : '', sharing: e.acl?.sharing || '' }))
+      .map(e => ({ name: e.name, label: e.content?.label || e.name, kind: String(e.content?.version) === '2' ? 'Studio' : 'Classic', sharing: e.acl?.sharing || '' }))
       .sort((a, b) => a.label.localeCompare(b.label));
   } catch (e) { splunkState.error = `Couldn't list the dashboards in this app (${e.message}).`; }
   splunkState.loading = false; renderSplunkLoader();
@@ -580,7 +580,7 @@ const confLine = (k, v) => `${k} = ${String(v ?? '').replace(/\r?\n/g, ' \\\n')}
 async function splunkConfig(app) {
   const ns = `/servicesNS/-/${encodeURIComponent(app)}`;
   const [mac, sav, dm] = await Promise.allSettled([
-    splunkGet(ns + '/admin/macros', { f: ['definition', 'args', 'iseval'] }),
+    splunkGet(ns + '/configs/conf-macros', { f: ['definition', 'args', 'iseval'] }), // Splunk Web does not pass /admin/ paths
     splunkGet(ns + '/saved/searches', { f: ['search', 'dispatch.earliest_time', 'dispatch.latest_time', 'cron_schedule'] }),
     splunkGet(ns + '/datamodel/model', { f: ['eai:data'] }),
   ]);

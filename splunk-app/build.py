@@ -29,6 +29,13 @@ PAGE = os.path.join(ROOT, 'index.html')
 DIST = os.path.join(ROOT, 'dist')
 APP = 'dashboard_inventory'
 
+# Splunk Web adds an i18n_register({...}) call to the top of every app .js file it serves. The page
+# runs in its own frame, where Splunk's i18n library is not loaded, so it defines a no-op. A function
+# declaration is hoisted, so it exists before that call runs; the bundled libraries, loaded later
+# into the same frame, use the same global.
+I18N_SHIM = ('/* Splunk Web prepends i18n_register(...) to app scripts; this frame has no i18n library. */\n'
+             'function i18n_register() {}\n')
+
 
 def app_version():
     conf = configparser.ConfigParser(interpolation=None)
@@ -49,7 +56,7 @@ def split_page(html, version):
     script = re.search(r"<script>\n'use strict';\n(.*?)</script>", html, re.S)
     if not script:
         sys.exit('index.html: main <script> not found')
-    js = "'use strict';\n" + script.group(1)
+    js = I18N_SHIM + "'use strict';\n" + script.group(1)
     html = html[:script.start()] + f'<script src="inventory.js?v={version}"></script>' + html[script.end():]
     leftover = re.findall(r'<script(?![^>]*\b(src|type="(application/json|text/plain)"))[^>]*>', html)
     if leftover:
