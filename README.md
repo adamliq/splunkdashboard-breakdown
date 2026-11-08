@@ -112,11 +112,20 @@ Explore them through:
 
 - **Detail panel.** Click any item for its relationships and full lineage.
 - **Relationship map.** A left-to-right flow from inputs and tokens through sources and searches to panels and tabs.
-  - **Focus on one item** (the default) shows a single item and what it depends on and what depends on it, 1 to 4 steps each way or all the way. Clicking any item moves the focus to it. **Whole dashboard** shows everything, optionally only what feeds one tab.
-  - Two layouts: **Columns** (one column per kind of item), or **Layered, grouped by tab (ELK)**. ELK draws right-angle lines, places items to reduce crossings, and puts each tab's panels and inputs in a box. It uses [ELK](https://eclipse.dev/elk/) (elkjs), loaded from jsDelivr the first time you choose it.
+  - **Three modes:**
+    - **Focus on one item** (the default) shows a single item and what it depends on and what depends on it, 1 to 4 steps each way or all the way. Clicking any item moves the focus to it.
+    - **Path between two** answers "how does A affect B?" It draws every route from one item to another, with the number of routes and the shortest. If nothing flows that way but something flows the other way, or the two aren't connected at all, it says so.
+    - **Whole dashboard** shows everything, optionally only what feeds one tab.
+  - **Two layouts:** **Columns** (one column per kind of item), or **Layered, grouped by tab (ELK)**. ELK draws right-angle lines, places items to reduce crossings, and puts each tab's panels and inputs in a box. It uses [ELK](https://eclipse.dev/elk/) (elkjs), loaded from jsDelivr the first time you choose it.
+  - **Hub tokens.** Tokens used by many items, such as a time picker's, are shown as a small badge on each item that uses them instead of as lines. The default is 4 or more uses; you can change the threshold or turn it off. The token matrix still shows every link.
+  - **Collapse and expand.** Fold each tab into one box, each base search together with its chain searches, all sources, or all SPL commands. Use the checkboxes, or the **+**/**−** on a box to open or close just that one.
+  - **Navigation.** Find an item by name or number. Zoom with Ctrl+scroll, a pinch, or the − / + / Fit / 100% buttons, and drag empty space to pan. Arrow keys move between connected items (right: what it feeds; left: what feeds it; up and down: the column), and Enter opens one.
+  - **Changes from Compare.** After comparing two versions, **Show changes** colours the map: added in green, removed in red (dashed) and changed in amber, for both items and connections.
   - Inputs and tokens, sources, and SPL commands can each be hidden. In focus mode, lineage is still followed through hidden items.
-- **Token matrix.** Tokens down the side and panels (grouped by tab) or searches across the top. Each cell shows how the token reaches the item: used directly (●), through its search (○), through a visibility condition (▲), or set by it (◆). It is the clearest way to see what an input changes. It is also in the reports when there are 24 or fewer panels.
-- **Data flow (Sankey).** Where each panel's data comes from: indexes, lookups and data models, through base searches, to panels and tabs. Band width is the number of panels. It is also in the PDF report.
+  - **Export SVG / PNG** saves the map as shown.
+- **Token matrix.** Tokens, or inputs, down the side and panels (grouped by tab) or searches across the top. Each cell shows how the token reaches the item: used directly (●), through its search (○), through a visibility condition (▲), or set by it (◆). Order rows and columns as defined, most used first, or with similar ones grouped together. It is the clearest way to see what an input changes. Export it as SVG or PNG. It is also in the reports when there are 24 or fewer panels.
+- **Data flow (Sankey).** Where each panel's data comes from: indexes, lookups and data models, through base searches (and optionally chain searches as their own column), to panels and tabs. Band width is the number of panels, or the number of search steps behind them. Export it as SVG or PNG. It is also in the PDF report. With several dashboards loaded, the **All dashboards** page also has a Sankey from indexes, lookups and data models to the dashboards that read them.
+- **Panel lineage maps.** The PDF report includes a map for each panel (up to 40) showing everything that feeds it.
 - **Relationship list.** Every connection as a table.
 - **"Driven by tokens"** column on the Tabs page.
 
