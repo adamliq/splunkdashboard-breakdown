@@ -2,7 +2,9 @@
 
 **Studio Dashboard Inventory** is a single, standalone web page (`index.html`). It lists everything in a Splunk dashboard, shows how the items relate, checks for problems before you deploy, and can repair what it safely can.
 
-Open `index.html` in a browser. It needs no server, build step or internet connection, and it sends nothing anywhere. Paste or drop in the dashboard source, or click **Load sample dashboard**.
+**Try it online: [adamliq.github.io/splunkdashboard-breakdown](https://adamliq.github.io/splunkdashboard-breakdown/)**
+
+Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network request is loading the PDF library the first time you export a PDF report.)
 
 ## Accepted input
 
