@@ -108,6 +108,7 @@ th[data-dir="desc"]::after { content: " ▼"; font-size: 10px; }
 tr:last-child td { border-bottom: 0; }
 td.q code { display: block; max-width: 420px; white-space: pre-wrap; word-break: break-word; max-height: 7.5em; overflow: hidden; }
 td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
+td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; width: 1%; white-space: nowrap; }
 
 .chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid color-mix(in srgb, var(--kc) 40%, transparent); background: color-mix(in srgb, var(--kc) 10%, transparent); color: var(--text); border-radius: 999px; padding: 1px 9px; font-size: 12.5px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.6; }
 .chip:hover { background: color-mix(in srgb, var(--kc) 22%, transparent); }
@@ -2715,6 +2716,11 @@ ${tbl(['Severity', 'Item', 'Issue'], M.issues.map(i => [`<span class="${i.severi
 const INV_ORDER = ['tab', 'input', 'ds', 'viz', 'token', 'condition', 'index', 'sourcetype', 'lookup', 'datamodel', 'macro', 'command', 'defaults'];
 const invState = { kind: '' };
 function invItems() { return INV_ORDER.flatMap(k => M.byKind(k)); }
+// Stable item numbers in inventory order, so #14 means the same item whatever the filter.
+function invNo(id) {
+  if (!M._invNo) M._invNo = new Map(invItems().map((n, i) => [n.id, i + 1]));
+  return M._invNo.get(id) || '';
+}
 function invType(n) {
   switch (n.kind) {
     case 'ds': return dsTypeLabel(n.type);
@@ -2743,6 +2749,7 @@ function viewInventory() {
   <div class="stack inv-kinds" style="margin-bottom:10px">${btn('', 'All', all.length)}${kinds.map(k => btn(k, KINDS[k].plural, M.byKind(k).length)).join('')}</div>
   <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="inv-csv">Download inventory (.csv)</button></div>
   ${table([
+    { h: '#', cls: 'num', f: n => String(invNo(n.id)) },
     { h: 'Item', f: n => chip(n.id) + issueMark(n.id) },
     { h: 'Kind', f: n => esc(KINDS[n.kind].label) },
     { h: 'ID', f: n => `<code>${esc(n.kind === 'token' ? n.label : n.key)}</code>` },
@@ -2929,7 +2936,7 @@ function openDrawer(id, push = true) {
   if (push && drawerHistory[drawerHistory.length - 1] !== id) drawerHistory.push(id);
   $('#drawer-back').disabled = drawerHistory.length < 2;
   const kindLabel = n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? 'Visualization · ' + n.type : n.kind === 'input' ? 'Input · ' + n.type : KINDS[n.kind].label;
-  $('#drawer-kind').innerHTML = `<span class="chip k-${n.kind}" style="cursor:default">${esc(kindLabel)}</span>`;
+  $('#drawer-kind').innerHTML = `${invNo(n.id) ? `<span class="badge" title="Inventory number">#${invNo(n.id)}</span> ` : ''}<span class="chip k-${n.kind}" style="cursor:default">${esc(kindLabel)}</span>`;
   $('#drawer-title').textContent = n.label;
 
   const props = [];
@@ -3114,10 +3121,11 @@ function exportInventory() {
   const mcList = n => n.kind === 'ds' ? uniq((n.eff_macros || []).map(x => x.key)).join('; ')
     : n.kind === 'viz' ? vizSources(n.id).filter(x => x.startsWith('macro:')).map(x => x.slice(6)).join('; ') : '';
   const cmdList = n => n.kind === 'ds' ? (n.sources?.commands || []).map(c => c.sub ? `[${c.name}]` : c.name).join(' | ') : n.kind === 'command' ? n.category : '';
-  const rows = [['Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Indexes', 'Sourcetypes', 'Lookups', 'Data models', 'Macros', 'Commands', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
-  for (const n of M.nodes.values()) {
+  const rows = [['#', 'Kind', 'ID', 'Name / title', 'Type', 'Placed on', 'Data sources', 'Indexes', 'Sourcetypes', 'Lookups', 'Data models', 'Macros', 'Commands', 'Tokens used', 'Tokens set', 'Details', 'Upstream', 'Downstream', 'Issues']];
+  // Numbered items first, in inventory order, then the rest (the dashboard itself).
+  for (const n of [...invItems(), ...[...M.nodes.values()].filter(x => !invNo(x.id))]) {
     rows.push([
-      KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, n.label,
+      invNo(n.id), KINDS[n.kind].label, n.kind === 'token' ? n.label : n.key, n.label,
       n.kind === 'ds' ? dsTypeLabel(n.type) : (n.type || n.layoutType || n.status || ''),
       tabsOf(n.id).map(t => M.nodes.get(t).label).join('; '),
       ins(n.id, ['feeds', 'populates', 'extends']).map(e => e.from.slice(3)).join('; '),
