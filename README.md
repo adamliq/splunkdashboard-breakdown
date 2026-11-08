@@ -62,7 +62,7 @@ Draws the dashboard as laid out: the title, tab bar, global input bar, and each 
 - conditional panels show or hide as their conditions change; ones that can't be evaluated are marked
 - panels whose searches use a token with no value show **Waiting for input**
 
-Export the current tab as SVG or PNG.
+Turn on **Show item names** to tag each panel with its ID and the data sources feeding it (`viz_total ← ds_total`), each input with its ID and token (`input_host → $host$`), and each tab with its layout ID. Export the current tab as SVG or PNG; the tags are included when shown.
 
 ## Compare versions
 

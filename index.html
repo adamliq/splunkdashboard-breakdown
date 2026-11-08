@@ -163,6 +163,8 @@ td .stack { display: flex; flex-wrap: wrap; gap: 4px; }
 .mock-panel .f { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-panel .md { color: var(--text); font-size: 12px; overflow: hidden; width: 100%; height: 100%; }
 .mock-panel .flags { position: absolute; top: 4px; right: 4px; display: flex; gap: 3px; }
+.idtag { position: absolute; right: 4px; bottom: 4px; max-width: calc(100% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 10.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 3px; padding: 0 5px; z-index: 2; }
+.idtag-inline { font: 600 10.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); border-radius: 3px; padding: 0 4px; margin-left: 4px; white-space: nowrap; }
 .mock-panel .flags span { font-size: 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; color: var(--muted); }
 .mock-panel .big { font-size: clamp(16px, 2.4vw, 34px); font-weight: 650; color: var(--accent); }
 .mock-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -2039,7 +2041,14 @@ function viewLookups() {
 }
 
 /* ---------- Dashboard mockup (interactive) ---------- */
-const mockState = { tab: null, substitute: true, showHidden: true, values: null };
+const mockState = { tab: null, substitute: true, showHidden: true, showNames: false, values: null };
+// The definition IDs behind a mockup item: the item itself, plus the data sources feeding a panel
+// or the token an input sets.
+function itemNames(n) {
+  if (n.kind === 'input') return n.key + (n.token ? ' → $' + n.token + '$' : '');
+  const ds = ins(n.id, ['feeds']).map(e => e.from.slice(3));
+  return n.key + (ds.length ? ' ← ' + ds.join(', ') : '');
+}
 // Token values start from the defaults: an input's default first, then dashboard defaults.
 function resetMockValues() {
   mockState.values = new Map();
@@ -2166,7 +2175,7 @@ function mockInput(n, inCanvas) {
     const ph = t === 'timerange' ? 'earliest,latest' : t === 'number' ? 'number' : 'value';
     ctl = `<input class="mock-ctl" ${attrs} value="${esc(v === undefined ? '' : fmt(v))}" placeholder="${ph}"${t === 'timerange' ? ' title="earliest,latest, for example -24h@h,now"' : ''}>`;
   }
-  const inner = `<div class="lbl"><button class="linklike" data-open="${esc(n.id)}" title="Open details">${esc(n.title || n.key)}</button>${tok ? ` <span class="muted">$${esc(tok)}$</span>` : ''}</div>${ctl}`;
+  const inner = `<div class="lbl"><button class="linklike" data-open="${esc(n.id)}" title="Open details">${esc(n.title || n.key)}</button>${mockState.showNames ? `<code class="idtag-inline" title="${esc(itemNames(n))}">${esc(itemNames(n))}</code>` : tok ? ` <span class="muted">$${esc(tok)}$</span>` : ''}</div>${ctl}`;
   return inCanvas ? inner : `<div class="mock-input">${inner}</div>`;
 }
 // Placeholder drawing for a visualization type. Shapes are illustrative only, not data.
@@ -2220,7 +2229,7 @@ function mockPanel(item, style) {
   const waiting = st.waiting.length ? `<div class="waiting">Waiting for input: ${esc(st.waiting.map(x => M.nodes.get(x).label).join(', '))}</div>` : '';
   return `<div class="mock-panel mock-item${shape ? ' shape' : ''}${hiddenCls}" data-id="${esc(n.id)}" style="${style}" title="${esc(tip)}">
     ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}${title}<div class="b${waiting ? ' faded' : ''}">${vizSketch(n)}</div>${waiting}
-    ${!shape && t !== 'markdown' ? `<div class="f">${esc(shortType(n.type))}${ds.length ? ' · ' + esc(ds.join(', ')) : ''}</div>` : ''}</div>`;
+    ${!shape && t !== 'markdown' ? `<div class="f">${esc(shortType(n.type))}${ds.length ? ' · ' + esc(ds.join(', ')) : ''}</div>` : ''}${mockState.showNames ? `<div class="idtag" title="${esc(itemNames(n))}">${esc(itemNames(n))}</div>` : ''}</div>`;
 }
 // Canvas size and the items that have positions.
 function canvasGeometry(tab) {
@@ -2257,6 +2266,7 @@ function viewMockup() {
   return `<div class="mock-controls">
       <label><input type="checkbox" id="mock-sub" ${mockState.substitute ? 'checked' : ''}> Show token values in titles</label>
       <label><input type="checkbox" id="mock-hidden" ${mockState.showHidden ? 'checked' : ''}> Show hidden panels (dimmed)</label>
+      <label><input type="checkbox" id="mock-names" ${mockState.showNames ? 'checked' : ''}> Show item names</label>
       <button class="btn small" id="mock-reset">Reset token values</button>
       <button class="btn small" id="mock-svg">Export SVG</button>
       <button class="btn small" id="mock-png">Export PNG</button>
@@ -2264,7 +2274,7 @@ function viewMockup() {
     <p class="muted small" style="margin:0 0 10px">Change inputs or token values to see titles, conditional panels and "waiting for input" states update. Positions come from the layout. Charts are placeholders, not real data. Click a panel, or an input's name, for details.</p>
     <div class="mock-scroll"><div class="mock-dash">
       <div class="mock-head"><h3>${esc(withValues(M.title))}</h3>${M.description ? `<span class="muted small">${esc(M.description)}</span>` : ''}</div>
-      ${tabs.length > 1 || cur?.isTab ? `<div class="mock-tabs" role="tablist">${tabs.map(t => `<button role="tab" data-mocktab="${esc(t.id)}" aria-selected="${t.id === mockState.tab}">${esc(t.label)}</button>`).join('')}</div>` : ''}
+      ${tabs.length > 1 || cur?.isTab ? `<div class="mock-tabs" role="tablist">${tabs.map(t => `<button role="tab" data-mocktab="${esc(t.id)}" aria-selected="${t.id === mockState.tab}">${esc(t.label)}${mockState.showNames ? `<code class="idtag-inline">${esc(t.key)}</code>` : ''}</button>`).join('')}</div>` : ''}
       ${gInputs.length ? `<div class="mock-inputs">${gInputs.map(n => mockInput(n, false)).join('')}</div>` : ''}
       ${cur ? mockCanvas(cur) : ''}
       ${cur ? `<div class="muted small" style="margin-top:8px">${esc(cur.layoutType || 'canvas')} layout${cur.options?.width ? ` · ${cur.options.width}×${cur.options.height || '?'}` : ''} · ${plural((cur.items || []).length, 'item')}</div>` : ''}
@@ -2307,8 +2317,9 @@ function mockupSvg(tabId = mockState.tab) {
   if (tabs.length > 1 || tab?.isTab) {
     let x = PAD;
     for (const t of tabs) {
-      const w = t.label.length * 7.2 + 28;
+      const w = t.label.length * 7.2 + 28 + (mockState.showNames ? t.key.length * 6.4 + 8 : 0);
       out += T(x + 14, y + 18, t.label, 13, t.id === tabId ? C.text : C.muted, t.id === tabId ? 600 : 400);
+      if (mockState.showNames) out += T(x + 14 + t.label.length * 7.2 + 6, y + 18, t.key, 10.5, C.accent, 600);
       if (t.id === tabId) out += `<rect x="${x}" y="${y + 27}" width="${w}" height="2" fill="${C.accent}"/>`;
       x += w;
     }
@@ -2317,12 +2328,13 @@ function mockupSvg(tabId = mockState.tab) {
   }
   const inputBox = (n, x, yy, w) => {
     const v = n.token ? tokenText(n.token) : undefined;
-    return T(x, yy + 11, fit(n.title || n.key, w, 11), 11, C.muted) + R(x, yy + 16, w, 26, C.bg, C.border) + T(x + 8, yy + 33, fit(v ?? '—', w - 16, 12), 12, v === undefined ? C.muted : C.text);
+    return T(x, yy + 11, fit((n.title || n.key) + (mockState.showNames ? '  ' + itemNames(n) : ''), w, 11), 11, mockState.showNames ? C.accent : C.muted) + R(x, yy + 16, w, 26, C.bg, C.border) + T(x + 8, yy + 33, fit(v ?? '—', w - 16, 12), 12, v === undefined ? C.muted : C.text);
   };
   const gInputs = (M.nodes.get('tab:__global__')?.items || []).map(i => M.nodes.get(i.id)).filter(Boolean);
   if (gInputs.length) {
     let x = PAD;
-    for (const n of gInputs) { if (x + 180 > W - PAD) { x = PAD; y += 52; } out += inputBox(n, x, y, 170); x += 180; }
+    const iw = mockState.showNames ? 300 : 170; // room for "Title  input_id → $token$"
+    for (const n of gInputs) { if (x + iw + 10 > W - PAD) { x = PAD; y += 52; } out += inputBox(n, x, y, iw); x += iw + 10; }
     y += 52;
   }
   if (tab) {
@@ -2354,6 +2366,11 @@ function mockupSvg(tabId = mockState.tab) {
         else g2 += T(bx, top + 14, shortType(n.type), 11, C.muted);
         if (st.waiting.length) g2 += T(x0 + w / 2, top + bh / 2, fit('Waiting for input: ' + st.waiting.map(x => M.nodes.get(x).label).join(', '), w - 16, 11), 11, C.warn, 600, 'middle');
         if (foot) g2 += T(x0 + 8, y0 + h - 7, fit(shortType(n.type) + (ins(n.id, ['feeds']).length ? ' · ' + ins(n.id, ['feeds']).map(e => M.nodes.get(e.from)?.label).join(', ') : ''), w - 16, 10), 10, C.muted);
+      }
+      if (mockState.showNames && n.kind !== 'input') {
+        const tag = fit(itemNames(n), w - 16, 10.5), tw = tag.length * 6.4 + 10;
+        g2 += `<rect x="${(x0 + w - tw - 4).toFixed(1)}" y="${(y0 + h - 20).toFixed(1)}" width="${tw.toFixed(1)}" height="16" rx="3" fill="${C.bg}" stroke="${C.accent}" stroke-opacity="0.5"/>`
+          + `<text x="${(x0 + w - 9).toFixed(1)}" y="${(y0 + h - 8).toFixed(1)}" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="${C.accent}" text-anchor="end">${esc(tag)}</text>`;
       }
       out += st.hidden ? `<g opacity="0.3">${g2}</g>` : g2;
     }
@@ -3288,6 +3305,7 @@ document.addEventListener('change', async e => {
   const t = e.target;
   if (t.id === 'mock-sub') { mockState.substitute = t.checked; render(); return; }
   if (t.id === 'mock-hidden') { mockState.showHidden = t.checked; render(); return; }
+  if (t.id === 'mock-names') { mockState.showNames = t.checked; render(); return; }
   if (t.dataset?.fix !== undefined) { const k = +t.dataset.fix; if (t.checked) FIX_SEL.add(k); else FIX_SEL.delete(k); render(); return; }
   if (t.id === 'cmp-pick' && t.value !== '') { COMPARE = { model: DASH[+t.value].model, label: DASH[+t.value].model.title }; render(); return; }
   if (t.id === 'cmp-file' && t.files[0]) { const f = t.files[0]; startCompare(await f.text(), f.name); return; }
