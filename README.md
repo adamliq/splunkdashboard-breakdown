@@ -53,6 +53,20 @@ The **Issues** page lists problems as errors, warnings and notes.
 - searches that write lookups or run side-effect commands (`collect`, `sendemail`, `delete` and so on) on every load
 - lookups written by one search and read by another in the same dashboard
 
+**Definition.** Names, types and values in the Studio definition that Splunk won't recognise, which otherwise load silently and then do nothing:
+- misspelled keys and options (`legendDisplayy`, `queryParamters`, `itmes`, a top-level `visualisations`), with a "did you mean…" and a one-click rename
+- unknown visualization, input, data source and drilldown types (`splunk.lne`, `input.dropdwn`), with a one-click correction
+- option values that aren't allowed (`stackMode: "stacks"`), numbers given as text, and `"true"`/`"false"` given as text (fixable)
+- searches with no query, saved searches with no report name, time range defaults not in `earliest,latest` form, non-numeric number-input defaults, malformed `items`
+- the same ID used for both a visualization and an input
+- layout problems: unknown layout types, panels overlapping on a grid, panels past the 1,200-pixel grid width or outside an absolute canvas, and zero-size panels
+
+Unknown keys are flagged only when they look like a misspelling of a known one, so app-specific options aren't reported.
+
+## Splunk version compatibility
+
+The **Splunk version** page lists the features the dashboard uses that need a particular Splunk version: Dashboard Studio, the grid layout, default token values, hiding panels with no data, smart-source tokens, tabs, unset-token drilldowns, and show/hide conditions. It shows the minimum version each needs and the items that use it, and says which version the whole dashboard needs; the Overview and the reports show the same. Choose your version (Splunk Enterprise 8.2 to 10.0, or Splunk Cloud Platform) to see what won't work on it. The minimum versions are approximate, based on Splunk release notes. If one is wrong for your environment, correct it in the table; your corrections and version are remembered in your browser.
+
 ## Recommendations
 
 The **Recommendations** page suggests optimisations and best practice. Unlike issues, nothing here is broken. Each recommendation has an impact (high, medium or low), a category, why it matters, what to do, an SPL or config example where useful, and the items it applies to. They are also on the Overview and in the full report.
@@ -64,6 +78,7 @@ The **Recommendations** page suggests optimisations and best practice. Unlike is
 | **Correctness** | Give multiselect inputs a prefix and delimiter (otherwise values are ANDed); give `| sort` an explicit limit (it keeps 10,000 rows by default) |
 | **Maintainability** | Put repeated index names in a macro; flatten deep chains; give data sources descriptive names |
 | **Usability** | Give inputs defaults so panels load; add panel titles and make duplicate titles distinct; point out panels that don't follow the time picker; prefer grid layouts; split crowded tabs |
+| **Accessibility** | Raise colour contrast for text colours, including colours picked by dynamic options (checked against the panel or canvas background, or the dashboard theme; 4.5:1 for text, 3:1 for large numbers); don't rely on red versus green alone (with colour-blind-safe pairs); describe image panels; give markdown images alt text and keep heading levels in order; avoid text under 12 pixels |
 
 ## Repair
 

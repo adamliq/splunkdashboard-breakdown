@@ -1215,6 +1215,305 @@ function lintSpl(q, isChain) {
 }
 
 /* ============================================================
+   Definition checks: names, types and values Splunk won't recognise
+   ============================================================ */
+const setOf = s => new Set(s.split(/\s+/).filter(Boolean));
+const TOP_KEYS = setOf('title description visualizations dataSources inputs layout defaults expressions applicationProperties');
+const VIZ_TYPES = setOf(`splunk.area splunk.bar splunk.bubble splunk.choropleth.svg splunk.choropleth.map splunk.column splunk.ellipse splunk.events splunk.fillergauge
+  splunk.image splunk.line splunk.linkgraph splunk.map splunk.markdown splunk.markergauge splunk.parallelcoordinates splunk.pie splunk.punchcard splunk.rectangle
+  splunk.sankey splunk.scatter splunk.singlevalue splunk.singlevalueicon splunk.singlevalueradial splunk.table abslayout.line`);
+const INPUT_TYPES = setOf('input.dropdown input.multiselect input.timerange input.text input.number input.checkbox input.radio');
+const HANDLER_TYPES = setOf('drilldown.setToken drilldown.unsetToken drilldown.linkToDashboard drilldown.linkToSearch drilldown.linkToReport drilldown.linkToUrl drilldown.customUrl');
+const VIZ_KEYS = setOf('type title description dataSources options context eventHandlers containerOptions showProgressBar showLastUpdated encoding');
+const INPUT_KEYS = setOf('type title options dataSources context containerOptions encoding');
+const DS_KEYS = setOf('type name options meta');
+const DS_OPTION_KEYS = setOf('query queryParameters extend ref app enableSmartSources refresh refreshType data');
+const QP_KEYS = setOf('earliest latest refresh refreshType sampleRatio');
+const INPUT_OPTION_KEYS = setOf(`token defaultValue items valuePrefix valueSuffix delimiter prefix suffix selectFirstSearchResult clearDefaultOnSelection placeholder
+  min max step size initialValue`);
+const OPTION_KEYS = setOf(`backgroundColor majorValue majorColor majorFontSize trendValue trendColor trendDisplay trendFontSize sparklineValues sparklineDisplay
+  sparklineStrokeColor sparklineAreaColor sparklineHighlightDots sparklineHighlightSegments showSparklineAreaGraph showSparklineTooltip numberPrecision unit unitPosition
+  shouldUseThousandSeparators shouldAbbreviateTrendValue underLabel underLabelColor underLabelFontSize x y y2 xField yFields seriesColors seriesColorsByField legendDisplay
+  legendTruncation legendLabels legendMode stackMode showSplitSeries showIndependentYRanges xAxisTitleText xAxisTitleVisibility yAxisTitleText yAxisTitleVisibility
+  xAxisLabelRotation xAxisLabelVisibility yAxisLabelVisibility xAxisMajorTickVisibility yAxisMajorTickVisibility xAxisLineVisibility yAxisLineVisibility xAxisMajorTickSize
+  yAxisScale yAxisMin yAxisMax yAxisMajorTickInterval y2AxisTitleText y2AxisScale overlayFields showOverlayY2Axis lineWidth lineDashStyle nullValueDisplay
+  showYMajorGridLines showXMajorGridLines dataValuesDisplay areaOpacity barSpacing seriesSpacing resultLimit showYAxisWithZero showY2MajorGridLines xAxisMaxLabelParts
+  count columnFormat headerVisibility showRowNumbers showInternalFields tableFormat fontSize fontFamily fontColor rowBackgroundColors headerBackgroundColor rowColors
+  markdown customFontSize src preserveAspectRatio fillColor fillOpacity strokeColor strokeWidth strokeDashStyle strokeOpacity rx labelDisplay showDonutHole
+  collapseThreshold collapseLabel showTooltip majorValueField icon iconColor iconOpacity gaugeColor gaugeRanges value label`);
+const ENUMS = {
+  legendDisplay: ['right', 'left', 'top', 'bottom', 'off'], stackMode: ['auto', 'stacked', 'stacked100'], sparklineDisplay: ['before', 'after', 'below', 'off'],
+  trendDisplay: ['absolute', 'percent', 'off'], legendTruncation: ['ellipsisEnd', 'ellipsisMiddle', 'ellipsisStart', 'ellipsisOff'], dataValuesDisplay: ['off', 'all', 'minmax'],
+  unitPosition: ['before', 'after'], labelDisplay: ['values', 'valuesAndPercentage', 'off'], yAxisScale: ['linear', 'log'], nullValueDisplay: ['gaps', 'zero', 'connect'],
+  headerVisibility: ['none', 'fixed', 'inline'],
+};
+const NUMBER_KEYS = setOf('count majorFontSize trendFontSize underLabelFontSize fontSize numberPrecision lineWidth fillOpacity strokeWidth areaOpacity rx collapseThreshold');
+const BOOL_KEYS = setOf('showDonutHole showRowNumbers showInternalFields shouldUseThousandSeparators shouldAbbreviateTrendValue showSparklineAreaGraph showSparklineTooltip showTooltip preserveAspectRatio showSplitSeries showIndependentYRanges showYAxisWithZero showOverlayY2Axis');
+function editDistance(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// The known name a misspelling most likely meant (case differences count as a match).
+function closestName(word, known) {
+  if (String(word).length < 4) return null;
+  let best = null, bd = 3;
+  for (const k of known) { const dd = editDistance(String(word).toLowerCase(), k.toLowerCase()); if (dd < bd) { bd = dd; best = k; } }
+  return bd <= 2 ? best : null;
+}
+const renameKey = (obj, from, to) => { if (obj && Object.prototype.hasOwnProperty.call(obj, from) && !Object.prototype.hasOwnProperty.call(obj, to)) { obj[to] = obj[from]; delete obj[from]; } };
+const isDynamic = v => typeof v === 'string' && (v.trim().startsWith('>') || v.includes('$'));
+function checkDefinition(def, issue, ids) {
+  const D = (sev, msg, ref, fix) => issue(sev, 'Definition: ' + msg, ref, fix);
+  // Unknown key: flagged only when it looks like a misspelling of a known one, with a rename fix.
+  // `what` names the kind of key, e.g. "Option". The rename is offered only if the right name isn't already there.
+  const keyCheck = (obj, known, what, ref, path) => {
+    if (!isObj(obj)) return;
+    for (const k of Object.keys(obj)) {
+      if (known.has(k)) continue;
+      const c = closestName(k, known);
+      if (!c) continue;
+      const clash = Object.prototype.hasOwnProperty.call(obj, c);
+      D('warning', `${what} "${k}" isn't one Splunk recognises. Did you mean "${c}"?${clash ? ` There is also a "${c}", so merge the two by hand.` : ''}`, ref,
+        clash ? undefined : { label: `Rename "${k}" to "${c}"`, apply: d => renameKey(path(d), k, c) });
+    }
+  };
+  const an = w => /^[aeiou]/i.test(w) ? 'an ' + w : 'a ' + w;
+  const typeCheck = (type, known, what, ref, path, customOk) => {
+    if (!type) { D('error', `this ${what} has no "type".`, ref); return; }
+    if (known.has(type)) return;
+    const c = closestName(type, known);
+    if (c) D('error', `"${type}" isn't ${an(what)} type. Did you mean "${c}"?`, ref, { label: `Change the type to "${c}"`, apply: d => { const o = path(d); if (o) o.type = c; } });
+    else if (!customOk) D('warning', `"${type}" isn't a built-in ${what} type.`, ref);
+    else D('info', `"${type}" isn't a built-in ${what} type. It may be a custom visualization from an app.`, ref);
+  };
+  keyCheck(def, TOP_KEYS, 'Top-level key', 'dashboard:root', d => d);
+  const sections = [['visualizations', 'viz'], ['inputs', 'input'], ['dataSources', 'ds']];
+  const seen = new Map();
+  for (const [sec, kind] of sections) for (const id of Object.keys(isObj(def[sec]) ? def[sec] : {})) {
+    if (seen.has(id) && seen.get(id) !== kind) D('warning', `the ID "${id}" is used in both ${seen.get(id) === 'viz' ? 'visualizations' : seen.get(id) === 'input' ? 'inputs' : 'dataSources'} and ${sec}, so references to it are ambiguous.`, kind + ':' + id);
+    seen.set(id, kind);
+  }
+  // Visualizations
+  for (const [id, v] of Object.entries(isObj(def.visualizations) ? def.visualizations : {})) {
+    const ref = 'viz:' + id, at = d => d.visualizations?.[id];
+    if (!isObj(v)) { D('error', 'this visualization is not an object.', ref); continue; }
+    typeCheck(v.type, VIZ_TYPES, 'visualization', ref, at, true);
+    keyCheck(v, VIZ_KEYS, 'Key', ref, at);
+    if (v.dataSources !== undefined && !isObj(v.dataSources)) D('error', '"dataSources" should be an object such as { "primary": "ds_id" }.', ref);
+    else for (const [k, x] of Object.entries(v.dataSources || {})) if (typeof x !== 'string') D('error', `dataSources.${k} should be a data source ID (text).`, ref);
+    if (isObj(v.options)) {
+      keyCheck(v.options, OPTION_KEYS, 'Option', ref, d => at(d)?.options);
+      for (const [k, x] of Object.entries(v.options)) {
+        if (isDynamic(x)) continue;
+        if (ENUMS[k] && !ENUMS[k].includes(String(x))) D('warning', `option ${k} is "${fmt(x)}", which isn't one of ${ENUMS[k].join(', ')}.`, ref);
+        if (NUMBER_KEYS.has(k) && typeof x !== 'number' && !(typeof x === 'string' && /^-?\d+(\.\d+)?$/.test(x.trim()))) D('warning', `option ${k} should be a number, not ${JSON.stringify(x)}.`, ref);
+        if (BOOL_KEYS.has(k) && typeof x !== 'boolean') D('warning', `option ${k} should be true or false, not ${JSON.stringify(x)}.`, ref,
+          (x === 'true' || x === 'false') ? { label: `Make ${k} ${x} (not "${x}")`, apply: d => { const o = at(d)?.options; if (o) o[k] = x === 'true'; } } : undefined);
+      }
+    } else if (v.options !== undefined) D('error', '"options" should be an object.', ref);
+    if (v.eventHandlers !== undefined && !Array.isArray(v.eventHandlers)) D('error', '"eventHandlers" should be a list.', ref);
+    else (v.eventHandlers || []).forEach((h, i) => typeCheck(h?.type, HANDLER_TYPES, 'drilldown', ref, d => at(d)?.eventHandlers?.[i], false));
+  }
+  // Inputs
+  for (const [id, n] of Object.entries(isObj(def.inputs) ? def.inputs : {})) {
+    const ref = 'input:' + id, at = d => d.inputs?.[id];
+    if (!isObj(n)) { D('error', 'this input is not an object.', ref); continue; }
+    typeCheck(n.type, INPUT_TYPES, 'input', ref, at, false);
+    keyCheck(n, INPUT_KEYS, 'Key', ref, at);
+    const o = isObj(n.options) ? n.options : {};
+    keyCheck(o, INPUT_OPTION_KEYS, 'Input option', ref, d => at(d)?.options);
+    const dv = o.defaultValue;
+    if (n.type === 'input.timerange' && dv !== undefined && !isDynamic(dv) && !(typeof dv === 'string' && dv.includes(','))) D('warning', `a time range default should be "earliest,latest" (for example "-24h@h,now"), not ${JSON.stringify(dv)}.`, ref);
+    if (n.type === 'input.number' && dv !== undefined && !isDynamic(dv) && isNaN(Number(dv))) D('warning', `a number input's default should be a number, not ${JSON.stringify(dv)}.`, ref);
+    if ((n.type === 'input.multiselect' || n.type === 'input.checkbox') && dv !== undefined && !Array.isArray(dv) && !isDynamic(dv)) D('info', `a ${shortType(n.type)} default is usually a list, for example ["a", "b"].`, ref);
+    if (o.items !== undefined && (!Array.isArray(o.items) || o.items.some(it => !isObj(it) || it.value === undefined))) D('warning', '"items" should be a list of { "label": …, "value": … } choices.', ref);
+  }
+  // Data sources
+  for (const [id, s] of Object.entries(isObj(def.dataSources) ? def.dataSources : {})) {
+    const ref = 'ds:' + id, at = d => d.dataSources?.[id];
+    if (!isObj(s)) { D('error', 'this data source is not an object.', ref); continue; }
+    typeCheck(s.type, new Set(Object.keys(DS_TYPES)), 'data source', ref, at, false);
+    keyCheck(s, DS_KEYS, 'Key', ref, at);
+    const o = isObj(s.options) ? s.options : {};
+    keyCheck(o, DS_OPTION_KEYS, 'Data source option', ref, d => at(d)?.options);
+    keyCheck(o.queryParameters, QP_KEYS, 'Query parameter', ref, d => at(d)?.options?.queryParameters);
+    if ((s.type === 'ds.search' || s.type === 'ds.chain') && !(typeof o.query === 'string' && o.query.trim())) D('error', 'this search has no query.', ref);
+    if (s.type === 'ds.savedSearch' && !o.ref) D('error', 'this saved search data source has no "ref" (the report name).', ref);
+  }
+  // Layout: types, positions, overlaps and canvas bounds
+  const L = isObj(def.layout) ? def.layout : {};
+  const canvases = isObj(L.layoutDefinitions) ? Object.entries(L.layoutDefinitions).map(([k, v]) => [k, v, d => d.layout?.layoutDefinitions?.[k]]) : (L.structure ? [['main', L, d => d.layout]] : []);
+  for (const [key, c, at] of canvases) {
+    if (!isObj(c)) continue;
+    const ref = ids.has('tab:' + key) ? 'tab:' + key : 'dashboard:root';
+    const type = c.type || L.type;
+    if (type && type !== 'grid' && type !== 'absolute') {
+      const g = closestName(type, new Set(['grid', 'absolute']));
+      D('error', `layout type "${type}" should be "grid" or "absolute".`, ref, g ? { label: `Change it to "${g}"`, apply: d => { const o = at(d); if (o) o.type = g; } } : undefined);
+    }
+    const blocks = (Array.isArray(c.structure) ? c.structure : []).filter(b => isObj(b?.position) && ['x', 'y', 'w', 'h'].every(k => b.position[k] !== undefined));
+    for (const b of blocks) {
+      const p = b.position;
+      if (['x', 'y', 'w', 'h'].some(k => typeof p[k] !== 'number')) { D('warning', `"${b.item}" has a position with non-numeric values.`, ref); continue; }
+      if (p.w <= 0 || p.h <= 0) D('warning', `"${b.item}" has zero or negative width or height, so it can't be seen.`, ref);
+      if (type === 'absolute') {
+        const W = Number(c.options?.width) || 1440, H = Number(c.options?.height) || 960;
+        if (p.x < 0 || p.y < 0 || p.x + p.w > W || p.y + p.h > H) D('warning', `"${b.item}" extends outside the ${W}×${H} canvas, so part of it is cut off.`, ref);
+      } else if (type === 'grid' && p.x + p.w > 1200) D('warning', `"${b.item}" extends past the 1,200-pixel grid width.`, ref);
+    }
+    if (type === 'grid') {
+      for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
+        const a = blocks[i].position, bb = blocks[j].position;
+        if (a.x < bb.x + bb.w && bb.x < a.x + a.w && a.y < bb.y + bb.h && bb.y < a.y + a.h)
+          D('warning', `"${blocks[i].item}" and "${blocks[j].item}" overlap on the grid. Grid layouts don't allow overlapping panels.`, ref);
+      }
+    }
+  }
+}
+
+/* ============================================================
+   Accessibility (added to the recommendations)
+   ============================================================ */
+function hexToRgb(h) {
+  const m = String(h).trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})([0-9a-f]{2})?$/i);
+  if (!m) return null;
+  let s = m[1]; if (s.length === 3) s = s.split('').map(c => c + c).join('');
+  return [0, 2, 4].map(i => parseInt(s.slice(i, i + 2), 16));
+}
+const luminance = rgb => { const [r, g, b] = rgb.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrastRatio = (a, b) => { const la = luminance(a), lb = luminance(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); };
+function hueSat(rgb) {
+  const [r, g, b] = rgb.map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return { h, s, l };
+}
+const isRed = c => { const x = hueSat(c); return x.s >= 0.35 && x.l > 0.15 && x.l < 0.85 && (x.h >= 340 || x.h <= 20); };
+const isGreen = c => { const x = hueSat(c); return x.s >= 0.25 && x.l > 0.12 && x.l < 0.85 && x.h >= 75 && x.h <= 165; };
+// The page colour behind the panels: the panel's own background, the canvas background, or the dashboard theme.
+function dashboardBackground() {
+  const canvasBg = M.byKind('tab').map(t => t.options?.backgroundColor).find(c => hexToRgb(c));
+  if (canvasBg) return { rgb: hexToRgb(canvasBg), label: canvasBg };
+  const theme = (String(M.src.xmlText || '').match(/<dashboard[^>]*\btheme="(\w+)"/) || [])[1] || M.src.def?.applicationProperties?.theme || 'light';
+  return theme === 'dark' ? { rgb: [23, 29, 33], label: 'the dark theme' } : { rgb: [255, 255, 255], label: 'the light theme' };
+}
+function accessibilityRecs(add) {
+  const bg = dashboardBackground();
+  const TEXT_KEYS = /^(majorColor|fontColor|textColor|underLabelColor|trendColor|color|iconColor)$/;
+  const low = [], redGreen = [], small = [];
+  for (const v of M.byKind('viz')) {
+    const o = isObj(v.raw?.options) ? v.raw.options : {}, ctx = isObj(v.raw?.context) ? v.raw.context : {};
+    const own = hexToRgb(o.backgroundColor) || bg.rgb;
+    // Colours a text option uses: a fixed colour, or the colours of the context config a dynamic option picks from.
+    const colorsFor = val => {
+      if (hexToRgb(val)) return [val];
+      const m = typeof val === 'string' && val.match(/(?:rangeValue|matchValue|pick|gradient)\((\w+)\)/);
+      const cfg = m && ctx[m[1]];
+      return Array.isArray(cfg) ? cfg.map(x => (isObj(x) ? x.value : x)).filter(x => hexToRgb(x)) : [];
+    };
+    for (const [k, val] of Object.entries(o)) {
+      if (!TEXT_KEYS.test(k)) continue;
+      const large = /^(majorColor|trendColor|iconColor)$/.test(k);
+      for (const c of colorsFor(val)) {
+        const r = contrastRatio(hexToRgb(c), own);
+        if (r < (large ? 3 : 4.5)) low.push({ id: v.id, text: `${v.label}: ${k} ${c} on ${hexToRgb(o.backgroundColor) ? o.backgroundColor : bg.label} is ${r.toFixed(1)}:1` });
+      }
+    }
+    const all = [];
+    walk({ o, ctx }, '', s => { for (const m of String(s).matchAll(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi)) all.push(hexToRgb(m[0])); });
+    if (all.some(c => c && isRed(c)) && all.some(c => c && isGreen(c))) redGreen.push(v.id);
+    for (const k of ['fontSize', 'majorFontSize', 'trendFontSize', 'underLabelFontSize']) if (typeof o[k] === 'number' && o[k] < 12) small.push(v.id);
+  }
+  add('Medium', 'Accessibility', 'Raise colour contrast',
+    `Some text colours are hard to read against their background (checked against ${bg.label} where a panel has no background of its own). WCAG asks for at least 4.5:1 for normal text and 3:1 for large numbers.`,
+    'Pick darker text on light backgrounds (or lighter on dark), or change the background. Check pairs with a contrast checker.',
+    low.map(x => x.id), low.length ? low.map(x => x.text).join('\n') : undefined);
+  add('Medium', 'Accessibility', 'Don\'t rely on red versus green alone',
+    'These panels use both red and green colours, often for good versus bad. About 1 in 12 men can\'t tell them apart.',
+    'Add another cue: an arrow or sign on trends, a label or icon, or a colour-blind-safe pair such as blue and orange.', redGreen,
+    'Safer pairs: #1F77B4 (blue) and #FF7F0E (orange), or #0072B2 and #D55E00');
+  const mdIssues = [], imgNoText = [];
+  for (const v of M.byKind('viz')) {
+    const t = shortType(v.type);
+    if (t === 'image' && !v.title && !v.raw?.description) imgNoText.push(v.id);
+    if (t === 'markdown') {
+      const md = String(v.raw?.options?.markdown ?? '');
+      if (/!\[\s*\]\(/.test(md)) mdIssues.push(v.id);
+      let last = 0;
+      for (const m of md.matchAll(/^(#{1,6})\s/gm)) { const lv = m[1].length; if (last && lv > last + 1) { mdIssues.push(v.id); break; } last = lv; }
+    }
+  }
+  add('Low', 'Accessibility', 'Describe image panels',
+    'Image panels with no title or description give screen-reader users nothing to go on.',
+    'Give each image a title, or a "description" saying what it shows.', imgNoText);
+  add('Low', 'Accessibility', 'Fix markdown images and headings',
+    'These markdown panels have images with empty alt text (![](…)), or headings that skip a level (for example # then ###), which confuses screen readers.',
+    'Describe each image in the brackets, ![like this](url), and step headings down one level at a time.', uniq(mdIssues));
+  add('Low', 'Accessibility', 'Avoid very small text',
+    'Font sizes under 12 pixels are hard to read, especially on wall displays and for people with low vision.',
+    'Use 12 or larger, or leave the size unset so the panel scales it.', uniq(small));
+}
+
+/* ============================================================
+   Splunk version compatibility
+   Minimum versions are approximate (from Splunk release notes); each can be corrected on the page.
+   ============================================================ */
+const COMPAT_VERSIONS = ['8.2', '9.0', '9.1', '9.2', '9.3', '9.4', '10.0'];
+const COMPAT_FEATURES = [
+  { key: 'studio', feature: 'Dashboard Studio', min: '8.2', items: () => ['dashboard:root'] },
+  { key: 'grid', feature: 'Grid layout', min: '9.0', items: () => M.byKind('tab').filter(t => !t.global && t.layoutType === 'grid').map(t => t.id) },
+  { key: 'tokdefaults', feature: 'Default token values (defaults.tokens)', min: '9.0', items: () => M.byKind('token').filter(t => ins(t.id, ['default']).length).map(t => t.id) },
+  { key: 'hidenodata', feature: 'Hide panels that have no data', min: '9.0', items: () => [...M.byKind('viz'), ...M.byKind('input')].filter(n => /hidden when no data/.test(n.visibility || '')).map(n => n.id) },
+  { key: 'smart', feature: 'Smart-source tokens ($search:result.field$)', min: '9.0', items: () => M.byKind('token').filter(t => t.subtype === 'smart').map(t => t.id) },
+  { key: 'tabs', feature: 'Tabs', min: '9.1', items: () => M.byKind('tab').filter(t => t.isTab).map(t => t.id) },
+  { key: 'unset', feature: 'Unset-token drilldowns', min: '9.1', items: () => M.byKind('viz').filter(v => v.drilldowns.some(d => /unsetToken/i.test(d.type))).map(v => v.id) },
+  { key: 'conditions', feature: 'Show or hide panels on conditions (expressions.conditions)', min: '9.4', items: () => M.byKind('condition').map(c => c.id) },
+];
+const cmpVer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+// Per-viewer settings: the chosen version and any corrected minimums (browser storage, optional).
+const compatState = (() => { try { return { version: '', overrides: {}, ...JSON.parse(localStorage.getItem('sdi.compat') || '{}') }; } catch { return { version: '', overrides: {} }; } })();
+const saveCompat = () => { try { localStorage.setItem('sdi.compat', JSON.stringify(compatState)); } catch { /* storage unavailable: settings last for this visit */ } };
+function compatRows() {
+  if (M.src.classic) return [];
+  return COMPAT_FEATURES.map(f => ({ ...f, min: compatState.overrides[f.key] || f.min, edited: !!compatState.overrides[f.key], used: uniq(f.items()) })).filter(r => r.used.length);
+}
+function compatSummary() {
+  const rows = compatRows();
+  if (!rows.length) return { rows, needs: null, why: [], unsupported: [] };
+  const needs = rows.reduce((m, r) => cmpVer(r.min, m) > 0 ? r.min : m, '0');
+  const why = rows.filter(r => r.min === needs).map(r => r.feature);
+  const v = compatState.version;
+  const unsupported = v && v !== 'cloud' ? rows.filter(r => cmpVer(r.min, v) > 0) : [];
+  return { rows, needs, why, unsupported };
+}
+function viewCompat() {
+  if (M.src.classic) return '<p>This is a Classic Simple XML dashboard. Classic dashboards run on every supported Splunk version, so there is nothing to check here.</p>';
+  const S = compatSummary();
+  const v = compatState.version;
+  const status = r => !v ? '<span class="muted">—</span>' : v === 'cloud' || cmpVer(r.min, v) <= 0 ? badge('supported', 'ok') : badge('needs ' + r.min, 'sev-error');
+  return `<div class="graph-controls">
+    <label>Your Splunk version <select id="compat-version"><option value="">Choose…</option>${COMPAT_VERSIONS.map(x => `<option value="${x}" ${v === x ? 'selected' : ''}>Splunk Enterprise ${x}</option>`).join('')}<option value="cloud" ${v === 'cloud' ? 'selected' : ''}>Splunk Cloud Platform (current)</option></select></label>
+    ${Object.keys(compatState.overrides).length ? '<button class="btn small" id="compat-reset">Reset corrected versions</button>' : ''}
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    ${S.needs ? `This dashboard needs <b>Splunk Enterprise ${esc(S.needs)} or later</b>, because it uses ${esc(S.why.join(', '))}.` : 'This dashboard uses no features that need a particular version.'}
+    ${v ? (S.unsupported.length ? `<div style="margin-top:6px;color:var(--sev-error)"><b>${plural(S.unsupported.length, 'feature')} won't work on ${v === 'cloud' ? 'your version' : 'Splunk Enterprise ' + esc(v)}:</b> ${esc(S.unsupported.map(r => r.feature).join(', '))}.</div>` : `<div style="margin-top:6px;color:var(--k-viz)"><b>Everything it uses is supported on ${v === 'cloud' ? 'Splunk Cloud Platform' : 'Splunk Enterprise ' + esc(v)}.</b></div>`) : '<div class="muted small" style="margin-top:6px">Choose your version above to check it.</div>'}
+  </div>
+  <p class="muted small" style="margin:0 0 8px">Minimum versions are approximate, based on Splunk release notes; check "What's new in Dashboard Studio" for your version. If one is wrong for your environment, correct it in the table: corrections and your version choice are remembered in this browser.</p>
+  ${table([
+    { h: 'Feature', f: r => esc(r.feature) },
+    { h: 'Needs', f: r => `<select data-compat-min="${r.key}" aria-label="Minimum version for ${esc(r.feature)}">${COMPAT_VERSIONS.map(x => `<option value="${x}" ${r.min === x ? 'selected' : ''}>${x}</option>`).join('')}</select>${r.edited ? ' <span class="badge" title="You changed this from the default">corrected</span>' : ''}` },
+    { h: 'Used by', f: r => chips(r.used) },
+    { h: 'On your version', f: status },
+  ], S.rows)}`;
+}
+
+/* ============================================================
    Build the model
    ============================================================ */
 function buildModel(src) {
@@ -1630,6 +1929,9 @@ function buildModel(src) {
   }
   for (const n of byKind('tab')) if (!inE.get(n.id).some(e => e.rel === 'contains')) issue('info', `Tab "${n.label}" is empty.`, n.id);
 
+  // ---- Definition checks (Studio definitions only; Classic ones are generated by the converter)
+  if (!src.classic) checkDefinition(def, issue, new Set(nodes.keys()));
+
   // ---- Behaviour checks: valid dashboards that don't do what you'd expect
   const mainCmds = n => (n.sources?.commands || []).filter(c => !c.sub && !c.via);
   const firstCmd = n => mainCmds(n)[0]?.name;
@@ -1791,6 +2093,7 @@ const VIEWS = [
   { sep: 'Checks and tools' },
   { id: 'issues', label: 'Issues' },
   { id: 'recommendations', label: 'Recommendations', count: () => recommendations().length },
+  { id: 'compat', label: 'Splunk version', count: () => compatSummary().unsupported.length || '' },
   { id: 'compare', label: 'Compare versions' },
   { id: 'config', label: 'Splunk config', count: () => CONFIG.macros.size + CONFIG.saved.size + CONFIG.datamodels.size || '' },
 ];
@@ -1822,7 +2125,7 @@ function render() {
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues,
-    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations, tokenmatrix: viewTokenMatrix, dataflow: viewDataFlow
+    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations, tokenmatrix: viewTokenMatrix, dataflow: viewDataFlow, compat: viewCompat
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -1845,6 +2148,7 @@ function viewOverview() {
       <dt>Layout</dt><dd>${esc(M.layoutSummary)}</dd>
       <dt>Source</dt><dd>${esc(M.format)}</dd>
       <dt>Relationships</dt><dd>${M.edges.length} connections between ${M.nodes.size - 1} items</dd>
+      ${(() => { const c = compatSummary(); return c.needs ? `<dt>Needs</dt><dd>Splunk Enterprise ${esc(c.needs)} or later (approximately; for ${esc(c.why.join(', '))})${c.unsupported.length ? ` · <b style="color:var(--sev-error)">${plural(c.unsupported.length, 'feature')} not supported on your version</b>` : ''} <button class="btn small" data-view="compat">Check</button></dd>` : ''; })()}
       ${hasConfig() ? `<dt>Splunk config</dt><dd>${plural(CONFIG.macros.size, 'macro')}, ${plural(CONFIG.saved.size, 'saved search', 'saved searches')} and ${plural(CONFIG.datamodels.size, 'data model')} loaded and expanded</dd>` : ''}
     </dl>
     ${(M.src.repairs || []).length || (M.src.notes || []).length ? `<div class="notes"><b>While loading:</b><ul>${[...(M.src.repairs || []).map(r => 'Repaired: ' + r), ...(M.src.notes || [])].map(r => `<li>${esc(r)}</li>`).join('')}</ul>${(M.src.repairs || []).length ? '<button class="btn small" data-view="issues">Download the clean definition from the Issues page</button>' : ''}</div>` : ''}
@@ -3044,6 +3348,8 @@ function recommendations() {
     'More than 12 panels on one tab makes it slow to load and hard to read, because every panel\'s search runs at once.',
     'Group related panels onto separate tabs; searches only on hidden tabs still run, so also check the search count.',
     tabs.filter(t => (t.items || []).filter(i => i.id.startsWith('viz:')).length > 12).map(t => t.id));
+
+  accessibilityRecs(add);
 
   R.sort((a, b) => IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact] || a.category.localeCompare(b.category));
   M._recs = R;
@@ -4286,6 +4592,14 @@ function reportBlocks(format) {
     });
   }
 
+  const cs = compatSummary();
+  if (cs.rows.length) {
+    h2('Splunk version compatibility');
+    p(`This dashboard needs Splunk Enterprise ${cs.needs} or later, because it uses ${cs.why.join(', ')}. Minimum versions are approximate.` + (compatState.version ? ` Checked against ${compatState.version === 'cloud' ? 'Splunk Cloud Platform' : 'Splunk Enterprise ' + compatState.version}: ${cs.unsupported.length ? plural(cs.unsupported.length, 'feature') + ' not supported.' : 'everything is supported.'}` : ''));
+    tbl(['Feature', 'Needs', 'Used by', 'On the chosen version'], cs.rows.map(r => [r.feature, r.min + (r.edited ? ' (corrected)' : ''), r.used.map(id => `${num(id)} ${lbl(id)}`.trim()).join(', '),
+      !compatState.version ? '' : compatState.version === 'cloud' || cmpVer(r.min, compatState.version) <= 0 ? 'supported' : 'NOT supported']));
+  }
+
   h2('Layout');
   const global = M.nodes.get('tab:__global__');
   if (global) {
@@ -5054,6 +5368,8 @@ document.addEventListener('change', async e => {
   if (t.id === 'mock-names') { mockState.showNames = t.checked; render(); return; }
   if (t.dataset?.fix !== undefined) { const k = +t.dataset.fix; if (t.checked) FIX_SEL.add(k); else FIX_SEL.delete(k); render(); return; }
   if (t.id === 'mat-sort') { matState.sort = t.value; render(); return; }
+  if (t.id === 'compat-version') { compatState.version = t.value; saveCompat(); render(); return; }
+  if (t.dataset?.compatMin) { const f = COMPAT_FEATURES.find(x => x.key === t.dataset.compatMin); if (t.value === f.min) delete compatState.overrides[f.key]; else compatState.overrides[f.key] = t.value; saveCompat(); render(); return; }
   if (t.id === 'flow-measure') { flowState.measure = t.value; render(); return; }
   if (t.id === 'flow-chains') { flowState.chains = t.checked; render(); return; }
   if (t.id === 'cmp-pick' && t.value !== '') { COMPARE = { model: DASH[+t.value].model, label: DASH[+t.value].model.title }; render(); return; }
@@ -5068,6 +5384,7 @@ document.addEventListener('click', e => {
     'mock-reset': () => { resetMockValues(); render(); },
     'mock-svg': () => download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'),
     'mock-png': exportMockupPng,
+    'compat-reset': () => { compatState.overrides = {}; saveCompat(); render(); },
     'fix-all': () => { M.issues.forEach((x, k) => { if (x.fix) FIX_SEL.add(k); }); render(); },
     'fix-none': () => { FIX_SEL.clear(); render(); },
     'fix-download': downloadDefinition,
