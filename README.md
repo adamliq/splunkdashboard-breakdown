@@ -4,7 +4,7 @@
 
 **Try it online: [adamliq.github.io/splunkdashboard-breakdown](https://adamliq.github.io/splunkdashboard-breakdown/)**
 
-Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network request is loading the PDF library the first time you export a PDF report.)
+Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network requests load a library the first time you need it: the PDF library for a PDF report, the spreadsheet library for an Excel workbook, and the layout library for the ELK map layout.)
 
 ## Accepted input
 
@@ -108,7 +108,28 @@ Each relationship is stored as an edge pointing the way data and token values fl
 - condition → *controls visibility of* → visualization / input
 - visualization / input → *placed on* → tab → dashboard
 
-Explore them through the detail panel (click any item), the **Relationship map**, the **Relationship list**, and the "Driven by tokens" column.
+Explore them through:
+
+- **Detail panel.** Click any item for its relationships and full lineage.
+- **Relationship map.** A left-to-right flow from inputs and tokens through sources and searches to panels and tabs.
+  - **Three modes:**
+    - **Focus on one item** (the default) shows a single item and what it depends on and what depends on it, 1 to 4 steps each way or all the way. Clicking any item moves the focus to it.
+    - **Path between two** answers "how does A affect B?" It draws every route from one item to another, with the number of routes and the shortest. If nothing flows that way but something flows the other way, or the two aren't connected at all, it says so.
+    - **Whole dashboard** shows everything, optionally only what feeds one tab.
+  - **Two layouts:** **Columns** (one column per kind of item), or **Layered, grouped by tab (ELK)**. ELK draws right-angle lines, places items to reduce crossings, and puts each tab's panels and inputs in a box. It uses [ELK](https://eclipse.dev/elk/) (elkjs), loaded from jsDelivr the first time you choose it.
+  - **Hub tokens.** Tokens used by many items, such as a time picker's, are shown as a small badge on each item that uses them instead of as lines. The default is 4 or more uses; you can change the threshold or turn it off. The token matrix still shows every link.
+  - **Collapse and expand.** Fold each tab into one box, each base search together with its chain searches, all sources, or all SPL commands. Use the checkboxes, or the **+**/**−** on a box to open or close just that one.
+  - **Navigation.** Find an item by name or number. Zoom with Ctrl+scroll, a pinch, or the − / + / Fit / 100% buttons, and drag empty space to pan. Arrow keys move between connected items (right: what it feeds; left: what feeds it; up and down: the column), and Enter opens one.
+  - **Changes from Compare.** After comparing two versions, **Show changes** colours the map: added in green, removed in red (dashed) and changed in amber, for both items and connections.
+  - Inputs and tokens, sources, and SPL commands can each be hidden. In focus mode, lineage is still followed through hidden items.
+  - **Export SVG / PNG** saves the map as shown.
+- **Token matrix.** Tokens, or inputs, down the side and panels (grouped by tab) or searches across the top. Each cell shows how the token reaches the item: used directly (●), through its search (○), through a visibility condition (▲), or set by it (◆). Order rows and columns as defined, most used first, or with similar ones grouped together. It is the clearest way to see what an input changes. Export it as SVG or PNG. It is also in the reports when there are 24 or fewer panels.
+- **Data flow (Sankey).** Where each panel's data comes from: indexes, lookups and data models, through base searches (and optionally chain searches as their own column), to panels and tabs. Band width is the number of panels, or the number of search steps behind them. Export it as SVG or PNG. It is also in the PDF report. With several dashboards loaded, the **All dashboards** page also has a Sankey from indexes, lookups and data models to the dashboards that read them.
+- **Panel lineage maps.** The PDF report includes a map for each panel (up to 40) showing everything that feeds it.
+- **Relationship list.** Every connection as a table.
+- **"Driven by tokens"** column on the Tabs page.
+
+**Between dashboards.** Drilldowns that open another dashboard ("link to dashboard", or a link to `/app/<app>/<dashboard>`) are listed on the Overview and in the reports. With several dashboards loaded, the **All dashboards** page draws a map of which dashboards open which, and lists each link with the tokens it passes. It also checks whether the target dashboard uses those tokens. Targets are matched to loaded dashboards by view name (file or REST name) or title; others are marked "not loaded".
 
 ## Exports
 
@@ -117,6 +138,8 @@ From the **Export** menu:
 - **Full report (.pdf)** and **Full report (.md):** everything about the open dashboard in one document. It covers a summary, issues with their fixes, the layout (a mockup image of each tab in the PDF, and positions of every item), the numbered inventory, inputs, data sources (lineage, time ranges, what each search reads, and the full, effective and expanded SPL), indexes, sourcetypes, lookups, data models and macros, SPL commands and pipelines, visualizations, tokens and where each is referenced, visibility conditions, every relationship, the Splunk config used, and the dashboard definition as an appendix.
   - The PDF is landscape A4, with a contents page linking to each section, bookmarks, and page numbers. It is built in the browser with [jsPDF](https://github.com/parallax/jsPDF), loaded from jsDelivr the first time you export. If that can't load (for example offline), the report is saved as a print-ready HTML file instead; open it and choose **Print → Save as PDF**.
   - The Markdown has a linked table of contents and renders on GitHub, GitLab and most wikis.
+- **Excel workbook (.xlsx):** the same content as the full report, one sheet per section (inventory, inputs, data sources, what each search reads, SPL, visualizations, tokens, issues, recommendations, relationships and more), each with filters. Built with [SheetJS](https://sheetjs.com/), loaded from jsDelivr the first time you export. The All dashboards page also has an app workbook: dashboards, shared items and links between dashboards.
+- **Share link…:** a link that opens this dashboard in the page. The whole definition (and, if you tick it, the pasted Splunk config) is compressed into the part of the link after `#`, which browsers never send to a web server; but anyone you give the link to can read the definition, including its searches. From the claude.ai artifact or a local file, links point to the [GitHub Pages site](https://adamliq.github.io/splunkdashboard-breakdown/). Large dashboards make long links, which some chat and email apps cut off; the dialog warns when a link is long.
 - **Printable summary (.html):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
 - **Inventory (.csv)** and **Relationships (.csv)**.
 - **Model (.json):** the full parsed model.

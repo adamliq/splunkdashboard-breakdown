@@ -174,6 +174,68 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .card.rec { margin-bottom: 10px; }
 .rec-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rec p { margin: 6px 0; }
+/* Relationship map: segmented buttons, tab groups, focus item */
+.graph-controls label { max-width: 100%; }
+.graph-controls select { max-width: min(360px, 62vw); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 5px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent); font-weight: 600; }
+.ggroup rect { fill: color-mix(in srgb, var(--k-tab) 6%, transparent); stroke: color-mix(in srgb, var(--k-tab) 45%, transparent); stroke-dasharray: 4 3; }
+.ggroup text { fill: var(--k-tab); font-size: 11.5px; font-weight: 600; }
+.ggroup { cursor: pointer; }
+.gnode.center rect.box { stroke: var(--kc); stroke-width: 2.5; fill: color-mix(in srgb, var(--kc) 10%, var(--panel)); }
+.zoomctl { display: inline-flex; gap: 4px; align-items: center; }
+#g-zlabel { min-width: 42px; text-align: center; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+svg.graph { cursor: grab; }
+svg.graph.panning { cursor: grabbing; }
+.hubtag rect { fill: color-mix(in srgb, var(--k-token) 16%, var(--panel)); stroke: color-mix(in srgb, var(--k-token) 60%, transparent); }
+.hubtag text { fill: var(--k-token); font-size: 9.5px; font-weight: 600; }
+.gtoggle { cursor: pointer; }
+.gtoggle circle { fill: var(--panel); stroke: var(--muted); }
+.gtoggle text { fill: var(--text); font-size: 13px; font-weight: 700; }
+.gtoggle:hover circle { stroke: var(--accent); }
+.gnode.k-group { --kc: var(--muted); }
+.gnode.k-group rect.box { stroke-dasharray: 4 3; }
+.gnode.chg-added rect.box { stroke: var(--k-viz); stroke-width: 2.5; }
+.gnode.chg-removed rect.box { stroke: var(--sev-error); stroke-width: 2; stroke-dasharray: 5 3; }
+.gnode.chg-removed { opacity: .75; }
+.gnode.chg-changed rect.box { stroke: var(--sev-warning); stroke-width: 2.5; }
+.gedge.chg-added { stroke: var(--k-viz) !important; stroke-width: 2.4; opacity: 1; }
+.gedge.chg-removed { stroke: var(--sev-error) !important; stroke-dasharray: 5 4; opacity: .9; }
+.chg-key i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; border: 2px solid; }
+.ck-added { border-color: var(--k-viz) !important; } .ck-removed { border-color: var(--sev-error) !important; border-style: dashed !important; } .ck-changed { border-color: var(--sev-warning) !important; }
+.graph-legend { margin: 2px 0; }
+/* Light palette for graphs drawn off-screen for reports */
+.force-light {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dde1e7; --text: #1b1f24; --muted: #5f6b7a; --accent: #2f6fde;
+  --k-dashboard: #4b5563; --k-tab: #6d4fd8; --k-input: #0f8b8d; --k-defaults: #7a7f87; --k-token: #b7791f;
+  --k-condition: #c2417a; --k-ds: #2f6fde; --k-viz: #2e8b57; --k-index: #9a5b22; --k-sourcetype: #6b7f1f; --k-lookup: #1f7f9e;
+  --k-datamodel: #b0458f; --k-macro: #4f6b8a; --k-command: #6b6f76;
+  --sev-error: #c53030; --sev-warning: #b7791f; --sev-info: #2f6fde;
+  --e-data: #2f6fde; --e-token: #c08a25; --e-layout: #9aa3ae; --e-vis: #c2417a; color: #1b1f24;
+}
+/* Token matrix */
+.matrix table { width: auto; }
+.matrix th, .matrix td { padding: 4px 6px; }
+.matrix tbody th { position: sticky; left: 0; background: var(--panel); z-index: 1; white-space: nowrap; }
+.matrix .mat-group { text-align: center; font-size: 11.5px; color: var(--muted); border-left: 1px solid var(--border); }
+.matrix .mat-col { vertical-align: bottom; padding: 4px 2px; cursor: default; }
+.mat-head { border: 0; background: none; padding: 0; cursor: pointer; color: var(--text); writing-mode: vertical-rl; transform: rotate(180deg); max-height: 160px; font-size: 12px; text-align: left; }
+.mat-head:hover { color: var(--accent); }
+.matrix td.mat-cell { text-align: center; padding: 0; min-width: 26px; border-left: 1px solid var(--border); }
+.matrix td.mat-cell button { border: 0; background: none; cursor: pointer; width: 100%; padding: 4px 2px; font-size: 14px; line-height: 1; }
+.matrix tbody tr:hover td, .matrix tbody tr:hover th { background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.mat-direct { color: var(--k-token); } .mat-search { color: var(--k-ds); } .mat-condition { color: var(--k-condition); } .mat-sets { color: var(--k-viz); }
+/* Sankey */
+.sankey-wrap { padding: 8px; }
+.sk-node { cursor: pointer; }
+.sk-node:hover rect { opacity: .8; }
+/* Share dialog */
+#share-dlg { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 16px 18px; width: min(640px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+#share-dlg::backdrop { background: rgba(0,0,0,.35); }
+#share-dlg h3 { margin: 0 0 6px; font-size: 16px; }
+#share-link { width: 100%; margin: 8px 0 2px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; word-break: break-all; resize: vertical; }
 /* Status message */
 #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 60; font-size: 13px; }
 /* Menus, notes, fixes, compare, config */
@@ -309,6 +371,8 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
         <div class="menu-list" id="export-menu" hidden>
           <button id="btn-export-pdf"><b>Full report (.pdf)</b></button>
           <button id="btn-export-md"><b>Full report (.md)</b></button>
+          <button id="btn-export-xlsx"><b>Excel workbook (.xlsx)</b></button>
+          <button id="btn-share">Share link…</button>
           <button id="btn-export-summary">Printable summary (.html)</button>
           <button id="btn-export-inv">Inventory (.csv)</button>
           <button id="btn-export-rel">Relationships (.csv)</button>
@@ -322,6 +386,15 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     <div id="view"></div>
   </section>
 </div>
+
+<dialog id="share-dlg" aria-labelledby="share-title">
+  <h3 id="share-title">Share this dashboard as a link</h3>
+  <p class="small">The link holds the whole dashboard definition, compressed, after the <code>#</code>. Opening it loads the dashboard in Studio Dashboard Inventory. That part of a link is never sent to a web server, but <b>anyone you give the link to can read the definition, including its searches</b>.</p>
+  <label id="share-config-row" class="small"><input type="checkbox" id="share-config"> Include the pasted Splunk config (macros, saved searches, data models)</label>
+  <textarea id="share-link" readonly rows="4" aria-label="Share link"></textarea>
+  <p class="small muted" id="share-info"></p>
+  <div class="loader-actions"><button class="btn primary" id="share-copy">Copy link</button><button class="btn" id="share-close">Close</button></div>
+</dialog>
 
 <aside id="drawer" aria-label="Item details" aria-hidden="true">
   <header>
@@ -577,7 +650,7 @@ function fromXml(text, name = '') {
   const child = n => [...root.children].find(c => c.nodeName.toLowerCase() === n);
   const defEl = child('definition') || doc.getElementsByTagName('definition')[0];
   if (!defEl) {
-    if (/^(dashboard|form)$/i.test(root.nodeName)) return convertClassic(root, name);
+    if (/^(dashboard|form)$/i.test(root.nodeName)) return { ...convertClassic(root, name), xmlText: text };
     throw new Error('No <definition> block was found in the XML.');
   }
   const repairs = [];
@@ -1280,9 +1353,10 @@ function buildModel(src) {
       } else if (/unsetToken/i.test(t)) {
         n.drilldowns.push({ type: t, text: 'Unsets ' + toks.map(x => '$' + x.token + '$').join(', ') });
       } else if (/linkToDashboard/i.test(t)) {
-        n.drilldowns.push({ type: t, text: `Opens dashboard ${ho.app ? ho.app + '/' : ''}${ho.dashboard || '?'}` + (toks.length ? ' passing ' + toks.map(x => x.token + '=' + fmt(x.value)).join(', ') : '') });
+        n.drilldowns.push({ type: t, text: `Opens dashboard ${ho.app ? ho.app + '/' : ''}${ho.dashboard || '?'}` + (toks.length ? ' passing ' + toks.map(x => x.token + '=' + fmt(x.value)).join(', ') : ''),
+          target: ho.dashboard ? { app: ho.app || '', dashboard: String(ho.dashboard), tokens: toks.filter(x => x?.token).map(x => ({ token: x.token, value: fmt(x.value) })) } : null });
       } else if (/linkToUrl|customUrl/i.test(t)) {
-        n.drilldowns.push({ type: t, text: 'Opens URL ' + fmt(ho.url) });
+        n.drilldowns.push({ type: t, text: 'Opens URL ' + fmt(ho.url), target: dashFromUrl(ho.url) });
       } else if (/linkToSearch/i.test(t)) {
         n.drilldowns.push({ type: t, text: 'Opens search' + (ho.query ? ': ' + ho.query : '') });
       } else if (/linkToReport/i.test(t)) {
@@ -1642,7 +1716,12 @@ function tokensAffecting(id) {
    ============================================================ */
 let M = null;
 let view = 'overview';
-const graphState = { focus: '', tokens: true, sources: true, commands: false, selected: null };
+// mode: 'focus' (one item and its lineage) or 'all'; layout: 'columns' or 'elk'
+const graphState = {
+  mode: 'focus', center: null, depth: 3, layout: 'columns', focus: '', tokens: true, sources: true, commands: false, selected: null,
+  hubMin: 4, collapse: { tabs: false, chains: false, sources: false, commands: false }, toggled: new Map(),
+  zoom: 1, overlay: false, pathFrom: null, pathTo: null,
+};
 
 function chip(id, detail) {
   const n = M.nodes.get(id);
@@ -1706,6 +1785,8 @@ const VIEWS = [
   { id: 'conditions', label: 'Visibility conditions', kind: 'condition', hideEmpty: true },
   { sep: 'Relationships' },
   { id: 'graph', label: 'Relationship map' },
+  { id: 'tokenmatrix', label: 'Token matrix', count: () => M.byKind('token').length || '' },
+  { id: 'dataflow', label: 'Data flow (Sankey)' },
   { id: 'relationships', label: 'Relationship list' },
   { sep: 'Checks and tools' },
   { id: 'issues', label: 'Issues' },
@@ -1741,7 +1822,7 @@ function render() {
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues,
-    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations
+    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations, tokenmatrix: viewTokenMatrix, dataflow: viewDataFlow
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -1785,6 +1866,7 @@ function viewOverview() {
     ${(() => { const rc = recommendations(), hi = rc.filter(r => r.impact === 'High').length; return `<button class="stat" style="--kc: var(--accent)" data-view="recommendations"><div class="n">${rc.length}</div><div class="l">Recommendations</div><div class="s">${hi ? `<b>${hi} high impact</b> · ` : ''}optimisations and best practice</div></button>`; })()}
   </div>
   ${M.issues.length ? `<div class="section-title">Top issues</div>${issueTable(M.issues.slice(0, 8))}` : ''}
+  ${dashLinks(CUR_I).length ? `<div class="section-title">Opens other dashboards</div>${linksTable(dashLinks(CUR_I), false)}` : ''}
   <div class="section-title">Search lineage</div>
   <div class="card">${dsTree()}</div>`;
 }
@@ -2496,9 +2578,13 @@ function viewApp() {
     { h: 'Errors', f: x => { const n = sev(x.d.model, 'error'); return n ? badge(n, 'sev-error') : '0'; } },
     { h: 'Warnings', f: x => { const n = sev(x.d.model, 'warning'); return n ? badge(n, 'sev-warning') : '0'; } },
   ], DASH.map((d, i) => ({ d, i })))}
+  ${viewDashLinksSection()}
+  <div class="section-title">Data sources across dashboards</div>
+  <p class="muted small" style="margin:0 0 6px">Which dashboards read each index, lookup and data model. Band width is the number of base searches reading it. Click a dashboard to open it.</p>
+  ${(() => { const sv = sankeyRender(appSankeyData()); return sv ? `<div class="graph-wrap sankey-wrap" style="margin-bottom:10px">${sv}</div>` : '<p class="muted">No search names an index, lookup or data model.</p>'; })()}
   <div class="section-title">Shared across dashboards</div>
   <p class="muted small" style="margin:0 0 6px">Indexes, sourcetypes, lookups, macros, data models and saved searches, with every dashboard that uses each. The most widely shared are listed first.</p>
-  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="app-csv">Download app inventory (.csv)</button></div>
+  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="app-csv">Download app inventory (.csv)</button><button class="btn small" id="app-xlsx">Download app workbook (.xlsx)</button></div>
   ${table([
     { h: 'Kind', f: r => badge(r.kind) },
     { h: 'Name', f: r => `<code>${esc(r.name)}</code>` },
@@ -2590,7 +2676,7 @@ function viewCompare() {
   };
   return `<div class="card">
       <b>A:</b> ${esc(M.title)} <span class="muted small">(open now)</span> &nbsp; <b>B:</b> ${esc(COMPARE.label)}
-      <div class="loader-actions" style="margin-top:8px"><button class="btn small" id="cmp-clear">Compare with something else</button><button class="btn small" id="cmp-md">Download changes (.md)</button></div>
+      <div class="loader-actions" style="margin-top:8px"><button class="btn small" id="cmp-clear">Compare with something else</button><button class="btn small" id="cmp-md">Download changes (.md)</button><button class="btn small" id="cmp-map">Show changes on the relationship map</button></div>
     </div>
     <div class="stats">
       <div class="stat" style="--kc: var(--k-viz)"><div class="n">${count('added')}</div><div class="l">Added in B</div></div>
@@ -3015,49 +3101,282 @@ function issueTable(list) {
 /* ============================================================
    Relationship map (SVG)
    ============================================================ */
-function renderGraph(root) {
-  const tabs = M.byKind('tab').sort((a, b) => a.order - b.order);
-  root.innerHTML = `<div class="graph-controls">
-    <label>Focus <select id="g-focus"><option value="">Whole dashboard</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>
-    <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Show inputs, tokens and conditions</label>
-    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Show indexes, sourcetypes, lookups, data models and macros</label>
-    <label><input type="checkbox" id="g-commands" ${graphState.commands ? 'checked' : ''}> Show SPL commands</label>
-    <span class="legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span></span>
-  </div>
-  <p class="muted small" style="margin:0 0 8px">Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.</p>
-  <div class="graph-wrap" id="g-wrap"></div>`;
-  $('#g-focus').onchange = e => { graphState.focus = e.target.value; graphState.selected = null; drawGraph(); };
-  $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; graphState.selected = null; drawGraph(); };
-  $('#g-sources').onchange = e => { graphState.sources = e.target.checked; graphState.selected = null; drawGraph(); };
-  $('#g-commands').onchange = e => { graphState.commands = e.target.checked; graphState.selected = null; drawGraph(); };
-  drawGraph();
+const ELK_LIB = 'https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js';
+const GW = 196, GH = 36; // node box size on the map
+const graphSub = n => n.kind === 'group' ? n.sub : n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
+  : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model'
+  : n.kind === 'macro' ? 'macro' : n.kind === 'command' ? 'command · ' + n.category.toLowerCase() : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
+const gtrunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
+const SOURCE_KINDS = /^(index|sourcetype|lookup|datamodel|macro):/;
+
+/* ---------- The graph the map draws: this dashboard, or this dashboard plus the changes from Compare ---------- */
+let _gm = null;
+function graphModel() {
+  const B = graphState.overlay && COMPARE ? COMPARE.model : null;
+  if (_gm && _gm.M === M && _gm.B === B) return _gm;
+  const nodes = new Map(M.nodes), status = new Map();
+  const edges = M.edges.map(e => ({ ...e }));
+  if (B) {
+    const key = e => e.from + '\u0001' + e.to + '\u0001' + e.rel;
+    const inA = new Set(M.edges.map(key)), inB = new Set(B.edges.map(key));
+    for (const e of edges) if (!inB.has(key(e))) e.change = 'removed';
+    const seen = new Set();
+    for (const e of B.edges) if (!inA.has(key(e)) && !seen.has(key(e))) { seen.add(key(e)); edges.push({ ...e, change: 'added' }); }
+    for (const [id, n] of B.nodes) if (!nodes.has(id)) { nodes.set(id, n); status.set(id, 'added'); }
+    for (const id of M.nodes.keys()) if (!B.nodes.has(id)) status.set(id, 'removed');
+    for (const r of diffModels(M, B)) if (r.status === 'changed') status.set(r.kind + ':' + r.key, 'changed');
+  }
+  const inE = new Map(), outE = new Map();
+  for (const id of nodes.keys()) { inE.set(id, []); outE.set(id, []); }
+  for (const e of edges) { outE.get(e.from)?.push(e); inE.get(e.to)?.push(e); }
+  _gm = { M, B, nodes, edges, inE, outE, status };
+  return _gm;
+}
+// Tokens used by so many items that their lines would swamp the map: shown as badges instead.
+function hubTokens(G) {
+  const out = new Map();
+  if (!graphState.hubMin) return out;
+  for (const [id, n] of G.nodes) if (n.kind === 'token') {
+    const users = new Set((G.outE.get(id) || []).filter(e => e.rel === 'uses-token').map(e => e.to));
+    if (users.size >= graphState.hubMin) out.set(id, users.size);
+  }
+  return out;
+}
+const kindHidden = id => (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) || (!graphState.sources && SOURCE_KINDS.test(id)) || (!graphState.commands && id.startsWith('command:'));
+function defaultCenter() {
+  const viz = M.byKind('viz');
+  return (viz.find(v => outs(v.id, ['contains']).length && ins(v.id, ['feeds']).length) || viz.find(v => ins(v.id, ['feeds']).length) || viz[0] || invItems()[0])?.id || null;
+}
+// Everything reachable from `start` in one direction, ignoring the dashboard root.
+function reach(G, start, up, maxDepth = 99, stop = () => false) {
+  const seen = new Set([start]);
+  let frontier = [start];
+  for (let d = 0; d < maxDepth && frontier.length; d++) {
+    const next = [];
+    for (const id of frontier) for (const e of (up ? G.inE : G.outE).get(id) || []) {
+      const x = up ? e.from : e.to;
+      if (x.startsWith('dashboard:') || seen.has(x)) continue;
+      seen.add(x);
+      if (!stop(x)) next.push(x);
+    }
+    frontier = next;
+  }
+  seen.delete(start);
+  return seen;
+}
+// Which items to show, before collapsing.
+function visibleSet(G, hubs) {
+  if (graphState.mode === 'path') return pathInfo(G).ids;
+  if (graphState.mode === 'focus') {
+    if (!graphState.center || !G.nodes.has(graphState.center)) graphState.center = defaultCenter();
+    const c = graphState.center;
+    if (!c) return new Set();
+    const depth = graphState.depth === 'all' ? 99 : +graphState.depth;
+    const hub = x => hubs.has(x) && x !== c;
+    const ids = new Set([c]);
+    for (const up of [true, false]) for (const x of reach(G, c, up, depth, hub)) if (x === c || (!kindHidden(x) && !hub(x))) ids.add(x);
+    return ids;
+  }
+  let ids = new Set([...G.nodes.keys()].filter(id => !id.startsWith('dashboard:')));
+  if (graphState.focus) ids = new Set([graphState.focus, ...reach(G, graphState.focus, true)]);
+  for (const id of [...ids]) if (kindHidden(id) || hubs.has(id)) ids.delete(id);
+  return ids;
+}
+/* ---------- Path between two items ---------- */
+function pathInfo(G) {
+  const a = graphState.pathFrom, b = graphState.pathTo;
+  if (!a || !b || !G.nodes.has(a) || !G.nodes.has(b) || a === b) return { ids: new Set([a, b].filter(x => x && G.nodes.has(x))), routes: 0, msg: a && b && a === b ? 'Pick two different items.' : 'Pick the two items to connect.' };
+  const route = (s, t) => {
+    const down = reach(G, s, false), up = reach(G, t, true);
+    if (!down.has(t)) return null;
+    const ids = new Set([s, t, ...[...down].filter(x => up.has(x))]);
+    const onRoute = e => ids.has(e.from) && ids.has(e.to) && (e.from === s || down.has(e.from)) && (e.to === t || up.has(e.to));
+    // Count routes and the shortest one (memoised walk; guarded against loops).
+    const memo = new Map();
+    const count = (id, stack) => {
+      if (id === t) return 1;
+      if (memo.has(id)) return memo.get(id);
+      if (stack.has(id)) return 0;
+      stack.add(id);
+      let n = 0;
+      for (const e of G.outE.get(id) || []) if (onRoute(e)) n += count(e.to, stack);
+      stack.delete(id);
+      memo.set(id, n);
+      return n;
+    };
+    const dist = new Map([[s, 0]]), q = [s];
+    while (q.length) { const id = q.shift(); for (const e of G.outE.get(id) || []) if (onRoute(e) && !dist.has(e.to)) { dist.set(e.to, dist.get(id) + 1); q.push(e.to); } }
+    return { ids, onRoute, routes: Math.min(count(s, new Set()), 1e6), shortest: dist.get(t) };
+  };
+  const lbl = id => G.nodes.get(id)?.label ?? id;
+  let r = route(a, b);
+  if (r) return { ...r, msg: `${plural(r.routes, 'route')} from ${lbl(a)} to ${lbl(b)}; the shortest is ${plural(r.shortest, 'step')}.` };
+  r = route(b, a);
+  if (r) return { ...r, reversed: true, msg: `Nothing flows from ${lbl(a)} to ${lbl(b)}, but ${plural(r.routes, 'route')} ${r.routes === 1 ? 'runs' : 'run'} the other way, from ${lbl(b)} to ${lbl(a)} (shortest ${plural(r.shortest, 'step')}).` };
+  return { ids: new Set([a, b]), routes: 0, msg: `${lbl(a)} and ${lbl(b)} aren't connected: changing one doesn't affect the other.` };
+}
+/* ---------- Collapsing: tabs, chain families, sources, commands ---------- */
+function isCollapsed(key, flag) { return graphState.toggled.has(key) ? graphState.toggled.get(key) : !!graphState.collapse[flag]; }
+function collapseMap(G, ids) {
+  const rep = new Map(), synth = new Map(), members = new Map();
+  const add = (id, r) => { rep.set(id, r); if (r !== id) (members.get(r) || members.set(r, []).get(r)).push(id); };
+  const group = (gid, label, kinds) => { if (!synth.has(gid)) synth.set(gid, { id: gid, kind: 'group', key: gid, label, sub: '', kinds }); return gid; };
+  for (const id of ids) {
+    const n = G.nodes.get(id);
+    let r = id;
+    if (n.kind === 'viz' || n.kind === 'input') {
+      const tab = (G.outE.get(id) || []).find(e => e.rel === 'contains' && ids.has(e.to))?.to;
+      if (tab && isCollapsed(tab, 'tabs')) r = tab;
+    } else if (n.kind === 'ds' && n.rootId && n.rootId !== id && G.nodes.has(n.rootId) && isCollapsed(n.rootId, 'chains')) r = n.rootId;
+    else if (SOURCE_KINDS.test(id) && isCollapsed('group:sources', 'sources')) r = group('group:sources', 'Sources', 'indexes, sourcetypes, lookups, data models, macros');
+    else if (n.kind === 'command' && isCollapsed('group:commands', 'commands')) r = group('group:commands', 'SPL commands', 'commands');
+    add(id, r);
+  }
+  for (const [gid, s] of synth) { const m = members.get(gid) || []; s.label = `${s.label} (${m.length})`; s.sub = 'collapsed · click + to expand'; }
+  return { rep, synth, members };
+}
+// Collapsible items and their current state: tab boxes, base searches with chains, and the groups.
+function toggleState(G, id, members) {
+  const n = G.nodes.get(id);
+  if (id.startsWith('group:')) return { key: id, collapsed: true };
+  if (n?.kind === 'tab' && (G.inE.get(id) || []).some(e => e.rel === 'contains')) return { key: id, collapsed: isCollapsed(id, 'tabs') };
+  if (n?.kind === 'ds' && n.depth === 0 && (G.outE.get(id) || []).some(e => e.rel === 'extends')) return { key: id, collapsed: isCollapsed(id, 'chains') };
+  if (SOURCE_KINDS.test(id)) return { key: 'group:sources', collapsed: false };
+  if (n?.kind === 'command') return { key: 'group:commands', collapsed: false };
+  return null;
+}
+// The nodes and edges to draw, after collapsing. Edges between the same pair are merged.
+function graphScene() {
+  const G = graphModel();
+  const hubs = graphState.mode === 'path' ? new Map() : hubTokens(G);
+  const raw = visibleSet(G, hubs);
+  const pathCut = graphState.mode === 'path' ? pathInfo(G) : null;
+  const cm = graphState.mode === 'path' ? { rep: new Map([...raw].map(id => [id, id])), synth: new Map(), members: new Map() } : collapseMap(G, raw);
+  const getNode = id => cm.synth.get(id) || G.nodes.get(id);
+  const ids = new Set([...raw].map(id => cm.rep.get(id) || id));
+  const edges = [], seen = new Map();
+  for (const e of G.edges) {
+    if (!raw.has(e.from) || !raw.has(e.to)) continue;
+    if (pathCut?.onRoute && !pathCut.onRoute(e)) continue;
+    const f = cm.rep.get(e.from), t = cm.rep.get(e.to);
+    if (!f || !t || f === t) continue;
+    const k = f + '\u0001' + t + '\u0001' + e.rel;
+    if (seen.has(k)) { const x = seen.get(k); x.n++; if (e.change) x.change ||= e.change; continue; }
+    const x = { from: f, to: t, rel: e.rel, detail: e.detail, change: e.change, n: 1 };
+    seen.set(k, x); edges.push(x);
+  }
+  // Hub tokens each item uses (directly, or through the items folded into it).
+  const hubsOf = new Map();
+  if (hubs.size) for (const id of ids) {
+    const mem = [id, ...(cm.members.get(id) || [])];
+    const used = uniq(mem.flatMap(m => (G.inE.get(m) || []).filter(e => e.rel === 'uses-token' && hubs.has(e.from)).map(e => e.from)));
+    if (used.length) hubsOf.set(id, used);
+  }
+  return { G, ids, edges, getNode, cm, hubs, hubsOf, path: pathCut };
 }
 
-function drawGraph() {
-  let ids = new Set(M.nodes.keys());
-  if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
-  if (!graphState.tokens) for (const id of [...ids]) if (/^(token|input|defaults|condition):/.test(id)) ids.delete(id);
-  if (!graphState.sources) for (const id of [...ids]) if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) ids.delete(id);
-  if (!graphState.commands) for (const id of [...ids]) if (id.startsWith('command:')) ids.delete(id);
-  const D = M.maxDepth;
-  const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, lookup: 3, datamodel: 3, macro: 3, command: 3, ds: 4 + (n.depth || 0), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind];
-  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Sources, macros & commands' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
+function renderGraph(root) {
+  const G = graphModel();
+  const mode = graphState.mode;
+  if (mode === 'focus' && (!graphState.center || !G.nodes.has(graphState.center))) graphState.center = defaultCenter();
+  const tabs = M.byKind('tab').sort((a, b) => a.order - b.order);
+  const itemOptions = sel => INV_ORDER.filter(k => M.byKind(k).length).map(k => `<optgroup label="${esc(KINDS[k].plural)}">${M.byKind(k).map(n => `<option value="${esc(n.id)}" ${sel === n.id ? 'selected' : ''}>#${invNo(n.id)} ${esc(n.label)}</option>`).join('')}</optgroup>`).join('');
+  const seg = (k, label) => `<button data-gmode="${k}" aria-pressed="${mode === k}">${label}</button>`;
+  const hubs = hubTokens(G);
+  const ov = COMPARE ? `<label title="Colour what changed between this dashboard (A) and ${esc(COMPARE.label)} (B)"><input type="checkbox" id="g-overlay" ${graphState.overlay ? 'checked' : ''}> Show changes vs ${esc(gtrunc(COMPARE.label, 30))}</label>` : '';
+  const p = mode === 'path' ? pathInfo(G) : null;
+  root.innerHTML = `<div class="graph-controls">
+    <div class="seg" role="group" aria-label="What to show">${seg('focus', 'Focus on one item')}${seg('path', 'Path between two')}${seg('all', 'Whole dashboard')}</div>
+    ${mode === 'focus' ? `<label>Item <select id="g-center">${itemOptions(graphState.center)}</select></label>
+      <label>Steps each way <select id="g-depth">${['1', '2', '3', '4', 'all'].map(d => `<option value="${d}" ${String(graphState.depth) === d ? 'selected' : ''}>${d === 'all' ? 'All' : d}</option>`).join('')}</select></label>`
+    : mode === 'path' ? `<label>From <select id="g-from"><option value="">Choose…</option>${itemOptions(graphState.pathFrom)}</select></label>
+      <label>To <select id="g-to"><option value="">Choose…</option>${itemOptions(graphState.pathTo)}</select></label>`
+    : `<label>Tab <select id="g-focus"><option value="">All tabs</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>`}
+    <label>Layout <select id="g-layout"><option value="columns" ${graphState.layout === 'columns' ? 'selected' : ''}>Columns</option><option value="elk" ${graphState.layout === 'elk' ? 'selected' : ''}>Layered, grouped by tab (ELK)</option></select></label>
+  </div>
+  <div class="graph-controls">
+    <input class="search" id="g-find" list="g-find-list" placeholder="Find an item…" aria-label="Find an item on the map" style="min-width:200px">
+    <datalist id="g-find-list">${invItems().map(n => `<option value="#${invNo(n.id)} ${esc(n.label)}">${esc(KINDS[n.kind].label)}</option>`).join('')}</datalist>
+    <span class="zoomctl" role="group" aria-label="Zoom"><button class="btn small" id="g-zout" title="Zoom out">−</button><span id="g-zlabel">${Math.round(graphState.zoom * 100)}%</span><button class="btn small" id="g-zin" title="Zoom in">+</button><button class="btn small" id="g-zfit">Fit</button><button class="btn small" id="g-z100">100%</button></span>
+    <button class="btn small" id="g-svg">Export SVG</button><button class="btn small" id="g-png">Export PNG</button>
+  </div>
+  ${mode !== 'path' ? `<div class="graph-controls">
+    <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Inputs, tokens and conditions</label>
+    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Sources and macros</label>
+    <label><input type="checkbox" id="g-commands" ${graphState.commands ? 'checked' : ''}> SPL commands</label>
+    <label title="Tokens used by at least this many items are shown as a badge on each item instead of as lines">Hub tokens <select id="g-hub">${[0, 3, 4, 5, 6, 8].map(v => `<option value="${v}" ${graphState.hubMin === v ? 'selected' : ''}>${v ? 'badge if used by ' + v + '+' : 'always draw lines'}</option>`).join('')}</select></label>
+    <span class="small muted">Collapse:</span>${['tabs', 'chains', 'sources', 'commands'].map(f => `<label><input type="checkbox" data-gcollapse="${f}" ${graphState.collapse[f] ? 'checked' : ''}> ${f === 'chains' ? 'chain searches' : f === 'sources' ? 'sources' : f === 'commands' ? 'commands' : 'tabs'}</label>`).join('')}
+    ${ov}
+  </div>` : `<div class="graph-controls">${ov}</div>`}
+  <div class="legend graph-legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span>
+    ${hubs.size && mode !== 'path' ? `<span>Hub tokens as badges: ${[...hubs].map(([id, n]) => `<b>${esc(G.nodes.get(id).label)}</b> (${n})`).join(', ')}</span>` : ''}
+    ${graphState.overlay && COMPARE ? '<span class="chg-key"><i class="ck-added"></i>added in B</span><span class="chg-key"><i class="ck-removed"></i>removed in B</span><span class="chg-key"><i class="ck-changed"></i>changed</span>' : ''}</div>
+  <p class="muted small" style="margin:4px 0 8px">${mode === 'focus'
+    ? `Showing <b>${esc(G.nodes.get(graphState.center)?.label || '—')}</b> and what it depends on and what depends on it, ${graphState.depth === 'all' ? 'all the way' : plural(+graphState.depth, 'step') + ' each way'}. Click an item to move the focus to it.`
+    : mode === 'path' ? esc(p.msg) : 'Every item. Click an item to highlight its lineage and open its details; click empty space to clear.'}
+    Drag to pan, Ctrl+scroll (or pinch) to zoom, arrow keys to move between connected items. <b>+</b>/<b>−</b> on a box collapses or expands it.</p>
+  <div class="graph-wrap" id="g-wrap" tabindex="-1"></div>`;
+  const redraw = () => { graphState.selected = graphState.mode === 'focus' ? graphState.center : null; drawGraph(); };
+  root.querySelectorAll('[data-gmode]').forEach(b => b.onclick = () => {
+    graphState.mode = b.dataset.gmode; graphState.selected = null;
+    if (graphState.mode === 'path' && !graphState.pathFrom) { graphState.pathFrom = M.byKind('input')[0]?.id || null; graphState.pathTo = graphState.center; }
+    render();
+  });
+  const on = (id, ev, fn) => { const el = $('#' + id); if (el) el[ev] = fn; };
+  on('g-center', 'onchange', e => { graphState.center = e.target.value; render(); });
+  on('g-depth', 'onchange', e => { graphState.depth = e.target.value; render(); });
+  on('g-from', 'onchange', e => { graphState.pathFrom = e.target.value; render(); });
+  on('g-to', 'onchange', e => { graphState.pathTo = e.target.value; render(); });
+  on('g-focus', 'onchange', e => { graphState.focus = e.target.value; redraw(); });
+  on('g-layout', 'onchange', e => { graphState.layout = e.target.value; redraw(); });
+  on('g-tokens', 'onchange', e => { graphState.tokens = e.target.checked; redraw(); });
+  on('g-sources', 'onchange', e => { graphState.sources = e.target.checked; redraw(); });
+  on('g-commands', 'onchange', e => { graphState.commands = e.target.checked; redraw(); });
+  on('g-hub', 'onchange', e => { graphState.hubMin = +e.target.value; render(); });
+  on('g-overlay', 'onchange', e => { graphState.overlay = e.target.checked; render(); });
+  root.querySelectorAll('[data-gcollapse]').forEach(c => c.onchange = () => { graphState.collapse[c.dataset.gcollapse] = c.checked; graphState.toggled.clear(); redraw(); });
+  on('g-zin', 'onclick', () => setZoom(graphState.zoom * 1.25));
+  on('g-zout', 'onclick', () => setZoom(graphState.zoom / 1.25));
+  on('g-z100', 'onclick', () => setZoom(1));
+  on('g-zfit', 'onclick', fitGraph);
+  on('g-svg', 'onclick', () => { const s = exportableSvg($('#g-wrap svg')); if (s) download(slug(M.title) + '-map.svg', s, 'image/svg+xml'); });
+  on('g-png', 'onclick', async () => { const s = exportableSvg($('#g-wrap svg')); if (s) await downloadPng(s, slug(M.title) + '-map.png'); });
+  on('g-find', 'onchange', e => findOnMap(e.target.value));
+  if (mode === 'focus') graphState.selected = graphState.center;
+  drawGraph();
+}
+function findOnMap(text) {
+  const m = String(text).match(/^#(\d+)\b/);
+  const n = m ? invItems()[+m[1] - 1] : invItems().find(x => x.label.toLowerCase() === String(text).trim().toLowerCase());
+  if (!n) { toast('No item matches "' + text + '".', 3000); return; }
+  const id = n.id;
+  if (graphState.mode === 'focus') { graphState.center = id; render(); return; }
+  if (graphState.mode === 'path') { if (!graphState.pathFrom || graphState.pathTo) { graphState.pathFrom = id; graphState.pathTo = null; } else graphState.pathTo = id; render(); return; }
+  if (kindHidden(id)) { if (/^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (SOURCE_KINDS.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; }
+  if (hubTokens(graphModel()).has(id)) graphState.hubMin = 0;
+  graphState.toggled.set(toggleState(graphModel(), id)?.key || '', false);
+  graphState.selected = id;
+  render();
+}
 
+/* Columns layout: one column per kind of item, ordered to reduce crossings. */
+function layoutColumns(ids, vEdges, getNode) {
+  const D = M.maxDepth;
+  const colOf = n => n.kind === 'group' ? 3 : ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, lookup: 3, datamodel: 3, macro: 3, command: 3, ds: 4 + Math.min(n.depth || 0, D), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind] ?? 3;
+  const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Sources, macros & commands' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
   const byCol = new Map();
-  for (const id of ids) { const c = colOf(M.nodes.get(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
+  for (const id of ids) { const c = colOf(getNode(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
   const colKeys = [...byCol.keys()].sort((a, b) => a - b);
   const cols = colKeys.map(k => byCol.get(k));
   const colIndex = new Map();
   cols.forEach((col, ci) => col.forEach(id => colIndex.set(id, ci)));
-  const vEdges = M.edges.filter(e => ids.has(e.from) && ids.has(e.to));
   const nbrs = new Map();
   for (const e of vEdges) {
     if (!nbrs.has(e.from)) nbrs.set(e.from, []); if (!nbrs.has(e.to)) nbrs.set(e.to, []);
     nbrs.get(e.from).push(e.to); nbrs.get(e.to).push(e.from);
   }
-  // Order each column by barycentre of its neighbours to reduce crossings.
-  const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1, lookup: 2, datamodel: 3, macro: 4, command: 5 };
-  cols.forEach(col => col.sort((a, b) => (kindOrder[M.nodes.get(a).kind] ?? 0) - (kindOrder[M.nodes.get(b).kind] ?? 0)));
+  const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1, lookup: 2, datamodel: 3, macro: 4, command: 5, group: 6 };
+  cols.forEach(col => col.sort((a, b) => (kindOrder[getNode(a).kind] ?? 0) - (kindOrder[getNode(b).kind] ?? 0)));
   const pos = new Map();
   const setPos = col => col.forEach((id, i) => pos.set(id, i - col.length / 2));
   cols.forEach(setPos);
@@ -3073,80 +3392,557 @@ function drawGraph() {
       setPos(col);
     }
   }
-
-  const W = 196, H = 36, GAP = 10, COLW = 270, PADX = 24, TOP = 40;
+  const GAP = 10, COLW = 270, PADX = 24, TOP = 40;
   const maxRows = Math.max(1, ...cols.map(c => c.length));
-  const height = TOP + maxRows * (H + GAP) + 20;
-  const width = PADX * 2 + (cols.length - 1) * COLW + W;
   const P = new Map();
   cols.forEach((col, ci) => {
-    const off = ((maxRows - col.length) * (H + GAP)) / 2;
-    col.forEach((id, i) => P.set(id, { x: PADX + ci * COLW, y: TOP + off + i * (H + GAP) }));
+    const off = ((maxRows - col.length) * (GH + GAP)) / 2;
+    col.forEach((id, i) => P.set(id, { x: PADX + ci * COLW, y: TOP + off + i * (GH + GAP) }));
   });
-  const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
-  const subOf = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
-    : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model' : n.kind === 'macro' ? 'macro' : n.kind === 'command' ? 'command · ' + n.category.toLowerCase() : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
-
-  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Relationship map">
-  <defs>${['data', 'token', 'layout', 'vis', 'spl'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
-  cols.forEach((col, ci) => { svg += `<text class="colhead" x="${PADX + ci * COLW}" y="22">${esc(colName(colKeys[ci]))} (${col.length})</text>`; });
+  const paths = new Map();
   for (const e of vEdges) {
     const a = P.get(e.from), b = P.get(e.to);
-    const g = REL[e.rel].group;
-    let d, back = false;
+    if (!a || !b) continue;
     if (b.x > a.x) {
-      const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2, dx = (x2 - x1) / 2;
-      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+      const x1 = a.x + GW, y1 = a.y + GH / 2, x2 = b.x - 2, y2 = b.y + GH / 2, dx = (x2 - x1) / 2;
+      paths.set(e, { d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`, back: false });
     } else {
-      back = true;
-      const x1 = a.x, y1 = a.y + H / 2, x2 = b.x + W + 2, y2 = b.y + H / 2, dx = Math.max(50, (x1 - x2) / 2);
-      d = `M${x1},${y1} C${x1 - dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`;
+      const x1 = a.x, y1 = a.y + GH / 2, x2 = b.x + GW + 2, y2 = b.y + GH / 2, dx = Math.max(50, (x1 - x2) / 2);
+      paths.set(e, { d: `M${x1},${y1} C${x1 - dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`, back: true });
     }
-    svg += `<path class="gedge ${g}${back ? ' back' : ''}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${d}" marker-end="url(#ar-${g})"><title>${esc(M.nodes.get(e.from).label + ' → ' + REL[e.rel].fwd + ' → ' + M.nodes.get(e.to).label + (e.detail ? ' (' + e.detail + ')' : ''))}</title></path>`;
+  }
+  return {
+    P, paths, groups: [], headers: cols.map((col, ci) => ({ x: PADX + ci * COLW, y: 22, text: `${colName(colKeys[ci])} (${col.length})` })),
+    width: PADX * 2 + (cols.length - 1) * COLW + GW, height: TOP + maxRows * (GH + GAP) + 20,
+  };
+}
+
+/* ELK layered layout: right-angle edges, items grouped inside their tab. */
+async function layoutElk(ids, vEdges, getNode) {
+  await loadScriptOnce(ELK_LIB, () => typeof window.ELK === 'function');
+  const elk = new window.ELK();
+  const parentOf = new Map();
+  for (const id of ids) {
+    const n = getNode(id);
+    if (n.kind !== 'viz' && n.kind !== 'input') continue;
+    const tab = vEdges.find(e => e.rel === 'contains' && e.from === id && ids.has(e.to) && e.to.startsWith('tab:'))?.to;
+    if (tab) parentOf.set(id, tab);
+  }
+  const leaf = id => ({ id, width: GW, height: GH });
+  const children = [];
+  for (const id of ids) {
+    const n = getNode(id);
+    if (n.kind === 'dashboard' || parentOf.has(id)) continue;
+    const kids = n.kind === 'tab' ? [...ids].filter(x => parentOf.get(x) === id).map(leaf) : [];
+    children.push(kids.length ? { id, layoutOptions: { 'elk.padding': '[top=34,left=12,bottom=12,right=12]' }, children: kids } : leaf(id));
+  }
+  const present = new Set(children.flatMap(c => [c.id, ...(c.children || []).map(k => k.id)]));
+  const edges = vEdges.filter(e => present.has(e.from) && present.has(e.to) && !(e.rel === 'contains' && parentOf.get(e.from) === e.to))
+    .map((e, i) => ({ id: 'e' + i, sources: [e.from], targets: [e.to], _e: e }));
+  const graph = await elk.layout({
+    id: '__root',
+    layoutOptions: {
+      'elk.algorithm': 'layered', 'elk.direction': 'RIGHT', 'elk.edgeRouting': 'ORTHOGONAL', 'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '56', 'elk.spacing.nodeNode': '14', 'elk.spacing.edgeEdge': '6', 'elk.spacing.edgeNode': '10',
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP', 'elk.padding': '[top=20,left=20,bottom=20,right=20]',
+    },
+    children, edges: edges.map(({ _e, ...rest }) => rest),
+  });
+  // Shapes come back relative to their parent, and each edge relative to its "container" node.
+  const abs = new Map([['__root', { x: 0, y: 0 }]]);
+  const P = new Map(), groups = [];
+  const walkNodes = (node, ox, oy) => {
+    for (const c of node.children || []) {
+      const x = ox + c.x, y = oy + c.y;
+      abs.set(c.id, { x, y });
+      if (c.children?.length) { groups.push({ id: c.id, x, y, w: c.width, h: c.height }); walkNodes(c, x, y); }
+      else P.set(c.id, { x, y });
+    }
+  };
+  walkNodes(graph, 0, 0);
+  const byId = new Map(edges.map(e => [e.id, e._e]));
+  const paths = new Map();
+  const collect = node => {
+    for (const ed of node.edges || []) {
+      const off = abs.get(ed.container || node.id) || { x: 0, y: 0 };
+      const s = ed.sections?.[0];
+      if (!s) continue;
+      const pts = [s.startPoint, ...(s.bendPoints || []), s.endPoint].map(pt => `${(pt.x + off.x).toFixed(1)},${(pt.y + off.y).toFixed(1)}`);
+      paths.set(byId.get(ed.id), { d: 'M' + pts.join(' L'), back: s.endPoint.x < s.startPoint.x });
+    }
+    for (const c of node.children || []) collect(c);
+  };
+  collect(graph);
+  return { P, paths, groups, headers: [], width: graph.width, height: graph.height };
+}
+
+// The map as an SVG string (CSS classes; styles are inlined when exported).
+function mapSvgString(S, L, { interactive = true } = {}) {
+  const { G, ids, edges, getNode, cm, hubsOf } = S;
+  const { P, paths } = L;
+  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(L.width)}" height="${Math.ceil(L.height)}" viewBox="0 0 ${Math.ceil(L.width)} ${Math.ceil(L.height)}" role="img" aria-label="Relationship map">
+  <defs>${['data', 'token', 'layout', 'vis', 'spl'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
+  for (const h of L.headers) svg += `<text class="colhead" x="${h.x}" y="${h.y}">${esc(h.text)}</text>`;
+  for (const g of L.groups) {
+    const n = getNode(g.id);
+    svg += `<g class="ggroup" data-id="${esc(g.id)}"><rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="8"/><text x="${g.x + 12}" y="${g.y + 21}">${esc(n.global ? 'Global inputs' : 'Tab: ' + n.label)}</text></g>`;
+  }
+  for (const e of edges) {
+    const pth = paths.get(e);
+    if (!pth) continue;
+    const g = REL[e.rel].group;
+    svg += `<path class="gedge ${g}${pth.back ? ' back' : ''}${e.change ? ' chg-' + e.change : ''}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${pth.d}" marker-end="url(#ar-${g})"><title>${esc(getNode(e.from).label + ' → ' + REL[e.rel].fwd + ' → ' + getNode(e.to).label + (e.n > 1 ? ` (${e.n} links)` : e.detail ? ' (' + e.detail + ')' : '') + (e.change ? ` [${e.change} in B]` : ''))}</title></path>`;
   }
   for (const id of ids) {
-    const n = M.nodes.get(id), p = P.get(id);
-    svg += `<g class="gnode k-${n.kind}${n.status === 'Undefined' || issuesFor(id).some(i => i.severity === 'error') ? ' undef' : ''}" data-id="${esc(id)}" transform="translate(${p.x},${p.y})" tabindex="0">
-      <title>${esc(KINDS[n.kind].label + ': ' + n.label + (n.label !== n.key && n.kind !== 'token' ? ' [' + n.key + ']' : ''))}</title>
-      <rect class="box" width="${W}" height="${H}" rx="6"/><rect class="bar" width="4" height="${H}" rx="2"/>
-      <text x="12" y="15">${esc(trunc(n.label, 28))}</text><text class="sub" x="12" y="29">${esc(trunc(subOf(n), 32))}</text></g>`;
+    const n = getNode(id), p = P.get(id);
+    if (!p) continue;
+    const center = graphState.mode === 'focus' && id === graphState.center;
+    const ends = graphState.mode === 'path' && (id === graphState.pathFrom || id === graphState.pathTo);
+    const chg = G.status.get(id);
+    const mem = cm.members.get(id) || [];
+    const sub = mem.length && n.kind !== 'group' ? `${n.kind === 'tab' ? plural(mem.length, 'item') : '+' + plural(mem.length, 'chain')} folded in` : graphSub(n);
+    const bad = n.kind !== 'group' && (n.status === 'Undefined' || (M.nodes.has(id) && issuesFor(id).some(i => i.severity === 'error')));
+    let extra = '';
+    const hubsHere = hubsOf.get(id) || [];
+    if (hubsHere.length) {
+      const t = gtrunc(G.nodes.get(hubsHere[0]).label, 16) + (hubsHere.length > 1 ? ` +${hubsHere.length - 1}` : '');
+      const w = Math.min(GW - 30, t.length * 5.9 + 10);
+      extra += `<g class="hubtag"><title>${esc('Uses hub token' + (hubsHere.length > 1 ? 's ' : ' ') + hubsHere.map(h => G.nodes.get(h).label).join(', '))}</title><rect x="${GW - w - 4}" y="-7" width="${w}" height="14" rx="7"/><text x="${GW - w / 2 - 4}" y="3.5" text-anchor="middle">${esc(t)}</text></g>`;
+    }
+    const tg = interactive && graphState.mode !== 'path' ? toggleState(G, id, mem) : null;
+    if (tg && (tg.collapsed || n.kind === 'tab' || n.kind === 'ds' || id.startsWith('group:'))) extra += `<g class="gtoggle" data-toggle="${esc(tg.key)}" data-collapsed="${tg.collapsed}"><title>${tg.collapsed ? 'Expand' : 'Collapse'}</title><circle cx="${GW}" cy="${GH / 2}" r="8"/><text x="${GW}" y="${GH / 2 + 4}" text-anchor="middle">${tg.collapsed ? '+' : '−'}</text></g>`;
+    svg += `<g class="gnode k-${n.kind}${bad ? ' undef' : ''}${center || ends ? ' center' : ''}${chg ? ' chg-' + chg : ''}" data-id="${esc(id)}" transform="translate(${p.x},${p.y})" tabindex="0">
+      <title>${esc((KINDS[n.kind]?.label || 'Group') + ': ' + n.label + (n.label !== n.key && n.kind !== 'token' && n.kind !== 'group' ? ' [' + n.key + ']' : '') + (chg ? ` (${chg} in B)` : ''))}</title>
+      <rect class="box" width="${GW}" height="${GH}" rx="6"/><rect class="bar" width="4" height="${GH}" rx="2"/>
+      <text x="12" y="15">${esc(gtrunc(n.label, 28))}</text><text class="sub" x="12" y="29">${esc(gtrunc(sub, 32))}</text>${extra}</g>`;
   }
-  svg += '</svg>';
+  return svg + '</svg>';
+}
+
+let lastMap = null; // { S, L } of the map on screen, for keyboard moves
+async function drawGraph() {
   const wrap = $('#g-wrap');
-  wrap.innerHTML = ids.size ? svg : '<p class="muted" style="padding:12px">Nothing to show.</p>';
+  if (!wrap) return;
+  const S = graphScene();
+  let L;
+  if (graphState.layout === 'elk') {
+    wrap.innerHTML = '<p class="muted" style="padding:12px">Laying out the map…</p>';
+    try { L = await layoutElk(S.ids, S.edges, S.getNode); }
+    catch (e) {
+      console.error(e);
+      toast(`The ELK layout couldn't be loaded (${e.message}), so the map uses columns.`, 8000);
+      graphState.layout = 'columns';
+      const sel = $('#g-layout'); if (sel) sel.value = 'columns';
+      L = layoutColumns(S.ids, S.edges, S.getNode);
+    }
+    if (!$('#g-wrap')) return; // the view changed while laying out
+  } else L = layoutColumns(S.ids, S.edges, S.getNode);
+  lastMap = { S, L };
+  wrap.innerHTML = S.ids.size ? mapSvgString(S, L) : '<p class="muted" style="padding:12px">Nothing to show.</p>';
   const el = wrap.querySelector('svg');
   if (!el) return;
+  el.dataset.w = L.width; el.dataset.h = L.height;
+  applyZoom(el);
+  const pick = id => {
+    if (!M.nodes.has(id) && !S.G.nodes.has(id)) return;
+    if (graphState.mode === 'focus') { graphState.center = id; graphState.selected = id; if (M.nodes.has(id)) openDrawer(id); render(); return; }
+    graphState.selected = id; highlight(el); if (M.nodes.has(id)) openDrawer(id);
+  };
+  let drag = null;
+  el.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || ev.target.closest('.gnode, .gtoggle')) return;
+    drag = { x: ev.clientX, y: ev.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop, moved: false };
+    el.setPointerCapture(ev.pointerId);
+  });
+  el.addEventListener('pointermove', ev => {
+    if (!drag) return;
+    const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) { drag.moved = true; el.classList.add('panning'); }
+    wrap.scrollLeft = drag.sl - dx; wrap.scrollTop = drag.st - dy;
+  });
+  el.addEventListener('pointerup', () => { setTimeout(() => { drag = null; el.classList.remove('panning'); }, 0); });
   el.addEventListener('click', ev => {
-    const g = ev.target.closest('.gnode');
-    if (!g) { graphState.selected = null; highlight(el); return; }
-    graphState.selected = g.dataset.id;
-    highlight(el);
-    openDrawer(g.dataset.id);
+    if (drag?.moved) return;
+    const tg = ev.target.closest('.gtoggle');
+    if (tg) { graphState.toggled.set(tg.dataset.toggle, tg.dataset.collapsed !== 'true'); drawGraph(); return; }
+    const g = ev.target.closest('.gnode, .ggroup');
+    if (!g) { if (graphState.mode === 'all') { graphState.selected = null; highlight(el); } return; }
+    if (g.dataset.id.startsWith('group:')) { graphState.toggled.set(g.dataset.id, false); drawGraph(); return; }
+    pick(g.dataset.id);
   });
   el.addEventListener('keydown', ev => {
     const g = ev.target.closest('.gnode');
-    if (g && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); graphState.selected = g.dataset.id; highlight(el); openDrawer(g.dataset.id); }
+    if (!g) return;
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(g.dataset.id); return; }
+    const next = neighbourFor(g.dataset.id, ev.key);
+    if (next) { ev.preventDefault(); const t = el.querySelector(`.gnode[data-id="${CSS.escape(next)}"]`); t?.focus(); t?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
   });
+  wrap.onwheel = ev => {
+    if (!ev.ctrlKey && !ev.metaKey) return;
+    ev.preventDefault();
+    const r = wrap.getBoundingClientRect();
+    setZoom(graphState.zoom * Math.exp(-ev.deltaY * 0.002), { x: ev.clientX - r.left, y: ev.clientY - r.top });
+  };
   highlight(el);
-  if (graphState.selected && P.has(graphState.selected)) {
-    const p = P.get(graphState.selected);
-    wrap.scrollTo({ left: Math.max(0, p.x - wrap.clientWidth / 2), top: Math.max(0, p.y - wrap.clientHeight / 2) });
+  const target = graphState.mode === 'focus' ? graphState.center : graphState.selected;
+  const tp = target && (L.P.get(target) || L.P.get(S.cm.rep.get(target)));
+  if (tp) wrap.scrollTo({ left: Math.max(0, tp.x * graphState.zoom - wrap.clientWidth / 2), top: Math.max(0, tp.y * graphState.zoom - wrap.clientHeight / 2) });
+}
+// Arrow keys: right = something it feeds, left = something feeding it, up/down = the next box in the column.
+function neighbourFor(id, key) {
+  if (!lastMap) return null;
+  const { S, L } = lastMap, p = L.P.get(id);
+  if (!p) return null;
+  const nearest = list => list.filter(x => L.P.has(x)).sort((a, b) => Math.abs(L.P.get(a).y - p.y) - Math.abs(L.P.get(b).y - p.y))[0];
+  if (key === 'ArrowRight') return nearest(S.edges.filter(e => e.from === id).map(e => e.to));
+  if (key === 'ArrowLeft') return nearest(S.edges.filter(e => e.to === id).map(e => e.from));
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    const same = [...L.P].filter(([x, q]) => x !== id && Math.abs(q.x - p.x) < 5 && (key === 'ArrowUp' ? q.y < p.y : q.y > p.y));
+    same.sort((a, b) => Math.abs(a[1].y - p.y) - Math.abs(b[1].y - p.y));
+    return same[0]?.[0] || null;
   }
+  return null;
+}
+function applyZoom(el) {
+  const w = +el.dataset.w, h = +el.dataset.h, z = graphState.zoom;
+  el.setAttribute('width', Math.ceil(w * z)); el.setAttribute('height', Math.ceil(h * z));
+  const lab = $('#g-zlabel'); if (lab) lab.textContent = Math.round(z * 100) + '%';
+}
+function setZoom(z, anchor) {
+  const wrap = $('#g-wrap'), el = wrap?.querySelector('svg');
+  if (!el) return;
+  const old = graphState.zoom;
+  z = Math.min(3, Math.max(0.15, z));
+  const a = anchor || { x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 };
+  const cx = (wrap.scrollLeft + a.x) / old, cy = (wrap.scrollTop + a.y) / old;
+  graphState.zoom = z;
+  applyZoom(el);
+  wrap.scrollLeft = cx * z - a.x; wrap.scrollTop = cy * z - a.y;
+}
+function fitGraph() {
+  const wrap = $('#g-wrap'), el = wrap?.querySelector('svg');
+  if (!el) return;
+  const availH = Math.max(240, window.innerHeight - wrap.getBoundingClientRect().top - 24);
+  setZoom(Math.min(1.5, (wrap.clientWidth - 8) / +el.dataset.w, availH / +el.dataset.h));
+  wrap.scrollTo(0, 0);
 }
 function highlight(svg) {
-  const sel = graphState.selected;
+  const sel = graphState.mode === 'all' ? graphState.selected : null;
   svg.classList.toggle('has-sel', !!sel);
-  if (!sel) { svg.querySelectorAll('.dim,.sel').forEach(x => x.classList.remove('dim', 'sel')); return; }
-  const lin = new Set([sel, ...closure(sel, 'up'), ...closure(sel, 'down')]);
-  const up = closure(sel, 'up'), down = closure(sel, 'down');
+  if (!sel || !lastMap) { svg.querySelectorAll('.dim,.sel').forEach(x => x.classList.remove('dim', 'sel')); return; }
+  const E = lastMap.S.edges;
+  const walk = up => { const seen = new Set(), st = [sel]; while (st.length) { const id = st.pop(); for (const e of E) { const [a, b] = up ? [e.to, e.from] : [e.from, e.to]; if (a === id && !seen.has(b)) { seen.add(b); st.push(b); } } } return seen; };
+  const up = walk(true), down = walk(false), lin = new Set([sel, ...up, ...down]);
   svg.querySelectorAll('.gnode').forEach(g => { g.classList.toggle('dim', !lin.has(g.dataset.id)); g.classList.toggle('sel', g.dataset.id === sel); });
-  // An edge is on the lineage when it connects two upstream items (or the selection) or two downstream items.
   svg.querySelectorAll('.gedge').forEach(p => {
     const f = p.dataset.from, t = p.dataset.to;
     const onUp = (up.has(f) || f === sel) && (up.has(t) || t === sel);
     const onDown = (down.has(f) || f === sel) && (down.has(t) || t === sel);
     p.classList.toggle('dim', !(onUp || onDown));
   });
+}
+
+/* ---------- Exporting graphs: inline the page's styles so the SVG stands alone ---------- */
+const INLINE_PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-opacity', 'opacity', 'font-family', 'font-size', 'font-weight', 'letter-spacing', 'text-transform', 'text-anchor'];
+function exportableSvg(svgEl, bg) {
+  if (!svgEl) return '';
+  const clone = svgEl.cloneNode(true);
+  const src = [svgEl, ...svgEl.querySelectorAll('*')], dst = [clone, ...clone.querySelectorAll('*')];
+  src.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    const style = INLINE_PROPS.map(p => { const v = cs.getPropertyValue(p); return v && v !== 'normal' && v !== 'none' || p === 'fill' || p === 'stroke' ? `${p}:${v}` : ''; }).filter(Boolean).join(';');
+    dst[i].setAttribute('style', style + (dst[i].getAttribute('style') ? ';' + dst[i].getAttribute('style') : ''));
+    dst[i].removeAttribute('class'); dst[i].removeAttribute('tabindex');
+  });
+  clone.querySelectorAll('.gtoggle, [data-toggle]').forEach(x => x.remove());
+  const w = svgEl.getAttribute('width'), h = svgEl.getAttribute('height');
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const bgc = bg || getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#ffffff';
+  clone.insertAdjacentHTML('afterbegin', `<rect width="100%" height="100%" fill="${bgc}"/>`);
+  clone.setAttribute('width', w); clone.setAttribute('height', h);
+  return new XMLSerializer().serializeToString(clone);
+}
+async function downloadPng(svg, name) {
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('The image could not be drawn.')); img.src = url; });
+    const scale = Math.min(2, 16000 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    const g = c.getContext('2d'); g.scale(scale, scale); g.drawImage(img, 0, 0);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    await download(name, blob, 'image/png');
+  } catch (e) { toast(e.message, 6000); }
+  finally { URL.revokeObjectURL(url); }
+}
+// A map drawn off-screen in the light palette, for reports: what feeds one panel.
+function panelLineageSvg(vizId) {
+  const saved = { ...graphState, collapse: { ...graphState.collapse }, toggled: new Map(graphState.toggled) };
+  Object.assign(graphState, { mode: 'focus', center: vizId, depth: 'all', tokens: true, sources: true, commands: false, hubMin: 4, overlay: false, collapse: { tabs: false, chains: false, sources: false, commands: false }, toggled: new Map() });
+  try {
+    const S = graphScene();
+    // Upstream only: keep the panel and what it depends on.
+    const up = reach(S.G, vizId, true);
+    S.ids = new Set([...S.ids].filter(id => id === vizId || up.has(id)));
+    S.edges = S.edges.filter(e => S.ids.has(e.from) && S.ids.has(e.to));
+    const L = layoutColumns(S.ids, S.edges, S.getNode);
+    const host = document.createElement('div');
+    host.className = 'force-light';
+    host.style.cssText = 'position:absolute;left:-100000px;top:0;';
+    host.innerHTML = mapSvgString(S, L, { interactive: false });
+    document.body.appendChild(host);
+    const out = exportableSvg(host.querySelector('svg'), '#ffffff');
+    host.remove();
+    return out;
+  } finally { Object.assign(graphState, saved); }
+}
+
+/* ---------- Token matrix ---------- */
+const matState = { cols: 'viz', rows: 'token', sort: 'def' };
+// How a token reaches an item: direct use, through its search, through a condition, or set by it.
+function tokenLinks(tokId, itemId) {
+  const n = M.nodes.get(itemId), out = [];
+  if (outs(itemId, ['drilldown-sets', 'smart-source']).some(e => e.to === tokId)) out.push('sets');
+  if (outs(tokId, ['uses-token']).some(e => e.to === itemId)) out.push('direct');
+  if (n.kind === 'viz') {
+    const feeds = ins(itemId, ['feeds']).flatMap(e => M.nodes.get(e.from)?.lineage || []);
+    if (feeds.some(d => directTokens(d).includes(tokId))) out.push('search');
+    if (ins(itemId, ['visibility']).some(e => directTokens(e.from).includes(tokId))) out.push('condition');
+  } else if (n.kind === 'ds') {
+    if ((n.lineage || []).slice(0, -1).some(d => directTokens(d).includes(tokId))) out.push('search');
+  }
+  return out;
+}
+// For an input: how the tokens it sets reach the item.
+function inputLinks(inputId, itemId) {
+  const toks = outs(inputId, ['sets']).map(e => e.to);
+  return uniq(toks.flatMap(t => tokenLinks(t, itemId)).filter(x => x !== 'sets'));
+}
+const MAT_SYMBOL = { direct: '●', search: '○', condition: '▲', sets: '◆' };
+const MAT_TEXT = { direct: 'uses it directly (title, options or query)', search: 'uses it through its search', condition: 'is shown or hidden by a condition that uses it', sets: 'sets it (drilldown or search result)' };
+function matrixColumns() {
+  if (matState.cols === 'ds') return M.byKind('ds').map(n => ({ id: n.id, group: dsTypeLabel(n.type) }));
+  const out = [];
+  for (const t of mockTabs()) for (const it of t.items || []) if (it.id.startsWith('viz:')) out.push({ id: it.id, group: t.label });
+  for (const v of M.byKind('viz')) if (!out.some(c => c.id === v.id)) out.push({ id: v.id, group: 'Not placed' });
+  return out;
+}
+// Rows, columns and cells after sorting: by definition order, by use, or grouping similar ones together.
+function matrixData() {
+  const rows = matState.rows === 'input' ? M.byKind('input').filter(n => n.token) : M.byKind('token');
+  let cols = matrixColumns();
+  const link = matState.rows === 'input' ? inputLinks : tokenLinks;
+  const cell = new Map();
+  for (const r of rows) for (const c of cols) cell.set(r.id + '|' + c.id, link(r.id, c.id));
+  const has = (r, c) => cell.get(r.id + '|' + c.id).length > 0;
+  let R = [...rows];
+  if (matState.sort !== 'def') {
+    const colCount = c => R.filter(r => has(r, c)).length;
+    const groupOrder = uniq(cols.map(c => c.group));
+    cols = groupOrder.flatMap(g => cols.filter(c => c.group === g).sort((a, b) => colCount(b) - colCount(a)));
+    const rowVec = r => cols.map(c => has(r, c) ? '1' : '0').join('');
+    R.sort((a, b) => {
+      const ca = cols.filter(c => has(a, c)).length, cb = cols.filter(c => has(b, c)).length;
+      return matState.sort === 'used' ? cb - ca : (rowVec(b) > rowVec(a) ? 1 : rowVec(b) < rowVec(a) ? -1 : cb - ca);
+    });
+    if (matState.sort === 'group') {
+      const colVec = c => R.map(r => has(r, c) ? '1' : '0').join('');
+      cols = groupOrder.flatMap(g => cols.filter(c => c.group === g).sort((a, b) => colVec(b) > colVec(a) ? 1 : colVec(b) < colVec(a) ? -1 : 0));
+    }
+  }
+  return { rows: R, cols, cell: (r, c) => cell.get(r.id + '|' + c.id) };
+}
+function viewTokenMatrix() {
+  const { rows, cols, cell } = matrixData();
+  if (!rows.length) return `<p class="muted">This dashboard has no ${matState.rows === 'input' ? 'inputs that set a token' : 'tokens'}.</p>`;
+  const groups = [];
+  for (const c of cols) { const g = groups[groups.length - 1]; if (g && g.name === c.group) g.n++; else groups.push({ name: c.group, n: 1 }); }
+  const btn = (attr, k, label, cur) => `<button data-${attr}="${k}" aria-pressed="${cur === k}">${label}</button>`;
+  const rowsLabel = matState.rows === 'input' ? 'Input' : 'Token';
+  return `<div class="graph-controls">
+    <div class="seg" role="group" aria-label="Rows">${btn('matrows', 'token', 'Tokens', matState.rows)}${btn('matrows', 'input', 'Inputs', matState.rows)}</div>
+    <span>×</span>
+    <div class="seg" role="group" aria-label="Columns">${btn('matcols', 'viz', 'Panels', matState.cols)}${btn('matcols', 'ds', 'Searches', matState.cols)}</div>
+    <label>Order <select id="mat-sort"><option value="def" ${matState.sort === 'def' ? 'selected' : ''}>As defined</option><option value="used" ${matState.sort === 'used' ? 'selected' : ''}>Most used first</option><option value="group" ${matState.sort === 'group' ? 'selected' : ''}>Group similar together</option></select></label>
+    <button class="btn small" id="mat-svg">Export SVG</button><button class="btn small" id="mat-png">Export PNG</button>
+  </div>
+  <div class="legend" style="margin-bottom:6px">${Object.entries(MAT_SYMBOL).filter(([k]) => matState.rows === 'token' || k !== 'sets').map(([k, s]) => `<span><b class="mat-${k}">${s}</b> ${esc(MAT_TEXT[k])}</span>`).join('')}</div>
+  <p class="muted small" style="margin:0 0 8px">Each row is ${matState.rows === 'input' ? 'an input (through the tokens it sets)' : 'a token'}; each column a ${matState.cols === 'ds' ? 'data source' : 'panel, grouped by tab'}. Read across a row to see everything it changes. Click a row, column or mark for details.</p>
+  <div class="tablewrap matrix"><table>
+    <thead>
+      <tr><th class="mat-corner" rowspan="2">${rowsLabel}</th><th rowspan="2">${matState.rows === 'input' ? 'Sets' : 'Set by'}</th>${groups.map(g => `<th class="mat-group" colspan="${g.n}">${esc(g.name)}</th>`).join('')}<th rowspan="2">Total</th></tr>
+      <tr>${cols.map(c => `<th class="mat-col"><button class="mat-head" data-open="${esc(c.id)}" title="${esc(M.nodes.get(c.id).label)}"><span>${esc(gtrunc(M.nodes.get(c.id).label, 26))}</span></button></th>`).join('')}</tr>
+    </thead>
+    <tbody>${rows.map(r => {
+      const row = cols.map(c => cell(r, c));
+      const second = matState.rows === 'input' ? outs(r.id, ['sets']).map(e => M.nodes.get(e.to).label).join(', ') : ins(r.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => M.nodes.get(e.from).label).join(', ');
+      return `<tr class="filterable"><th scope="row">${chip(r.id)}</th><td class="small">${esc(second || '—')}</td>${row.map((x, i) => x.length
+        ? `<td class="mat-cell"><button data-open="${esc(cols[i].id)}" title="${esc(`${M.nodes.get(cols[i].id).label} ${x.map(y => MAT_TEXT[y]).join(', and ')}`)}">${x.map(y => `<span class="mat-${y}">${MAT_SYMBOL[y]}</span>`).join('')}</button></td>`
+        : '<td class="mat-cell"></td>').join('')}<td class="num">${row.filter(x => x.length).length}</td></tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+// The matrix as a standalone SVG (for export).
+function matrixSvg() {
+  const { rows, cols, cell } = matrixData();
+  const cs = getComputedStyle(document.documentElement), v = (n, d) => cs.getPropertyValue(n).trim() || d;
+  const C = { bg: v('--panel', '#fff'), text: v('--text', '#1b1f24'), muted: v('--muted', '#5f6b7a'), line: v('--border', '#dde1e7'), direct: v('--k-token', '#b7791f'), search: v('--k-ds', '#2f6fde'), condition: v('--k-condition', '#c2417a'), sets: v('--k-viz', '#2e8b57') };
+  const F = 'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"';
+  const LW = 230, CW = 26, RH = 24, HH = 170, PAD = 12;
+  const W = PAD * 2 + LW + cols.length * CW + 40, H = PAD * 2 + HH + rows.length * RH + 30;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="${C.bg}"/>`;
+  cols.forEach((c, i) => {
+    const x = PAD + LW + i * CW + CW / 2;
+    s += `<text transform="translate(${x + 4},${PAD + HH - 6}) rotate(-60)" font-size="11" fill="${C.text}" ${F}>${esc(gtrunc(M.nodes.get(c.id).label, 30))}</text>`;
+    s += `<line x1="${PAD + LW + i * CW}" y1="${PAD + HH}" x2="${PAD + LW + i * CW}" y2="${PAD + HH + rows.length * RH}" stroke="${C.line}"/>`;
+  });
+  rows.forEach((r, j) => {
+    const y = PAD + HH + j * RH;
+    s += `<line x1="${PAD}" y1="${y}" x2="${PAD + LW + cols.length * CW}" y2="${y}" stroke="${C.line}"/><text x="${PAD + 4}" y="${y + 16}" font-size="12" fill="${C.text}" ${F}>${esc(gtrunc(r.label, 34))}</text>`;
+    cols.forEach((c, i) => {
+      const x = cell(r, c);
+      if (x.length) s += `<text x="${PAD + LW + i * CW + CW / 2}" y="${y + 17}" font-size="13" text-anchor="middle" ${F}>${x.map(k => `<tspan fill="${C[k]}">${MAT_SYMBOL[k]}</tspan>`).join('')}</text>`;
+    });
+  });
+  s += `<text x="${PAD}" y="${H - 10}" font-size="10.5" fill="${C.muted}" ${F}>${esc(Object.entries(MAT_SYMBOL).map(([k, sym]) => sym + ' ' + MAT_TEXT[k]).join('   '))}</text>`;
+  return s + '</svg>';
+}
+
+/* ---------- Sankey diagrams ---------- */
+const flowState = { measure: 'panels', chains: false };
+// Sources → base searches → (chain searches) → panels → tabs for this dashboard.
+function sankeyData(opts = flowState) {
+  const nodes = new Map(), links = new Map();
+  const node = (id, col, label, kind) => { if (!nodes.has(id)) nodes.set(id, { id, col, label, kind, in: 0, out: 0, open: M.nodes.has(id) ? id : null }); return nodes.get(id); };
+  const link = (a, b, v) => { const k = a + '\u0001' + b; links.set(k, { from: a, to: b, v: (links.get(k)?.v || 0) + v }); nodes.get(a).out += v; nodes.get(b).in += v; };
+  const C = opts.chains ? 1 : 0;
+  const rootValue = new Map();
+  for (const v of M.byKind('viz')) {
+    const feeds = ins(v.id, ['feeds']).map(e => M.nodes.get(e.from)).filter(Boolean);
+    if (!feeds.length) continue;
+    const weight = d => opts.measure === 'searches' ? (d.lineage || [d.id]).length : 1;
+    node(v.id, 2 + C, v.label, 'viz');
+    let total = 0;
+    for (const d of feeds) {
+      const w = weight(d) / feeds.length;
+      total += w;
+      const r = M.nodes.get(d.rootId) || d;
+      node(r.id, 1, r.label, 'ds');
+      if (C && d.id !== r.id) { node(d.id, 2, d.label, 'chain'); link(r.id, d.id, w); link(d.id, v.id, w); }
+      else link(r.id, v.id, w);
+      rootValue.set(r.id, (rootValue.get(r.id) || 0) + w);
+    }
+    const tabs = tabsOf(v.id).filter(t => t.startsWith('tab:'));
+    if (!tabs.length) { node('tab:(none)', 3 + C, 'Not placed', 'tab'); link(v.id, 'tab:(none)', total); }
+    for (const t of tabs) { node(t, 3 + C, M.nodes.get(t).label, 'tab'); link(v.id, t, total / tabs.length); }
+  }
+  for (const [rid, val] of rootValue) {
+    const r = M.nodes.get(rid);
+    const src = [];
+    for (const x of r.eff_index || []) if (!x.excluded && !x.value.includes('$') && M.nodes.has('index:' + x.value)) src.push(['index:' + x.value, x.value, 'index']);
+    for (const l of r.eff_lookups || []) if (l.mode === 'read' && M.nodes.has('lookup:' + l.name)) src.push(['lookup:' + l.name, l.name, 'lookup']);
+    for (const d of r.eff_datamodels || []) if (M.nodes.has('datamodel:' + d.model)) src.push(['datamodel:' + d.model, d.model, 'datamodel']);
+    const uniqSrc = [...new Map(src.map(s => [s[0], s])).values()];
+    if (!uniqSrc.length) {
+      const first = (r.sources?.commands || [])[0]?.name;
+      uniqSrc.push(r.type === 'ds.savedSearch' ? ['src:saved', 'Saved searches (report)', 'other'] : NO_EVENT_TIME.has(first) ? ['src:gen', 'Generated (' + first + ')', 'other'] : ['src:none', 'No index named', 'other']);
+    }
+    for (const [id, label, kind] of uniqSrc) { node(id, 0, label, kind); link(id, rid, val / uniqSrc.length); }
+  }
+  const heads = C ? ['Sources', 'Base searches', 'Chain searches', 'Panels', 'Tabs'] : ['Sources', 'Base searches', 'Panels', 'Tabs'];
+  return { nodes: [...nodes.values()], links: [...links.values()], heads, unit: opts.measure === 'searches' ? 'search step' : 'panel' };
+}
+// Sources (indexes, lookups, data models) → dashboards, across every loaded dashboard. Band = searches reading it.
+function appSankeyData() {
+  const nodes = new Map(), links = new Map();
+  const node = (id, col, label, kind, dash) => { if (!nodes.has(id)) nodes.set(id, { id, col, label, kind, in: 0, out: 0, dash }); return nodes.get(id); };
+  const link = (a, b, v) => { const k = a + '\u0001' + b; links.set(k, { from: a, to: b, v: (links.get(k)?.v || 0) + v }); nodes.get(a).out += v; nodes.get(b).in += v; };
+  DASH.forEach((d, i) => {
+    for (const n of d.model.byKind('ds')) {
+      if (n.depth !== 0) continue;
+      const src = [];
+      for (const x of n.eff_index || []) if (!x.excluded && !x.value.includes('$')) src.push(['index:' + x.value, x.value, 'index']);
+      for (const l of n.eff_lookups || []) if (l.mode === 'read' && !l.name.includes('$')) src.push(['lookup:' + l.name, l.name, 'lookup']);
+      for (const m of n.eff_datamodels || []) src.push(['datamodel:' + m.model, m.model, 'datamodel']);
+      for (const [sid, label, kind] of new Map(src.map(s => [s[0], s])).values()) {
+        node(sid, 0, label, kind);
+        node('dash:' + i, 1, d.model.title, 'tab', i);
+        link(sid, 'dash:' + i, 1);
+      }
+    }
+  });
+  return { nodes: [...nodes.values()], links: [...links.values()], heads: ['Sources', 'Dashboards'], unit: 'base search' };
+}
+function sankeyRender(data, light = false, width = 1100) {
+  const { nodes, links, heads, unit } = data;
+  if (!links.length) return '';
+  const cs = getComputedStyle(document.documentElement);
+  const col = (v, d) => (light ? '' : cs.getPropertyValue(v).trim()) || d;
+  const C = { text: col('--text', '#1b1f24'), muted: col('--muted', '#5f6b7a'),
+    index: col('--k-index', '#9a5b22'), lookup: col('--k-lookup', '#1f7f9e'), datamodel: col('--k-datamodel', '#b0458f'), other: col('--k-defaults', '#7a7f87'),
+    ds: col('--k-ds', '#2f6fde'), chain: col('--k-ds', '#2f6fde'), viz: col('--k-viz', '#2e8b57'), tab: col('--k-tab', '#6d4fd8') };
+  const NC = heads.length, NW = 12, PAD = 10, LEFT = 8, LABELW = 210;
+  const colX = heads.map((_, i) => LEFT + i * (width - LEFT - LABELW - NW) / (NC - 1));
+  const cols = heads.map((_, c) => nodes.filter(n => n.col === c));
+  const val = n => Math.max(n.in, n.out);
+  cols[0].sort((a, b) => val(b) - val(a));
+  const order = new Map();
+  const setOrder = () => cols.forEach(c => c.forEach((n, i) => order.set(n.id, i)));
+  setOrder();
+  for (let it = 0; it < 4; it++) for (let c = 1; c < NC; c++) {
+    const bc = n => { const ls = links.filter(l => l.to === n.id); const w = ls.reduce((s, l) => s + l.v, 0); return w ? ls.reduce((s, l) => s + order.get(l.from) * l.v, 0) / w : order.get(n.id); };
+    cols[c].sort((a, b) => bc(a) - bc(b)); setOrder();
+  }
+  const rows = Math.max(...cols.map(c => c.length));
+  const height = Math.max(320, rows * 30 + 40);
+  const k = Math.min(...cols.filter(c => c.length).map(c => (height - 40 - (c.length - 1) * PAD) / c.reduce((s, n) => s + val(n), 0)));
+  const pos = new Map();
+  cols.forEach((c, ci) => {
+    const total = c.reduce((s, n) => s + val(n) * k, 0) + (c.length - 1) * PAD;
+    let y = 20 + (height - 40 - total) / 2;
+    for (const n of c) { pos.set(n.id, { x: colX[ci], y, h: Math.max(2, val(n) * k) }); y += val(n) * k + PAD; }
+  });
+  const colorOf = n => C[n.kind] || C.other;
+  const F = 'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"';
+  const outsL = new Map(), insL = new Map();
+  for (const l of [...links].sort((a, b) => pos.get(a.to).y - pos.get(b.to).y)) (outsL.get(l.from) || outsL.set(l.from, []).get(l.from)).push(l);
+  for (const l of [...links].sort((a, b) => pos.get(a.from).y - pos.get(b.from).y)) (insL.get(l.to) || insL.set(l.to, []).get(l.to)).push(l);
+  const yOut = new Map(), yIn = new Map();
+  for (const [id, ls] of outsL) { let y = pos.get(id).y; for (const l of ls) { yOut.set(l, y); y += l.v * k; } }
+  for (const [id, ls] of insL) { let y = pos.get(id).y; for (const l of ls) { yIn.set(l, y); y += l.v * k; } }
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const fmtV = x => +x.toFixed(2);
+  const units = v => (v === 1 ? unit : /(s|sh|ch)$/.test(unit) ? unit + 'es' : unit + 's');
+  let out = '';
+  for (const l of links) {
+    const a = pos.get(l.from), b = pos.get(l.to), t = Math.max(1, l.v * k);
+    const x1 = a.x + NW, x2 = b.x, xm = (x1 + x2) / 2, y1 = yOut.get(l), y2 = yIn.get(l);
+    const nf = byId.get(l.from), nt = byId.get(l.to);
+    out += `<path d="M${x1},${y1} C${xm},${y1} ${xm},${y2} ${x2},${y2} L${x2},${y2 + t} C${xm},${y2 + t} ${xm},${y1 + t} ${x1},${y1 + t} Z" fill="${colorOf(nf)}" fill-opacity="0.28"><title>${esc(`${nf.label} → ${nt.label}: ${fmtV(l.v)} ${units(l.v)}`)}</title></path>`;
+  }
+  for (const n of nodes) {
+    const p = pos.get(n.id);
+    const attrs = n.open ? `class="sk-node" data-open="${esc(n.open)}" tabindex="0"` : n.dash !== undefined ? `class="sk-node" data-dash="${n.dash}" tabindex="0"` : '';
+    out += `<g ${attrs}><rect x="${p.x}" y="${p.y.toFixed(1)}" width="${NW}" height="${p.h.toFixed(1)}" fill="${colorOf(n)}" rx="2"/>`
+      + `<text x="${p.x + NW + 6}" y="${(p.y + p.h / 2 + 4).toFixed(1)}" font-size="11.5" fill="${C.text}" ${F}>${esc(gtrunc(n.label, 30))}<tspan fill="${C.muted}"> ${fmtV(val(n))}</tspan></text>`
+      + `<title>${esc(`${n.label}: ${fmtV(val(n))} ${units(val(n))}`)}</title></g>`;
+  }
+  const hd = heads.map((h, i) => `<text x="${colX[i]}" y="12" font-size="10.5" font-weight="600" fill="${C.muted}" ${F} letter-spacing=".05em">${h.toUpperCase()}</text>`).join('');
+  return `<svg class="sankey" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Sankey diagram">${light ? `<rect width="${width}" height="${height}" fill="#ffffff"/>` : ''}${hd}${out}</svg>`;
+}
+function sankeySvg(light = false, opts = flowState) { return sankeyRender(sankeyData(opts), light); }
+function viewDataFlow() {
+  const svg = sankeySvg(false);
+  const noData = M.byKind('viz').filter(v => !ins(v.id, ['feeds']).length).length;
+  return `<div class="graph-controls">
+    <label>Band width <select id="flow-measure"><option value="panels" ${flowState.measure === 'panels' ? 'selected' : ''}>Panels</option><option value="searches" ${flowState.measure === 'searches' ? 'selected' : ''}>Search steps (base + chain searches per panel)</option></select></label>
+    <label><input type="checkbox" id="flow-chains" ${flowState.chains ? 'checked' : ''}> Show chain searches as their own column</label>
+    <button class="btn small" id="flow-svg">Export SVG</button><button class="btn small" id="flow-png">Export PNG</button>
+  </div>
+  <p class="muted small" style="margin:0 0 8px">Where each panel's data comes from: indexes, lookups and data models, through base searches${flowState.chains ? ' and chain searches' : ' (chain searches counted with their base)'}, to panels and tabs. Band width is the number of ${flowState.measure === 'searches' ? 'search steps behind the panels, a rough measure of search work' : 'panels; a panel fed by two sources counts half to each'}. Hover a band for numbers; click an item for details.</p>
+  ${svg ? `<div class="graph-wrap sankey-wrap">${svg}</div>` : '<p class="muted">No panel in this dashboard gets data from a search.</p>'}
+  ${noData ? `<p class="muted small">${plural(noData, 'panel')} with no data source (markdown, images and shapes) ${noData === 1 ? 'is' : 'are'} not shown.</p>` : ''}`;
 }
 
 /* ============================================================
@@ -3261,7 +4057,7 @@ function openDrawer(id, push = true) {
   if (n.raw) html += `<details style="margin-top:14px"><summary>Definition JSON</summary><pre>${esc(JSON.stringify(n.raw, null, 2))}</pre></details>`;
   $('#drawer-body').innerHTML = html;
   $('#drawer-body').scrollTop = 0;
-  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; view = 'graph'; render(); };
+  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.mode = 'focus'; graphState.center = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; view = 'graph'; render(); };
   const d = $('#drawer');
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
 }
@@ -3499,7 +4295,7 @@ function reportBlocks(format) {
   }
   for (const t of tabs) {
     h3(`${t.label} (${t.key}, ${t.layoutType || 'canvas'} layout)`);
-    if (format !== 'md' && (t.items || []).length) B.push({ t: 'img', svg: mockupSvg(t.id, true), caption: `Mockup of "${t.label}". Positions from the layout; charts are placeholders.` });
+    if ((format === 'pdf' || format === 'html') && (t.items || []).length) B.push({ t: 'img', svg: mockupSvg(t.id, true), caption: `Mockup of "${t.label}". Positions from the layout; charts are placeholders.` });
     tbl(['#', 'Item', 'Kind', 'Type', 'Position (x, y, w x h)', 'Data source lineage'], (t.items || []).map(i => {
       const n = M.nodes.get(i.id), ps = i.position;
       return [num(n.id), n.label, KINDS[n.kind].label, shortType(n.type), ps && ps.x !== undefined ? `${ps.x}, ${ps.y}, ${ps.w} x ${ps.h}` : '', n.kind === 'viz' ? lineage(n) : (n.token ? 'sets $' + n.token + '$' : '')];
@@ -3581,10 +4377,34 @@ function reportBlocks(format) {
     num(n.id), n.label, n.key, shortType(n.type), L(tabsOf(n.id)), lineage(n), L(vizSources(n.id)), L(directTokens(n.id)),
     L(outs(n.id, ['drilldown-sets']).map(e => e.to)), n.drilldowns.map(d => d.text).join('; '), n.visibility || '']));
 
+  if (format === 'pdf' || format === 'html') {
+    const fed = M.byKind('viz').filter(v => ins(v.id, ['feeds']).length);
+    if (fed.length) {
+      h2('Panel lineage maps');
+      p(`What feeds each panel: its searches, sources, and the inputs and tokens that change it. Tokens used by four or more items are shown as badges.${fed.length > 40 ? ' The first 40 panels are shown.' : ''}`);
+      for (const v of fed.slice(0, 40)) { h3(`${num(v.id)} ${v.label}`.trim()); B.push({ t: 'img', svg: panelLineageSvg(v.id), caption: '' }); }
+    }
+  }
+  const outLinks = dashLinks(CUR_I);
+  if (outLinks.length) {
+    h2('Links to other dashboards');
+    tbl(['#', 'Panel', 'Opens', 'Loaded here', 'Passes tokens'], outLinks.map(l => [num(l.viz.id), l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'no', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')]));
+  }
+
   h2('Tokens');
   tbl(['#', 'Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(t => [
     num(t.id), t.label, t.status, ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => `${lbl(e.from)} (${REL[e.rel].rev.toLowerCase()})`).join(', '),
     (t.defaults || []).map(d => fmt(d.value)).join(', '), L(outs(t.id, ['uses-token']).map(e => e.to))]));
+  const savedCols = matState.cols, savedRows = matState.rows, savedSort = matState.sort;
+  Object.assign(matState, { cols: 'viz', rows: 'token', sort: 'def' });
+  const mcols = matrixColumns();
+  Object.assign(matState, { cols: savedCols, rows: savedRows, sort: savedSort });
+  if (M.byKind('token').length && mcols.length && mcols.length <= 24) {
+    h3('Token matrix (tokens x panels)');
+    p('D = uses it directly, S = through its search, C = through a visibility condition, set = sets it.');
+    const abbr = { direct: 'D', search: 'S', condition: 'C', sets: 'set' };
+    tbl(['Token', ...mcols.map(c => `${num(c.id)} ${lbl(c.id)}`.trim())], M.byKind('token').map(t => [t.label, ...mcols.map(c => tokenLinks(t.id, c.id).map(x => abbr[x]).join(' '))]));
+  }
   h3('Where each token is referenced');
   tbl(['Token', 'Item', 'Location', 'As written'], M.usages.map(u => [lbl(u.token), `${num(u.node)} ${lbl(u.node)}`.trim(), u.path, u.raw]));
 
@@ -3595,6 +4415,10 @@ function reportBlocks(format) {
   }
 
   h2('Relationships');
+  if (format === 'pdf' || format === 'html') {
+    const sk = sankeySvg(true);
+    if (sk) B.push({ t: 'img', svg: sk, caption: 'Data flow: sources -> base searches -> panels -> tabs. Band width is the number of panels.' });
+  }
   p('Every connection, in the direction data and token values flow.');
   tbl(['From', 'Relationship', 'To', 'Detail'], M.edges.map(e => [
     `${num(e.from)} ${lbl(e.from)} (${KINDS[M.nodes.get(e.from).kind].label})`.trim(), REL[e.rel].fwd, `${num(e.to)} ${lbl(e.to)} (${KINDS[M.nodes.get(e.to).kind].label})`.trim(), e.detail]));
@@ -3840,6 +4664,269 @@ function toast(msg, ms = 6000) {
 }
 
 /* ============================================================
+   Shared helpers: load a library from jsDelivr once
+   ============================================================ */
+const scriptPromises = new Map();
+function loadScriptOnce(src, ready) {
+  if (ready()) return Promise.resolve();
+  if (!scriptPromises.has(src)) scriptPromises.set(src, new Promise((res, rej) => {
+    const s = document.createElement('script');
+    const timer = setTimeout(() => rej(new Error('timed out')), 20000);
+    s.src = src; s.async = true;
+    s.onload = () => { clearTimeout(timer); ready() ? res() : rej(new Error('the library did not initialise')); };
+    s.onerror = () => { clearTimeout(timer); rej(new Error('blocked or offline')); };
+    document.head.appendChild(s);
+  }).catch(e => { scriptPromises.delete(src); throw e; }));
+  return scriptPromises.get(src);
+}
+
+/* ============================================================
+   Drilldown links between dashboards
+   ============================================================ */
+const NOT_DASHBOARDS = new Set(['search', 'report', 'reports', 'alert', 'alerts', 'datasets', 'dashboards', 'data_model_editor', 'job_manager', 'pivot', 'analytics_workspace']);
+// "/app/<app>/<dashboard>?form.tok=$value$" → { app, dashboard, tokens }
+function dashFromUrl(url) {
+  const m = String(url || '').match(/\/app\/([^/?#\s"]+)\/([^/?#\s"]+)(\?[^#\s"]*)?/);
+  if (!m || NOT_DASHBOARDS.has(m[2].toLowerCase())) return null;
+  let tokens = [];
+  try { tokens = [...new URLSearchParams(m[3] || '').entries()].map(([k, v]) => ({ token: k.replace(/^form\./, ''), value: v })); } catch { /* keep none */ }
+  return { app: m[1], dashboard: m[2], tokens };
+}
+// Names a loaded dashboard could be linked by: its view name (REST entry or file name) and its title.
+function dashKeys(d) {
+  const stem = String(d.src.name || '').split(/[\\/]/).pop().replace(/\.(json|xml|txt)$/i, '').replace(/ #\d+$/, '');
+  return uniq([stem, slug(stem), slug(d.model.title), d.model.title].filter(Boolean).map(s => s.toLowerCase()));
+}
+function resolveDash(target) {
+  const t = String(target.dashboard || '').toLowerCase();
+  if (!t) return -1;
+  return DASH.findIndex(d => dashKeys(d).includes(t) || dashKeys(d).includes(slug(t)));
+}
+// Every "link to dashboard" drilldown in the loaded dashboards (or only in `onlyIndex`).
+function dashLinks(onlyIndex) {
+  const out = [];
+  DASH.forEach((d, i) => {
+    if (onlyIndex !== undefined && i !== onlyIndex) return;
+    for (const v of d.model.byKind('viz')) for (const dd of v.drilldowns || []) {
+      if (!dd.target) continue;
+      out.push({ from: i, viz: v, target: dd.target, kind: dd.type, to: resolveDash(dd.target) });
+    }
+  });
+  return out;
+}
+const targetLabel = t => `${t.app ? t.app + '/' : ''}${t.dashboard}`;
+function linksTable(links, showFrom) {
+  return table([
+    ...(showFrom ? [{ h: 'From dashboard', f: l => `<button class="chip k-tab" data-dash="${l.from}">${esc(DASH[l.from].model.title)}</button>` }] : []),
+    { h: 'Panel', f: l => l.from === CUR_I ? chip(l.viz.id) : esc(l.viz.label) },
+    { h: 'Opens', f: l => l.to >= 0 ? `<button class="chip k-tab" data-dash="${l.to}">${esc(DASH[l.to].model.title)}</button> <span class="muted small">${esc(targetLabel(l.target))}</span>` : `<code>${esc(targetLabel(l.target))}</code> <span class="badge sev-info">not loaded</span>` },
+    { h: 'Passes tokens', f: l => l.target.tokens.length ? l.target.tokens.map(t => `<code>${esc(t.token)}=${esc(t.value)}</code>`).join(' ') : '<span class="muted">—</span>' },
+    { h: 'Received as', f: l => {
+      if (l.to < 0 || !l.target.tokens.length) return '<span class="muted">—</span>';
+      const m = DASH[l.to].model;
+      return l.target.tokens.map(t => m.nodes.has('token:' + t.token) ? `<code>$${esc(t.token)}$</code> ✓` : `<code>$${esc(t.token)}$</code> <span class="badge sev-warning" title="The target dashboard never uses this token">unused there</span>`).join(' ');
+    } },
+  ], links);
+}
+// Columns by link depth; a dashboard links rightwards to the dashboards it opens.
+function dashMapSvg(links) {
+  const nodes = new Map(); // key → { key, label, sub, dash }
+  DASH.forEach((d, i) => nodes.set('d' + i, { key: 'd' + i, label: d.model.title, sub: plural(d.model.byKind('viz').length, 'panel'), dash: i }));
+  const edges = new Map();
+  for (const l of links) {
+    const to = l.to >= 0 ? 'd' + l.to : 'x:' + targetLabel(l.target).toLowerCase();
+    if (!nodes.has(to)) nodes.set(to, { key: to, label: l.target.dashboard, sub: (l.target.app ? l.target.app + ' · ' : '') + 'not loaded', dash: -1 });
+    const k = 'd' + l.from + '\u0001' + to;
+    edges.set(k, { from: 'd' + l.from, to, n: (edges.get(k)?.n || 0) + 1 });
+  }
+  const E = [...edges.values()];
+  const layer = new Map([...nodes.keys()].map(k => [k, 0]));
+  for (let it = 0; it < nodes.size; it++) for (const e of E) if (e.from !== e.to && layer.get(e.to) < layer.get(e.from) + 1 && layer.get(e.from) + 1 < nodes.size) layer.set(e.to, layer.get(e.from) + 1);
+  const cols = [];
+  for (const [k, l] of layer) (cols[l] ||= []).push(k);
+  const W = 210, H = 44, CW = 290, GAP = 16, PAD = 20;
+  const maxRows = Math.max(1, ...cols.map(c => c?.length || 0));
+  const P = new Map();
+  cols.forEach((c, ci) => (c || []).forEach((k, ri) => P.set(k, { x: PAD + ci * CW, y: PAD + 56 + ri * (H + GAP) + ((maxRows - c.length) * (H + GAP)) / 2 })));
+  const width = PAD * 2 + (cols.length - 1) * CW + W, height = PAD * 2 + 112 + maxRows * (H + GAP); // room for arcs above and below
+  const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
+  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Map of drilldown links between dashboards"><defs><marker id="ar-dl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-data" d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+  for (const e of E) {
+    const a = P.get(e.from), b = P.get(e.to);
+    let d;
+    if (e.from === e.to) d = `M${a.x + W - 30},${a.y} C${a.x + W - 30},${a.y - 26} ${a.x + W + 20},${a.y - 26} ${a.x + W},${a.y + 10}`;
+    // Forward links leave from the upper part of a box and back links from the lower part, so a pair of
+    // dashboards that open each other shows two separate arrows. Links that skip a column arc over the boxes between.
+    else if (b.x > a.x) {
+      const x1 = a.x + W, y1 = a.y + H * 0.35, x2 = b.x - 2, y2 = b.y + H * 0.35, dx = (x2 - x1) / 2;
+      d = b.x - a.x > CW + 1 ? `M${x1},${y1} C${x1 + 70},${y1 - H - 20} ${x2 - 70},${y2 - H - 20} ${x2},${y2}` : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    } else {
+      const x1 = a.x, y1 = a.y + H * 0.7, x2 = b.x + W + 2, y2 = b.y + H * 0.7, dx = Math.max(50, (x1 - x2) / 2);
+      d = `M${x1},${y1} C${x1 - dx},${y1 + H} ${x2 + dx},${y2 + H} ${x2},${y2}`;
+    }
+    svg += `<path class="gedge data${b.x <= a.x && e.from !== e.to ? ' back' : ''}" d="${d}" marker-end="url(#ar-dl)"><title>${esc(nodes.get(e.from).label + ' opens ' + nodes.get(e.to).label + ' (' + plural(e.n, 'link') + ')')}</title></path>`;
+    if (e.n > 1 && e.from !== e.to) svg += `<text class="colhead" x="${((a.x + W + b.x) / 2).toFixed(0)}" y="${((a.y + b.y) / 2 + H / 2 - 4).toFixed(0)}">×${e.n}</text>`;
+  }
+  for (const [k, nd] of nodes) {
+    const p = P.get(k);
+    svg += `<g class="gnode k-tab${nd.dash < 0 ? ' undef' : ''}" transform="translate(${p.x},${p.y})" ${nd.dash >= 0 ? `data-dash="${nd.dash}"` : ''} tabindex="0"><title>${esc(nd.label)}</title><rect class="box" width="${W}" height="${H}" rx="6"/><rect class="bar" width="4" height="${H}" rx="2"/><text x="12" y="17">${esc(trunc(nd.label, 30))}</text><text class="sub" x="12" y="32">${esc(trunc(nd.sub, 34))}</text></g>`;
+  }
+  return svg + '</svg>';
+}
+function viewDashLinksSection() {
+  const links = dashLinks();
+  const linked = new Set(links.flatMap(l => [l.from, l.to]).filter(i => i >= 0));
+  return `<div class="section-title">Drilldowns between dashboards</div>
+  <p class="muted small" style="margin:0 0 6px">Which dashboards open which, through "link to dashboard" drilldowns and links to <code>/app/&lt;app&gt;/&lt;dashboard&gt;</code>. Targets are matched to loaded dashboards by view name (the file or REST name) or title. Click a loaded dashboard to open it.</p>
+  ${links.length ? `<div class="graph-wrap" style="max-height:420px;margin-bottom:10px">${dashMapSvg(links)}</div>${linksTable(links, true)}
+    ${DASH.length - linked.size > 0 ? `<p class="muted small">${plural(DASH.length - linked.size, 'loaded dashboard')} neither link${DASH.length - linked.size === 1 ? 's' : ''} to nor ${DASH.length - linked.size === 1 ? 'is' : 'are'} linked from another: ${esc(DASH.filter((d, i) => !linked.has(i)).map(d => d.model.title).join(', '))}.</p>` : ''}`
+    : '<p class="muted">No drilldown in the loaded dashboards opens another dashboard.</p>'}`;
+}
+
+/* ============================================================
+   Shareable links
+   ============================================================ */
+const PAGES_URL = 'https://adamliq.github.io/splunkdashboard-breakdown/';
+// Inside the claude.ai viewer or a local file the address can't be shared, so links point at the public site.
+function shareBase() {
+  try { if (/^https?:$/.test(location.protocol) && window.top === window && !window.claude) return location.origin + location.pathname; } catch { /* cross-origin frame */ }
+  return PAGES_URL;
+}
+const toB64url = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const fromB64url = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/')); const out = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i); return out; };
+async function deflateText(str) {
+  const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return toB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+async function inflateText(b64) {
+  const stream = new Blob([fromB64url(b64)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Response(stream).text();
+}
+function shareSource() {
+  const s = M.src;
+  return s.classic && s.xmlText ? s.xmlText : JSON.stringify(stripInternal(structuredClone(s.def)));
+}
+async function buildShareLink(withConfig) {
+  const payload = { v: 1, n: M.src.name || '', s: shareSource() };
+  if (withConfig && hasConfig()) payload.c = { conf: CONFIG.conf, dm: CONFIG.dm };
+  return shareBase() + '#d=' + await deflateText(JSON.stringify(payload));
+}
+async function openShareDialog() {
+  const dlg = $('#share-dlg');
+  if (typeof CompressionStream === 'undefined') { toast('This browser can\'t make share links (it has no CompressionStream). Use a current Chrome, Edge, Firefox or Safari.', 8000); return; }
+  $('#share-config-row').hidden = !hasConfig();
+  dlg.showModal();
+  await refreshShareLink();
+}
+async function refreshShareLink() {
+  const out = $('#share-link'), info = $('#share-info');
+  out.value = 'Building the link…';
+  try {
+    const link = await buildShareLink($('#share-config').checked);
+    out.value = link;
+    const warn = link.length > 30000 ? ' This is a very long link: some chat and email apps cut long links off, so test it before relying on it.' : link.length > 8000 ? ' Some apps shorten or cut long links; if it doesn\'t open, send the file instead.' : '';
+    info.textContent = `${link.length.toLocaleString()} characters.${warn}`;
+  } catch (e) { out.value = ''; info.textContent = 'The link could not be built: ' + e.message; }
+}
+async function copyShareLink() {
+  const out = $('#share-link');
+  try { await navigator.clipboard.writeText(out.value); toast('Link copied.', 3000); }
+  catch { out.focus(); out.select(); toast('Copying was blocked here. The link is selected: press Ctrl+C (or ⌘C) to copy it.', 6000); }
+}
+// Open a dashboard from a share link (#d=…) when the page loads or the fragment changes.
+async function loadFromHash() {
+  const m = location.hash.match(/[#&]d=([A-Za-z0-9_-]+)/);
+  if (!m) return false;
+  try {
+    if (typeof DecompressionStream === 'undefined') throw new Error('this browser can\'t read share links; use a current Chrome, Edge, Firefox or Safari');
+    let payload;
+    try { payload = JSON.parse(await inflateText(m[1])); } catch { throw new Error('the link is damaged or incomplete'); }
+    if (!payload || typeof payload.s !== 'string') throw new Error('the link holds no dashboard');
+    if (payload.c) { $('#ldr-conf').value = payload.c.conf || ''; $('#ldr-dm').value = payload.c.dm || ''; }
+    applyConfig(payload.c?.conf || '', payload.c?.dm || '');
+    $('#source').value = payload.s;
+    loadDashboards([{ name: payload.n || 'shared link', text: payload.s }]);
+    if (!$('#app').hidden) toast('Opened from a shared link.', 4000);
+    return true;
+  } catch (e) {
+    const err = $('#load-error');
+    err.textContent = 'This shared link could not be opened: ' + e.message + '. It may have been cut short when it was copied; ask for the link again, or for the dashboard file.';
+    err.hidden = false;
+    return false;
+  }
+}
+
+/* ============================================================
+   Excel workbook
+   ============================================================ */
+const XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+function sheetFrom(X, head, rows) {
+  const clip = v => { const s = String(v ?? ''); return s.length > 32000 ? s.slice(0, 31990) + ' …(cut)' : s; };
+  const aoa = [head, ...rows.map(r => r.map((c, i) => {
+    const s = clip(c);
+    if (head[i] === '#' && /^#\d+$/.test(s)) return +s.slice(1);
+    if (/^-?\d+(\.\d+)?$/.test(s) && s.length < 15 && !/^0\d/.test(s)) return +s;
+    return s;
+  }))];
+  const ws = X.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = head.map((h, i) => ({ wch: Math.min(60, Math.max(String(h).length + 2, ...aoa.slice(1, 200).map(r => String(r[i] ?? '').split('\n')[0].length + 1))) }));
+  if (rows.length) ws['!autofilter'] = { ref: ws['!ref'] };
+  return ws;
+}
+function addSheet(X, wb, name, ws, used) {
+  let base = String(name).replace(/[\[\]:*?/\\]/g, ' ').replace(/^\d+\.\s*/, '').trim().slice(0, 28) || 'Sheet';
+  let n = base, k = 2;
+  while (used.has(n.toLowerCase())) n = `${base.slice(0, 26)} ${k++}`;
+  used.add(n.toLowerCase());
+  X.utils.book_append_sheet(wb, ws, n);
+}
+function workbookForDashboard(X) {
+  const wb = X.utils.book_new(), used = new Set();
+  wb.Props = { Title: M.title + ' - dashboard inventory', Subject: 'Splunk dashboard inventory', Author: 'Studio Dashboard Inventory' };
+  let h2 = 'About', h3 = '';
+  for (const b of reportBlocks('xlsx')) {
+    if (b.t === 'h2') { h2 = b.text.replace(/^\d+\.\s*/, ''); h3 = ''; }
+    else if (b.t === 'h3') h3 = b.text.replace(/\s*\(.*$/, '');
+    else if (b.t === 'table' && b.rows.length) addSheet(X, wb, h3 && h2 !== 'Layout' ? h3 : h2 === 'Layout' && h3 ? 'Layout ' + h3 : h2, sheetFrom(X, b.head, b.rows), used);
+  }
+  const ds = M.byKind('ds');
+  addSheet(X, wb, 'SPL', sheetFrom(X, ['#', 'Data source', 'ID', 'Type', 'Query', 'Effective SPL (base and chain)', 'Expanded SPL'],
+    ds.map(n => ['#' + invNo(n.id), n.label, n.key, dsTypeLabel(n.type), n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query, n.depth > 0 ? n.effectiveQuery : '', n.expandedQuery || ''])), used);
+  return wb;
+}
+function workbookForApp(X) {
+  const wb = X.utils.book_new(), used = new Set();
+  wb.Props = { Title: 'App inventory', Author: 'Studio Dashboard Inventory' };
+  const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
+  addSheet(X, wb, 'Dashboards', sheetFrom(X, ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations'],
+    DASH.map(d => { const m = d.model; const prev = M; M = m; const recs = recommendations().length; M = prev; return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs]; })), used);
+  const shared = sharedItems();
+  addSheet(X, wb, 'Shared items', sheetFrom(X, ['Kind', 'Name', 'Dashboards', 'Used by'], shared.map(r => [r.kind, r.name, r.uses.size, [...r.uses].map(([i, d]) => DASH[i].model.title + (d.size ? ` (${[...d].join(', ')})` : '')).join('; ')])), used);
+  addSheet(X, wb, 'Shared by dashboard', sheetFrom(X, ['Dashboard', 'Kind', 'Name', 'Detail'], shared.flatMap(r => [...r.uses].map(([i, d]) => [DASH[i].model.title, r.kind, r.name, [...d].join('; ')]))), used);
+  addSheet(X, wb, 'Dashboard links', sheetFrom(X, ['From dashboard', 'Panel', 'Opens', 'Loaded', 'Passes tokens'], dashLinks().map(l => [DASH[l.from].model.title, l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'not loaded', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')])), used);
+  return wb;
+}
+let xlsxBusy = false;
+async function exportXlsx(app = false) {
+  if (xlsxBusy) return;
+  xlsxBusy = true;
+  toast('Building the Excel workbook…', 0);
+  try {
+    try { await loadScriptOnce(XLSX_LIB, () => !!window.XLSX?.utils); }
+    catch (e) {
+      toast(`The spreadsheet library couldn't be loaded (${e.message}). Use Export → Inventory (.csv), which opens in Excel too.`, 10000);
+      return;
+    }
+    const X = window.XLSX;
+    const wb = app ? workbookForApp(X) : workbookForDashboard(X);
+    const data = X.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
+    await download((app ? 'app' : slug(M.title)) + '-inventory.xlsx', new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    toast('');
+  } catch (e) { console.error(e); toast('The workbook could not be built: ' + e.message, 10000); }
+  finally { xlsxBusy = false; }
+}
+
+/* ============================================================
    Loading and wiring
    ============================================================ */
 let DASH = [];        // every loaded dashboard: [{ src, model }]
@@ -3874,7 +4961,7 @@ function selectDash(i, v = 'overview') {
   CUR_I = i; M = DASH[i].model;
   FIX_SEL = new Set();
   mockState.tab = null; mockState.values = null;
-  graphState.focus = ''; graphState.selected = null;
+  graphState.focus = ''; graphState.selected = null; graphState.center = null; graphState.pathFrom = null; graphState.pathTo = null; graphState.toggled.clear(); graphState.overlay = false;
   invState.kind = '';
   if (COMPARE && v !== 'compare') COMPARE = null;
   view = v;
@@ -3946,6 +5033,13 @@ $('#btn-export-json').onclick = exportJson;
 $('#btn-export-def').onclick = downloadDefinition;
 $('#btn-export-svg').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'); };
 $('#btn-export-png').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; exportMockupPng(); };
+$('#btn-export-xlsx').onclick = () => exportXlsx(false);
+$('#btn-share').onclick = openShareDialog;
+$('#share-config').onchange = refreshShareLink;
+$('#share-copy').onclick = copyShareLink;
+$('#share-close').onclick = () => $('#share-dlg').close();
+window.addEventListener('hashchange', loadFromHash);
+loadFromHash();
 
 $('#drawer-close').onclick = closeDrawer;
 $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
@@ -3959,6 +5053,9 @@ document.addEventListener('change', async e => {
   if (t.id === 'mock-hidden') { mockState.showHidden = t.checked; render(); return; }
   if (t.id === 'mock-names') { mockState.showNames = t.checked; render(); return; }
   if (t.dataset?.fix !== undefined) { const k = +t.dataset.fix; if (t.checked) FIX_SEL.add(k); else FIX_SEL.delete(k); render(); return; }
+  if (t.id === 'mat-sort') { matState.sort = t.value; render(); return; }
+  if (t.id === 'flow-measure') { flowState.measure = t.value; render(); return; }
+  if (t.id === 'flow-chains') { flowState.chains = t.checked; render(); return; }
   if (t.id === 'cmp-pick' && t.value !== '') { COMPARE = { model: DASH[+t.value].model, label: DASH[+t.value].model.title }; render(); return; }
   if (t.id === 'cmp-file' && t.files[0]) { const f = t.files[0]; startCompare(await f.text(), f.name); return; }
   if (t.id === 'cfg-file' && t.files.length) { const c = await readConfigFiles(t.files); setConfig(c.conf, c.dm); return; }
@@ -3976,6 +5073,12 @@ document.addEventListener('click', e => {
     'fix-download': downloadDefinition,
     'fix-load': loadFixed,
     'app-csv': exportAppCsv,
+    'app-xlsx': () => exportXlsx(true),
+    'mat-svg': () => download(slug(M.title) + '-token-matrix.svg', matrixSvg(), 'image/svg+xml'),
+    'mat-png': () => downloadPng(matrixSvg(), slug(M.title) + '-token-matrix.png'),
+    'flow-svg': () => download(slug(M.title) + '-data-flow.svg', sankeySvg(false), 'image/svg+xml'),
+    'flow-png': () => downloadPng(sankeySvg(false), slug(M.title) + '-data-flow.png'),
+    'cmp-map': () => { graphState.overlay = true; graphState.mode = 'all'; view = 'graph'; render(); window.scrollTo(0, 0); },
     'inv-csv': exportInventory,
     'cmp-run': () => startCompare($('#cmp-source').value, 'version B'),
     'cmp-clear': () => { COMPARE = null; render(); },
@@ -3987,6 +5090,10 @@ document.addEventListener('click', e => {
   if (actions[id] && e.target.closest('button')) { actions[id](); return; }
   const v = e.target.closest('[data-view]');
   if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  const mr = e.target.closest('[data-matrows]');
+  if (mr) { matState.rows = mr.dataset.matrows; render(); return; }
+  const mc = e.target.closest('[data-matcols]');
+  if (mc) { matState.cols = mc.dataset.matcols; render(); return; }
   const ik = e.target.closest('[data-invkind]');
   if (ik) { invState.kind = ik.dataset.invkind; render(); return; }
   const dsh = e.target.closest('[data-dash]');
