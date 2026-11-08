@@ -51,6 +51,18 @@ The **Issues** page lists problems as errors, warnings and notes.
 - searches that write lookups or run side-effect commands (`collect`, `sendemail`, `delete` and so on) on every load
 - lookups written by one search and read by another in the same dashboard
 
+## Recommendations
+
+The **Recommendations** page suggests optimisations and best practice. Unlike issues, nothing here is broken. Each recommendation has an impact (high, medium or low), a category, why it matters, what to do, an SPL or config example where useful, and the items it applies to. They are also on the Overview and in the full report.
+
+| Category | Recommendations |
+| --- | --- |
+| **Performance** | Share one base search between searches that start the same way (with suggested base and chain SPL); use `tstats` for counts over indexed fields (with the rewritten search); name indexes instead of `index=*`; avoid leading wildcards; move `| search` filters into the base search; run `| lookup` after aggregating; replace `join`, `transaction` and `map`, and watch `append`/`appendcols` subsearch limits; avoid real-time searches, refreshes under a minute and "All time" defaults; reduce the number of searches that run at once; use scheduled reports for searches that never change; populate input options with `tstats` or a lookup |
+| **Security** | Escape free-text input tokens with `$token|s$` |
+| **Correctness** | Give multiselect inputs a prefix and delimiter (otherwise values are ANDed); give `| sort` an explicit limit (it keeps 10,000 rows by default) |
+| **Maintainability** | Put repeated index names in a macro; flatten deep chains; give data sources descriptive names |
+| **Usability** | Give inputs defaults so panels load; add panel titles and make duplicate titles distinct; point out panels that don't follow the time picker; prefer grid layouts; split crowded tabs |
+
 ## Repair
 
 Issues with a safe fix carry a checkbox: removing a broken data-source reference, layout entry or visibility condition, removing an unused data source, placing an unplaced panel, adding an unplaced input to the input bar, turning on `enableSmartSources`, adding a missing leading pipe, and removing an empty command. Pick the fixes, then **Download definition** (JSON, or the original XML file with its `<definition>` replaced) or **Load the fixed version** to re-check it. Repairs made while loading are always included.
@@ -113,3 +125,4 @@ From the **Export** menu:
 
 - `examples/monitoringTemplateDiscreteMetrics.json`: a corrected Studio template.
 - `examples/classicWebErrors.xml`: a Classic Simple XML dashboard for trying the converter.
+- `examples/badPractices.json`: a dashboard that triggers most recommendations.

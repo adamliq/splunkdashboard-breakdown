@@ -170,6 +170,10 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .mock-panel .big { font-size: clamp(16px, 2.4vw, 34px); font-weight: 650; color: var(--accent); }
 .mock-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .mock-flow .mock-panel { position: relative; min-height: 180px; }
+/* Recommendations */
+.card.rec { margin-bottom: 10px; }
+.rec-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rec p { margin: 6px 0; }
 /* Status message */
 #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 60; font-size: 13px; }
 /* Menus, notes, fixes, compare, config */
@@ -1705,6 +1709,7 @@ const VIEWS = [
   { id: 'relationships', label: 'Relationship list' },
   { sep: 'Checks and tools' },
   { id: 'issues', label: 'Issues' },
+  { id: 'recommendations', label: 'Recommendations', count: () => recommendations().length },
   { id: 'compare', label: 'Compare versions' },
   { id: 'config', label: 'Splunk config', count: () => CONFIG.macros.size + CONFIG.saved.size + CONFIG.datamodels.size || '' },
 ];
@@ -1736,7 +1741,7 @@ function render() {
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues,
-    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory
+    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -1777,6 +1782,7 @@ function viewOverview() {
     ${stat('tokens', 'token', tokens.length, 'Tokens', `${tokens.filter(t => t.status === 'Defined').length} defined${undef ? ` · <b style="color:var(--sev-warning)">${undef} undefined</b>` : ''}`)}
     ${M.byKind('condition').length ? stat('conditions', 'condition', M.byKind('condition').length, 'Conditions', 'show / hide rules') : ''}
     <button class="stat" style="--kc: var(--sev-${sev('error') ? 'error' : sev('warning') ? 'warning' : 'info'})" data-view="issues"><div class="n">${M.issues.length}</div><div class="l">Issues</div><div class="s">${plural(sev('error'), 'error')} · ${plural(sev('warning'), 'warning')} · ${plural(sev('info'), 'note')}</div></button>
+    ${(() => { const rc = recommendations(), hi = rc.filter(r => r.impact === 'High').length; return `<button class="stat" style="--kc: var(--accent)" data-view="recommendations"><div class="n">${rc.length}</div><div class="l">Recommendations</div><div class="s">${hi ? `<b>${hi} high impact</b> · ` : ''}optimisations and best practice</div></button>`; })()}
   </div>
   ${M.issues.length ? `<div class="section-title">Top issues</div>${issueTable(M.issues.slice(0, 8))}` : ''}
   <div class="section-title">Search lineage</div>
@@ -2764,6 +2770,219 @@ function viewInventory() {
   ], list)}`;
 }
 
+/* ---------- Recommendations: optimisations and best practice ----------
+   Each: { impact: High|Medium|Low, category, title, why, how, example?, items: [node ids] } */
+const IMPACT_ORDER = { High: 0, Medium: 1, Low: 2 };
+const INDEXED_FIELDS = new Set(['host', 'source', 'sourcetype', 'index', '_time', 'splunk_server']);
+function recommendations() {
+  if (M._recs) return M._recs;
+  const R = [];
+  const add = (impact, category, title, why, how, items, example) => { if (items.length) R.push({ impact, category, title, why, how, example, items: uniq(items) }); };
+  const ds = M.byKind('ds');
+  const own = n => (n.sources?.commands || []).filter(c => !c.sub && !c.via);
+  const roots = ds.filter(n => n.depth === 0 && n.type === 'ds.search');
+  const descendants = n => [...closure(n.id, 'down')].filter(x => x.startsWith('ds:')).map(x => M.nodes.get(x));
+  const firstSeg = n => { const c = own(n)[0]; return c && c.name === 'search' ? c.text.replace(/^search\s+/i, '').replace(/\s+/g, ' ').trim() : ''; };
+  const restOf = n => { const q = String(n.query || ''); const i = q.indexOf('|'); return i < 0 ? '' : q.slice(i).trim(); };
+  const tokVal = v => /\$/.test(String(v ?? ''));
+  const timeInputs = M.byKind('input').filter(n => shortType(n.type) === 'timerange');
+
+  // ---- Performance
+  // Several base searches that start the same way: one base search with chains runs the scan once.
+  const groups = new Map();
+  for (const n of roots) {
+    const seg = firstSeg(n);
+    if (!seg || !/\b(index|sourcetype)\s*(=|::)/i.test(seg)) continue;
+    const k = [seg.toLowerCase(), n.earliest?.v, n.latest?.v].join('\u0001');
+    (groups.get(k) || groups.set(k, []).get(k)).push(n);
+  }
+  for (const g of groups.values()) if (g.length > 1) add('High', 'Performance', `Share one base search between ${plural(g.length, 'search', 'searches')} that start the same way`,
+    `${g.map(n => n.label).join(', ')} all begin with the same search (${firstSeg(g[0])}) over the same time range, so Splunk scans the same events ${g.length} times.`,
+    'Create one base search with the shared part, ending in | fields with the fields the panels need, and turn each search into a chain search (type ds.chain, "extend": the base search ID) that keeps only its own pipeline.',
+    g.map(n => n.id),
+    `Base search:\n${firstSeg(g[0])}\n| fields <fields the panels need>\n\n` + g.map(n => `Chain for ${n.label}:\n${restOf(n) || '| ...'}`).join('\n\n'));
+
+  // stats/timechart count over indexed fields only: tstats reads the index files, not the raw events.
+  const tstatsItems = [], tstatsEx = [];
+  for (const n of ds) {
+    if (n.type === 'ds.savedSearch') continue;
+    const cmds = n.lineage.flatMap(id => own(M.nodes.get(id))).filter(c => c.name !== 'fields');
+    if (cmds.length !== 2 || cmds[0].name !== 'search') continue;
+    const terms = cmds[0].text.replace(/^search\s+/i, '').trim();
+    const parts = terms.match(/"[^"]*"|\(|\)|[^\s()]+/g) || [];
+    if (!parts.length || !parts.every(t => /^(\(|\)|OR|AND|NOT)$/.test(t) || /^(index|sourcetype|host|source)\s*(=|!=|::)/i.test(t))) continue;
+    const m = cmds[1].text.match(/^(stats|timechart)\s+((?:span=\S+\s+)?)count(\s+as\s+\w+)?(?:\s+by\s+(.+))?$/i);
+    if (!m) continue;
+    const by = (m[4] || '').split(/[\s,]+/).filter(Boolean);
+    if (!by.every(f => INDEXED_FIELDS.has(f))) continue;
+    tstatsItems.push(n.id);
+    const span = (m[2].match(/span=(\S+)/) || [])[1] || '1h';
+    tstatsEx.push(`${n.label}:\n` + (m[1].toLowerCase() === 'stats'
+      ? `| tstats count${m[3] || ''} where ${terms}${by.length ? ' by ' + by.join(' ') : ''}`
+      : `| tstats prestats=t count where ${terms} by _time${by.length ? ' ' + by.join(' ') : ''} span=${span}\n| timechart span=${span} count${by.length ? ' by ' + by.join(' ') : ''}`));
+  }
+  add('High', 'Performance', 'Use tstats for counts over indexed fields',
+    'These searches only count events by index, sourcetype, host, source or _time. tstats answers that from the index files without reading raw events, often many times faster.',
+    'Rewrite the search with | tstats (see the example). If the panel needs other fields later, keep the raw search.', tstatsItems, tstatsEx.join('\n\n'));
+
+  // index=* and leading wildcards
+  add('High', 'Performance', 'Name the indexes instead of index=*',
+    'index=* searches every index the viewer can read, which is slow and returns different results for different people.',
+    'Replace index=* with the specific indexes, or a macro that lists them.',
+    ds.filter(n => (n.sources?.index || []).some(v => v.value === '*' && !v.excluded)).map(n => n.id), 'index=web OR index=web_archive');
+  add('Medium', 'Performance', 'Avoid wildcards at the start of search terms',
+    'A term such as *error or field=*value can\'t use the index, so Splunk reads every event in range to check it.',
+    'Search for the full term, put the wildcard only at the end (error*), or match it after narrowing the events (| where like(field, "%value")).',
+    roots.filter(n => /(^|[\s="(])\*[A-Za-z0-9_]/.test(firstSeg(n).replace(/\bindex\s*=\s*\*/gi, ''))).map(n => n.id));
+
+  // | search right after the base search
+  add('Medium', 'Performance', 'Move | search filters into the base search',
+    'A | search straight after the first search filters events after they have been retrieved. Putting the terms in the first search lets Splunk skip those events at the index.',
+    'Add the | search terms to the search before the first pipe and remove the | search command.',
+    ds.filter(n => n.type === 'ds.search' && own(n)[0]?.name === 'search' && own(n)[1]?.name === 'search').map(n => n.id));
+
+  // | lookup before aggregation
+  const lookupEarly = roots.filter(n => {
+    const c = own(n), li = c.findIndex(x => x.name === 'lookup');
+    if (li < 0) return false;
+    return c.slice(li + 1).some(x => TRANSFORMING.has(x.name)) || descendants(n).some(d => own(d).some(x => TRANSFORMING.has(x.name)));
+  });
+  add('Medium', 'Performance', 'Run | lookup after aggregating',
+    'A lookup on raw events runs once per event. After | stats it runs once per result row, which is usually far fewer.',
+    'Move the | lookup after the | stats (in the chain searches, if the base search feeds several), and keep the lookup\'s key field in the stats by clause.',
+    lookupEarly.map(n => n.id), '... | stats count by uri\n| lookup uri_owners.csv uri OUTPUT team');
+
+  // Expensive commands
+  const EXPENSIVE = {
+    join: ['Medium', 'Replace | join with | stats', '| join runs a subsearch limited to 50,000 rows and 60 seconds by default, and silently drops the rest.', 'Search both sets of events together and combine them with | stats values(...) by <key field>.', '(index=a sourcetype=x) OR (index=b sourcetype=y)\n| stats values(field1) AS field1 values(field2) AS field2 by key'],
+    transaction: ['Medium', 'Replace | transaction with | stats where possible', '| transaction holds events in memory and is one of the slowest commands; it also has event-count limits.', 'Group with | stats by the shared field, using min(_time), max(_time) and range(_time) for start, end and duration.', '| stats min(_time) AS start max(_time) AS end range(_time) AS duration values(action) AS actions by session_id'],
+    map: ['Medium', 'Avoid | map', '| map runs a separate search for every input row (10 by default), multiplying load.', 'Rewrite as one search, using a subsearch or | stats to correlate.', ''],
+    append: ['Low', 'Check | append subsearch limits', 'Subsearches stop at 50,000 results and 60 seconds by default, so appended results can be incomplete.', 'Prefer one search with OR between the event sets, or | multisearch for streaming searches.', ''],
+    appendcols: ['Low', 'Check | appendcols subsearch limits', 'Subsearches stop at 50,000 results and 60 seconds by default, and appendcols aligns rows by position only.', 'Prefer one search with | stats by a shared field.', ''],
+    selfjoin: ['Low', 'Avoid | selfjoin', '| selfjoin is memory-heavy.', 'Use | stats by the join field.', ''],
+  };
+  for (const [cmd, [impact, title, why, how, ex]] of Object.entries(EXPENSIVE))
+    add(impact, 'Performance', title, why, how, ds.filter(n => (n.sources?.commands || []).some(c => c.name === cmd && !c.via)).map(n => n.id), ex || undefined);
+
+  // Real-time, refresh, all time
+  add('High', 'Performance', 'Avoid real-time searches',
+    'Real-time searches (earliest=rt…) hold a search slot for as long as anyone has the dashboard open.',
+    'Use a normal relative time range with a refresh interval instead, for example earliest=-15m with refresh 1m.',
+    ds.filter(n => /^rt/i.test(n.earliest?.v || '') || /^rt/i.test(n.latest?.v || '')).map(n => n.id).concat(timeInputs.filter(n => /^rt/i.test(fmt(n.defaultValue))).map(n => n.id)));
+  const seconds = v => { const m = String(v ?? '').trim().match(/^(\d+(?:\.\d+)?)\s*(s|m|h|d)?$/i); if (!m) return null; return +m[1] * ({ s: 1, m: 60, h: 3600, d: 86400 }[(m[2] || 's').toLowerCase()]); };
+  add('Medium', 'Performance', 'Lengthen short refresh intervals',
+    'Refreshing more often than once a minute reruns the search for every open copy of the dashboard and can exhaust search slots.',
+    'Use 1m or longer, refresh only the panels that need it, or make the data a scheduled report.',
+    ds.filter(n => { const s = seconds(n.refresh); return s !== null && s > 0 && s < 60; }).map(n => n.id));
+  add('Medium', 'Performance', 'Avoid "All time" as a default time range',
+    'A default of All time (earliest 0) makes every search scan all data each time the dashboard opens.',
+    'Default to a bounded range such as the last 24 hours (-24h@h,now) and let people widen it.',
+    timeInputs.filter(n => /^0?\s*,/.test(fmt(n.defaultValue)) || fmt(n.defaultValue) === '0').map(n => n.id)
+      .concat(ds.filter(n => n.depth === 0 && n.earliest && (n.earliest.v === '0' || n.earliest.v === '')).map(n => n.id)));
+  const indep = ds.filter(n => n.depth === 0 && (n.type === 'ds.search' || n.type === 'ds.savedSearch'));
+  if (indep.length >= 8) add('Medium', 'Performance', `Reduce the ${indep.length} searches that run when the dashboard opens`,
+    'Each base search uses a search slot. Many at once can queue behind the user\'s and the system\'s concurrency limits, making panels load slowly.',
+    'Merge searches that read the same data into a base search with chains, move fixed panels to scheduled reports, and put rarely used panels on another tab or behind a condition.', indep.map(n => n.id));
+  // Searches with no tokens could be a scheduled report
+  add('Low', 'Performance', 'Consider scheduled reports for searches that never change',
+    'These searches use no tokens, so every viewer runs the same search. A scheduled report runs once and every viewer reads its results.',
+    'Save the search as a scheduled report and use it as a "Saved search" data source (ds.savedSearch).',
+    roots.filter(n => !directTokens(n.id).length && !tokVal(n.earliest?.v) && !NO_EVENT_TIME.has(own(n)[0]?.name) && (M.outE.get(n.id) || []).some(e => ['feeds', 'extends'].includes(e.rel))).map(n => n.id));
+  // sort default limit
+  add('Low', 'Correctness', 'Give | sort an explicit limit',
+    '| sort keeps only the first 10,000 results unless you give it a count, which can silently truncate tables.',
+    'Use | sort 0 - field to keep everything, or | sort 20 - field when you only need the top rows.',
+    ds.filter(n => own(n).some((c, i, all) => c.name === 'sort' && !/^sort\s+(\d+|limit\s*=)/i.test(c.text) && !all.slice(i + 1).some(x => x.name === 'head' || x.name === 'tail'))).map(n => n.id), '| sort 0 - count');
+  // Input options from raw events
+  add('Medium', 'Performance', 'Populate input options with tstats or a lookup',
+    'This input\'s choices come from a search over raw events, which runs every time the dashboard loads.',
+    'Use | tstats (for indexed fields such as host or sourcetype), | inputlookup, or | metadata to list the values.',
+    M.byKind('input').filter(i => ins(i.id, ['populates']).some(e => { const d = M.nodes.get(e.from); return d && own(M.nodes.get(d.rootId) || d)[0]?.name === 'search'; })).map(n => n.id),
+    '| tstats count where index=web by host\n| fields host');
+
+  // ---- Correctness and security
+  const textInputs = new Set(M.byKind('input').filter(n => shortType(n.type) === 'text' && n.token).map(n => n.token));
+  const unescaped = M.usages.filter(u => textInputs.has(M.nodes.get(u.token)?.key) && M.nodes.get(u.node)?.kind === 'ds' && /query/.test(u.path) && !/\|s/.test(u.filters || ''));
+  add('Medium', 'Security', 'Escape text-input tokens in SPL with |s',
+    'A free-text input is pasted into the search as typed. Quotes or pipes in it can break the search or change what it does.',
+    'Use $token|s$, which wraps the value in quotes and escapes it, instead of "$token$".',
+    uniq([...unescaped.map(u => u.node), ...unescaped.map(u => ins(u.token, ['sets']).map(e => e.from)).flat()]),
+    unescaped.length ? `${unescaped[0].raw.replace(/\$$/, '')}|s$   (instead of "${unescaped[0].raw}")` : undefined);
+  add('Medium', 'Correctness', 'Give multiselect inputs a prefix and delimiter',
+    'Without a delimiter the selected values are joined with spaces, which Splunk reads as AND: selecting 200 and 404 searches for events containing both.',
+    'Set valuePrefix (for example status=) and delimiter " OR ", and wrap the token in parentheses in the search.',
+    M.byKind('input').filter(n => shortType(n.type) === 'multiselect' && n.raw?.options?.delimiter === undefined && outs('token:' + n.token, ['uses-token']).length).map(n => n.id),
+    '"options": { "token": "status", "valuePrefix": "status=", "delimiter": " OR " }\n... ($status$) ...');
+  add('Medium', 'Usability', 'Give inputs a default value',
+    'Searches that use these tokens wait until someone picks a value, so the panels start empty.',
+    'Set defaultValue on the input (for example * for "all").',
+    M.byKind('input').filter(n => n.token && n.defaultValue === undefined && outs('token:' + n.token, ['uses-token']).some(e => e.to.startsWith('ds:'))).map(n => n.id));
+
+  // ---- Maintainability
+  const directIdx = new Map();
+  for (const n of roots) for (const v of n.sources?.index || []) if (!v.excluded && !v.via && !v.value.includes('$') && v.value !== '*') (directIdx.get(v.value) || directIdx.set(v.value, []).get(v.value)).push(n.id);
+  for (const [idx, ids] of directIdx) if (ids.length >= 3) add('Low', 'Maintainability', `Put index=${idx} in a macro`,
+    `index=${idx} is written out in ${ids.length} searches. If the index changes, every search has to be edited.`,
+    'Define a macro for the index list and use it in each search.', ids, `macros.conf:\n[${idx}_indexes]\ndefinition = (index=${idx})\n\nSearch:\n\`${idx}_indexes\` sourcetype=...`);
+  add('Low', 'Maintainability', 'Flatten deep chain searches',
+    'Chains three or more levels deep are hard to follow and debug, because each level only shows its own part of the SPL.',
+    'Collapse intermediate chains where they only filter, so each chain extends the base search directly.',
+    ds.filter(n => n.depth >= 3).map(n => n.id));
+  add('Low', 'Maintainability', 'Give data sources descriptive names',
+    'Data sources named like "Search_1" or with no name are hard to tell apart in the editor and in smart-source tokens.',
+    'Set name to what the search returns, for example "Errors by URI".',
+    // Classic searches are named after their id by the converter, so only Studio names are checked.
+    M.src.classic ? [] : ds.filter(n => !n.name || n.name === n.key || /^(search|ds|chain|base)[ _]?\d+$/i.test(n.name)).map(n => n.id));
+  const STATIC = /^(markdown|image|rectangle|ellipse|line|text)$/;
+  add('Low', 'Usability', 'Add titles to panels',
+    'Panels without a title don\'t say what they show, and are hard to find in the editor.',
+    'Set title on each chart and table.',
+    M.byKind('viz').filter(n => !n.title && !STATIC.test(shortType(n.type))).map(n => n.id));
+  const byTitle = new Map();
+  for (const v of M.byKind('viz')) if (v.title) (byTitle.get(v.title) || byTitle.set(v.title, []).get(v.title)).push(v.id);
+  for (const [t, ids] of byTitle) if (ids.length > 1) add('Low', 'Usability', `Make the ${ids.length} panels titled "${t}" distinguishable`,
+    'Several panels share one title, so viewers can\'t tell what each shows.', 'Give each panel a title that says what it measures.', ids);
+
+  // ---- Usability
+  if (timeInputs.length) add('Low', 'Usability', 'Panels that don\'t follow the time picker',
+    'These searches set their own time range, so changing the time picker doesn\'t change them. That is sometimes intended, but often surprises viewers.',
+    'If it is intended, say so in the panel title (for example "last 7 days"); otherwise use the time picker\'s tokens.',
+    roots.filter(n => n.earliest?.src === 'own' && !tokVal(n.earliest.v) && !NO_EVENT_TIME.has(own(n)[0]?.name)).map(n => n.id)
+      .concat(roots.filter(n => /\bearliest\s*=\s*[^$\s]/i.test(firstSeg(n))).map(n => n.id)));
+  const tabs = M.byKind('tab').filter(t => !t.global);
+  add('Low', 'Usability', 'Prefer the grid layout for dashboards viewed on different screens',
+    'Absolute layouts keep fixed pixel positions, so they don\'t adapt to smaller screens or other window sizes.',
+    'Use the grid layout unless the dashboard needs free positioning (diagrams, overlays, background images).',
+    tabs.filter(t => t.layoutType === 'absolute' && (t.items || []).some(i => i.id.startsWith('viz:'))).map(t => t.id));
+  add('Low', 'Usability', 'Split crowded tabs',
+    'More than 12 panels on one tab makes it slow to load and hard to read, because every panel\'s search runs at once.',
+    'Group related panels onto separate tabs; searches only on hidden tabs still run, so also check the search count.',
+    tabs.filter(t => (t.items || []).filter(i => i.id.startsWith('viz:')).length > 12).map(t => t.id));
+
+  R.sort((a, b) => IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact] || a.category.localeCompare(b.category));
+  M._recs = R;
+  return R;
+}
+const impactBadge = i => badge(i, i === 'High' ? 'sev-error' : i === 'Medium' ? 'sev-warning' : 'sev-info');
+function viewRecommendations() {
+  const recs = recommendations();
+  if (!recs.length) return '<p>No recommendations: nothing here matched the optimisation and best-practice checks.</p>';
+  const count = (k, v) => recs.filter(r => r[k] === v).length;
+  const cats = uniq(recs.map(r => r.category));
+  return `<p class="muted small" style="margin-top:0">Ways to make the dashboard faster, easier to maintain and safer. Unlike issues, nothing here is broken; each item is a suggested improvement, with why it matters and what to change. They're based on the definition and SPL alone, so check them against how the dashboard is used.</p>
+  <div class="stats">
+    ${['High', 'Medium', 'Low'].map(i => `<div class="stat" style="--kc: var(--sev-${i === 'High' ? 'error' : i === 'Medium' ? 'warning' : 'info'})"><div class="n">${count('impact', i)}</div><div class="l">${i} impact</div></div>`).join('')}
+    <div class="stat"><div class="n">${cats.length}</div><div class="l">Categories</div><div class="s">${esc(cats.map(c => `${c} ${count('category', c)}`).join(' · '))}</div></div>
+  </div>
+  ${recs.map(r => `<div class="card rec filterable">
+    <div class="rec-head">${impactBadge(r.impact)} ${badge(r.category)} <b>${esc(r.title)}</b></div>
+    <p>${esc(r.why)}</p>
+    <p><b>What to do:</b> ${esc(r.how)}</p>
+    ${r.example ? `<pre>${esc(r.example)}</pre>` : ''}
+    <div class="relgroup"><div class="rl">Applies to (${r.items.length})</div>${chips(r.items)}</div>
+  </div>`).join('')}`;
+}
+
 function viewConditions() {
   return table([
     { h: 'Condition', f: n => chip(n.id) + issueMark(n.id) },
@@ -3255,6 +3474,21 @@ function reportBlocks(format) {
   h2('Issues');
   if (!M.issues.length) p('No issues found.');
   else tbl(['Severity', '#', 'Item', 'Issue', 'Automatic fix'], M.issues.map(i => [i.severity, num(i.ref), lbl(i.ref), i.message, i.fix?.label || '']));
+
+  h2('Recommendations');
+  const recs = recommendations();
+  if (!recs.length) p('No recommendations: nothing matched the optimisation and best-practice checks.');
+  else {
+    p('Suggested improvements for speed, maintenance and safety. Nothing here is broken; check each against how the dashboard is used.');
+    tbl(['Impact', 'Category', 'Recommendation', 'Applies to'], recs.map(r => [r.impact, r.category, r.title, r.items.map(id => `${num(id)} ${lbl(id)}`.trim()).join(', ')]));
+    recs.forEach((r, k) => {
+      h4(`${k + 1}. ${r.title} (${r.impact} impact, ${r.category})`);
+      p(r.why);
+      p('What to do: ' + r.how);
+      if (r.example) code(r.example);
+      p('Applies to: ' + r.items.map(id => `${num(id)} ${lbl(id)}`.trim()).join(', '));
+    });
+  }
 
   h2('Layout');
   const global = M.nodes.get('tab:__global__');

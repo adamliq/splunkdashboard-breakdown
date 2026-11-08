@@ -1,0 +1,31 @@
+{
+  "title": "Bad practices",
+  "inputs": {
+    "in_host": { "type": "input.dropdown", "title": "Host", "options": { "token": "host" }, "dataSources": { "primary": "Search_1" } },
+    "in_q": { "type": "input.text", "title": "Search text", "options": { "token": "q", "defaultValue": "*" } },
+    "in_codes": { "type": "input.multiselect", "title": "Codes", "options": { "token": "codes", "defaultValue": ["200"] } },
+    "in_time": { "type": "input.timerange", "title": "Time", "options": { "token": "t", "defaultValue": "rt-5m,rt" } }
+  },
+  "defaults": { "dataSources": { "ds.search": { "options": { "queryParameters": { "earliest": "$t.earliest$", "latest": "$t.latest$" } } } } },
+  "dataSources": {
+    "Search_1": { "type": "ds.search", "name": "Search_1", "options": { "query": "index=web | stats count by host" } },
+    "ds_a": { "type": "ds.search", "name": "Errors A", "options": { "query": "index=web sourcetype=access | search status=500 | stats count by uri | sort - count", "queryParameters": { "refresh": "10s" } } },
+    "ds_b": { "type": "ds.search", "name": "Errors B", "options": { "query": "index=web sourcetype=access | timechart span=5m count" } },
+    "ds_c": { "type": "ds.search", "name": "Joined", "options": { "query": "index=* *timeout* message=\"$q$\" | join session [search index=app | fields session user] | transaction session | stats count by user" } },
+    "ds_d": { "type": "ds.search", "name": "Codes", "options": { "query": "index=web status IN ($codes$) | lookup geo.csv clientip OUTPUT country | stats count by country" } }
+  },
+  "visualizations": {
+    "v1": { "type": "splunk.table", "dataSources": { "primary": "ds_a" } },
+    "v2": { "type": "splunk.line", "title": "Errors", "dataSources": { "primary": "ds_b" } },
+    "v3": { "type": "splunk.table", "title": "Errors", "dataSources": { "primary": "ds_c" } },
+    "v4": { "type": "splunk.bar", "title": "By country", "dataSources": { "primary": "ds_d" } },
+    "v5": { "type": "splunk.column", "title": "Hosts", "dataSources": { "primary": "Search_1" } }
+  },
+  "layout": { "type": "absolute", "options": { "width": 1440, "height": 900 }, "globalInputs": ["in_host", "in_q", "in_codes", "in_time"], "structure": [
+    { "item": "v1", "type": "block", "position": { "x": 0, "y": 0, "w": 700, "h": 300 } },
+    { "item": "v2", "type": "block", "position": { "x": 720, "y": 0, "w": 700, "h": 300 } },
+    { "item": "v3", "type": "block", "position": { "x": 0, "y": 320, "w": 700, "h": 300 } },
+    { "item": "v4", "type": "block", "position": { "x": 720, "y": 320, "w": 700, "h": 300 } },
+    { "item": "v5", "type": "block", "position": { "x": 0, "y": 640, "w": 1420, "h": 250 } }
+  ] }
+}
