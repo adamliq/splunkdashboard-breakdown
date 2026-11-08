@@ -1,0 +1,31 @@
+<form version="1.1" theme="light">
+  <label>Classic Web Errors</label>
+  <description>A Simple XML dashboard</description>
+  <init><set token="show_detail">false</set></init>
+  <search id="base">
+    <query>index=web sourcetype=access_combined status>=500 | fields _time host uri status</query>
+    <earliest>$time.earliest$</earliest><latest>$time.latest$</latest>
+    <done><set token="error_total">$result.count$</set></done>
+  </search>
+  <fieldset submitButton="false">
+    <input type="time" token="time"><label>Time</label><default><earliest>-24h@h</earliest><latest>now</latest></default></input>
+    <input type="dropdown" token="host"><label>Host</label><choice value="*">All</choice><default>*</default>
+      <search><query>| tstats count where index=web by host</query></search><fieldForLabel>host</fieldForLabel><fieldForValue>host</fieldForValue>
+      <change><set token="host_label">$label$</set></change>
+    </input>
+  </fieldset>
+  <row>
+    <panel><title>Errors over time</title>
+      <chart><search base="base"><query>search host=$host$ | timechart count</query></search><option name="charting.chart">line</option>
+        <drilldown><set token="picked_time">$click.value$</set><set token="show_detail">true</set></drilldown></chart>
+    </panel>
+    <panel><single><title>Total errors</title><search base="base"><query>| stats count</query></search></single></panel>
+  </row>
+  <row depends="$picked_time$">
+    <panel><title>Detail for $picked_time$</title>
+      <table><search><query>index=web earliest=$picked_time$ | stats count by uri | `top_n(10)`</query></search>
+        <drilldown><link target="_blank">/app/search/search?q=$row.uri$</link></drilldown></table>
+    </panel>
+    <panel><html><h2>Notes</h2><p>Total: $error_total$</p></html></panel>
+  </row>
+</form>
