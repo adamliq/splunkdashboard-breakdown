@@ -1,0 +1,10 @@
+<dashboard version="1.1" script="inventory_host.js" stylesheet="inventory_host.css" hideEdit="true" hideExport="true">
+  <label>Dashboard Inventory</label>
+  <row>
+    <panel>
+      <html>
+        <div id="sdi-host" class="sdi-host">Loading Dashboard Inventory…</div>
+      </html>
+    </panel>
+  </row>
+</dashboard>

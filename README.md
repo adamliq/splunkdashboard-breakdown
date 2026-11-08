@@ -4,7 +4,9 @@
 
 **Try it online: [adamliq.github.io/splunkdashboard-breakdown](https://adamliq.github.io/splunkdashboard-breakdown/)**
 
-Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network requests load a library the first time you need it: the PDF library for a PDF report, the spreadsheet library for an Excel workbook, and the layout library for the ELK map layout.)
+Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network requests load a library the first time you need it: the PDF library for a PDF report and the layout library for the ELK map layout.)
+
+It is also available as a **Splunk app** that runs inside Splunk Enterprise and Splunk Cloud Platform and loads dashboards straight from Splunk. See [Splunk app](#splunk-app).
 
 ## Accepted input
 
@@ -153,13 +155,36 @@ From the **Export** menu:
 - **Full report (.pdf)** and **Full report (.md):** everything about the open dashboard in one document. It covers a summary, issues with their fixes, the layout (a mockup image of each tab in the PDF, and positions of every item), the numbered inventory, inputs, data sources (lineage, time ranges, what each search reads, and the full, effective and expanded SPL), indexes, sourcetypes, lookups, data models and macros, SPL commands and pipelines, visualizations, tokens and where each is referenced, visibility conditions, every relationship, the Splunk config used, and the dashboard definition as an appendix.
   - The PDF is landscape A4, with a contents page linking to each section, bookmarks, and page numbers. It is built in the browser with [jsPDF](https://github.com/parallax/jsPDF), loaded from jsDelivr the first time you export. If that can't load (for example offline), the report is saved as a print-ready HTML file instead; open it and choose **Print → Save as PDF**.
   - The Markdown has a linked table of contents and renders on GitHub, GitLab and most wikis.
-- **Excel workbook (.xlsx):** the same content as the full report, one sheet per section (inventory, inputs, data sources, what each search reads, SPL, visualizations, tokens, issues, recommendations, relationships and more), each with filters. Built with [SheetJS](https://sheetjs.com/), loaded from jsDelivr the first time you export. The All dashboards page also has an app workbook: dashboards, shared items and links between dashboards.
+- **Excel workbook (.xlsx):** the same content as the full report, one sheet per section (inventory, inputs, data sources, what each search reads, SPL, visualizations, tokens, issues, recommendations, relationships and more), each with filters. Written by the page itself, with no library. The All dashboards page also has an app workbook: dashboards, shared items and links between dashboards.
 - **Share link…:** a link that opens this dashboard in the page. The whole definition (and, if you tick it, the pasted Splunk config) is compressed into the part of the link after `#`, which browsers never send to a web server; but anyone you give the link to can read the definition, including its searches. From the claude.ai artifact or a local file, links point to the [GitHub Pages site](https://adamliq.github.io/splunkdashboard-breakdown/). Large dashboards make long links, which some chat and email apps cut off; the dialog warns when a link is long.
 - **Printable summary (.html):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
 - **Inventory (.csv)** and **Relationships (.csv)**.
 - **Model (.json):** the full parsed model.
 - **Definition, with selected fixes.**
 - **Mockup (.svg / .png).**
+
+## Splunk app
+
+`splunk-app/` packages the page as the **Dashboard Inventory** Splunk app (`dashboard_inventory`), for Splunk Enterprise 8.2 or later and Splunk Cloud Platform (Victoria and Classic experience).
+
+- **Load from Splunk:** pick an app, tick one or more dashboards, and select **Load**. Tick **Also load the macros, saved searches and data models** to expand them, as with pasted config. Pasting and choosing files still work.
+- **Read-only:** it reads through Splunk's REST API with the viewer's own session, using GET requests only, so each user sees only what they can already read. It never changes, saves or schedules anything; fixes and exports are downloaded.
+- **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
+- **Share links** point at the app's page in the same Splunk instance.
+
+Build the package (Python 3, standard library only):
+
+```sh
+python3 splunk-app/build.py        # writes dist/dashboard_inventory-<version>.tgz
+```
+
+The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries, and writes the archive with the file permissions Splunk Cloud expects. Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**.
+
+**AppInspect:** version 1.0.0 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
+
+```sh
+splunk-appinspect inspect dist/dashboard_inventory-1.0.0.tgz --mode precert --included-tags cloud
+```
 
 ## Examples
 

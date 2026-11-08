@@ -236,6 +236,10 @@ svg.graph.panning { cursor: grabbing; }
 #share-dlg::backdrop { background: rgba(0,0,0,.35); }
 #share-dlg h3 { margin: 0 0 6px; font-size: 16px; }
 #share-link { width: 100%; margin: 8px 0 2px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; word-break: break-all; resize: vertical; }
+/* Load from Splunk */
+.sp-list { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 4px; margin: 8px 0; background: var(--panel); }
+.sp-item { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+.sp-item:hover { background: var(--panel-2); }
 /* Status message */
 #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 60; font-size: 13px; }
 /* Menus, notes, fixes, compare, config */
@@ -328,6 +332,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 </header>
 
 <main id="loader">
+  <div class="card" id="splunk-loader" hidden style="margin-bottom:14px"></div>
   <div class="card">
     <h2>Inventory a Splunk dashboard</h2>
     <p>Paste the dashboard source, or drop or choose one or more files. The tool lists every tab, input, data source, search, chain search, visualization and token, shows how they connect, and checks for problems. Dashboard Studio and Classic Simple XML are both supported. Load several files, or a REST list of views, to inventory a whole app.</p>
@@ -502,6 +507,122 @@ const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const fmt = v => v === undefined ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
 const uniq = a => [...new Set(a)];
 const plural = (n, s, p) => `${n} ${n === 1 ? s : (p || s + 's')}`;
+
+/* ============================================================
+   Running inside the Splunk app: libraries from the app, and loading straight from Splunk
+   The app's dashboard embeds this page as
+     inventory.html?splunkd=/<locale>/splunkd/__raw&app=<app>&page=/<locale>/app/<app>/inventory
+   Only GET requests are made, with the viewer's own Splunk session and permissions.
+   ============================================================ */
+const SPLUNK = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    const d = q.get('splunkd') || '', page = q.get('page') || '';
+    if (!/^\/[\w\-./]*splunkd\/__raw$/.test(d)) return null;
+    return { splunkd: d, app: (q.get('app') || '').replace(/[^\w.\-]/g, ''), page: /^\/[\w\-./]*$/.test(page) ? page : '' };
+  } catch { return null; }
+})();
+// Library location: inside the app from its own folder (no outside connections), otherwise from jsDelivr.
+const libUrl = (cdn, local) => SPLUNK ? local : cdn;
+async function splunkGet(path, params = {}) {
+  const q = new URLSearchParams({ output_mode: 'json', count: '0' });
+  for (const [k, v] of Object.entries(params)) for (const x of [].concat(v)) q.append(k, x);
+  const r = await fetch(SPLUNK.splunkd + path + '?' + q.toString(), { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
+  if (!r.ok) throw new Error(r.status === 403 ? 'permission denied' : r.status === 404 ? 'not found' : `HTTP ${r.status}`);
+  return r.json();
+}
+const splunkState = { apps: [], app: '', views: [], selected: new Set(), loading: false, error: '' };
+async function initSplunkLoader() {
+  if (!SPLUNK) return;
+  $('#splunk-loader').hidden = false;
+  splunkState.loading = true; renderSplunkLoader();
+  try {
+    const r = await splunkGet('/services/apps/local', { f: ['label', 'visible'] });
+    splunkState.apps = (r.entry || []).filter(e => e.content?.visible !== false && e.content?.visible !== '0')
+      .map(e => ({ name: e.name, label: e.content?.label || e.name })).sort((a, b) => a.label.localeCompare(b.label));
+    const want = splunkState.apps.some(a => a.name === SPLUNK.app) && SPLUNK.app !== 'dashboard_inventory' ? SPLUNK.app : 'search';
+    splunkState.app = splunkState.apps.some(a => a.name === want) ? want : splunkState.apps[0]?.name || '';
+    await loadSplunkViews();
+  } catch (e) { splunkState.loading = false; splunkState.error = `Couldn't list the apps in Splunk (${e.message}). You can still paste or choose a dashboard below.`; renderSplunkLoader(); }
+}
+async function loadSplunkViews() {
+  splunkState.loading = true; splunkState.error = ''; splunkState.views = []; splunkState.selected.clear(); renderSplunkLoader();
+  try {
+    const app = splunkState.app;
+    const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views`, { f: ['label', 'version', 'isDashboard', 'isVisible'] });
+    splunkState.views = (r.entry || [])
+      .filter(e => e.acl?.app === app && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && !(app === 'dashboard_inventory' && e.name === 'inventory'))
+      .map(e => ({ name: e.name, label: e.content?.label || e.name, kind: String(e.content?.version) === '2' ? 'Studio' : 'Classic', sharing: e.acl?.sharing || '' }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  } catch (e) { splunkState.error = `Couldn't list the dashboards in this app (${e.message}).`; }
+  splunkState.loading = false; renderSplunkLoader();
+}
+function renderSplunkLoader() {
+  const box = $('#splunk-loader');
+  if (!box) return;
+  const S = splunkState, n = S.selected.size;
+  box.innerHTML = `<h2>Load from Splunk</h2>
+    <p class="small muted" style="margin-top:0">Pick dashboards from any app you can see. The page only reads them; nothing in Splunk is changed.</p>
+    <div class="loader-actions">
+      <label>App <select id="sp-app" ${S.loading && !S.apps.length ? 'disabled' : ''}>${S.apps.map(a => `<option value="${esc(a.name)}" ${a.name === S.app ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}</select></label>
+      <input class="search" id="sp-filter" type="search" placeholder="Filter dashboards…" aria-label="Filter dashboards">
+    </div>
+    ${S.error ? `<div class="error">${esc(S.error)}</div>` : ''}
+    ${S.loading ? '<p class="muted">Loading…</p>' : S.views.length ? `<div class="sp-list" role="group" aria-label="Dashboards">${S.views.map(v => `<label class="sp-item"><input type="checkbox" data-spview="${esc(v.name)}" ${S.selected.has(v.name) ? 'checked' : ''}> <span><b>${esc(v.label)}</b> <span class="muted small">${esc(v.name)}${v.kind ? ' · ' + v.kind : ''}${v.sharing ? ' · ' + esc(v.sharing) : ''}</span></span></label>`).join('')}</div>` : (S.error ? '' : '<p class="muted">There are no dashboards in this app that you can see.</p>')}
+    <label class="small" style="display:block;margin:8px 0"><input type="checkbox" id="sp-config" checked> Also load the macros, saved searches and data models visible in this app, so the page can look inside them</label>
+    <div class="loader-actions">
+      <button class="btn primary" id="sp-load" ${n ? '' : 'disabled'}>${n ? `Load ${plural(n, 'dashboard')}` : 'Choose dashboards to load'}</button>
+      ${S.views.length ? '<button class="btn small" id="sp-all">Select all shown</button><button class="btn small" id="sp-none">Clear</button>' : ''}
+    </div>`;
+}
+const confLine = (k, v) => `${k} = ${String(v ?? '').replace(/\r?\n/g, ' \\\n')}`;
+// The app's macros and saved searches as .conf text, and its data models as JSON, for the expansion features.
+async function splunkConfig(app) {
+  const ns = `/servicesNS/-/${encodeURIComponent(app)}`;
+  const [mac, sav, dm] = await Promise.allSettled([
+    splunkGet(ns + '/configs/conf-macros', { f: ['definition', 'args', 'iseval'] }), // Splunk Web does not pass /admin/ paths
+    splunkGet(ns + '/saved/searches', { f: ['search', 'dispatch.earliest_time', 'dispatch.latest_time', 'cron_schedule'] }),
+    splunkGet(ns + '/datamodel/model', { f: ['eai:data'] }),
+  ]);
+  const notes = [];
+  let conf = '';
+  if (mac.status === 'fulfilled') for (const e of mac.value.entry || []) {
+    const c = e.content || {};
+    conf += `[${e.name}]\n${c.args ? confLine('args', c.args) + '\n' : ''}${confLine('definition', c.definition)}\n${/^(1|true)$/i.test(String(c.iseval)) ? 'iseval = 1\n' : ''}\n`;
+  } else notes.push('macros: ' + mac.reason.message);
+  if (sav.status === 'fulfilled') for (const e of sav.value.entry || []) {
+    const c = e.content || {};
+    conf += `[${e.name}]\n${confLine('search', c.search)}\n${c['dispatch.earliest_time'] ? confLine('dispatch.earliest_time', c['dispatch.earliest_time']) + '\n' : ''}${c['dispatch.latest_time'] ? confLine('dispatch.latest_time', c['dispatch.latest_time']) + '\n' : ''}${c.cron_schedule ? confLine('cron_schedule', c.cron_schedule) + '\n' : ''}\n`;
+  } else notes.push('saved searches: ' + sav.reason.message);
+  const dmText = dm.status === 'fulfilled' ? JSON.stringify({ entry: (dm.value.entry || []).map(e => ({ content: { 'eai:data': e.content?.['eai:data'] } })) }) : '';
+  if (dm.status !== 'fulfilled') notes.push('data models: ' + dm.reason.message);
+  return { conf, dm: dmText, notes };
+}
+async function loadFromSplunk() {
+  const S = splunkState, app = S.app, names = S.views.map(v => v.name).filter(n => S.selected.has(n));
+  if (!names.length) return;
+  const btn = $('#sp-load'); if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  const errors = [];
+  const files = (await Promise.all(names.map(async name => {
+    try {
+      const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views/${encodeURIComponent(name)}`, { f: ['eai:data'] });
+      const text = r.entry?.[0]?.content?.['eai:data'];
+      if (!text) throw new Error('no source returned');
+      return { name, text };
+    } catch (e) { errors.push(`${name}: ${e.message}`); return null; }
+  }))).filter(Boolean);
+  if ($('#sp-config')?.checked) {
+    const c = await splunkConfig(app);
+    $('#ldr-conf').value = c.conf; $('#ldr-dm').value = c.dm;
+    applyConfig(c.conf, c.dm);
+    if (c.notes.length) errors.push('Some configuration could not be read (' + c.notes.join('; ') + '). Expansion uses what was read.');
+  } else applyConfig($('#ldr-conf').value, $('#ldr-dm').value);
+  if (btn) { btn.disabled = false; btn.textContent = `Load ${plural(names.length, 'dashboard')}`; }
+  if (!files.length) { const err = $('#load-error'); err.textContent = errors.join('\n') || 'Nothing was loaded.'; err.hidden = false; return; }
+  loadDashboards(files);
+  if (errors.length) { LOAD_ERRORS.push(...errors); toast(errors.join(' '), 10000); if (view === 'app') render(); }
+}
+
 
 const KINDS = {
   dashboard: { label: 'Dashboard', plural: 'Dashboard' },
@@ -3407,7 +3528,7 @@ function issueTable(list) {
 /* ============================================================
    Relationship map (SVG)
    ============================================================ */
-const ELK_LIB = 'https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js';
+const ELK_LIB = libUrl('https://cdn.jsdelivr.net/npm/elkjs@0.11.1/lib/elk.bundled.js', 'lib/elk.bundled.js');
 const GW = 196, GH = 36; // node box size on the map
 const graphSub = n => n.kind === 'group' ? n.sub : n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
   : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model'
@@ -4784,7 +4905,7 @@ async function exportReportMd() {
 }
 
 /* ---------- PDF ---------- */
-const PDF_LIBS = ['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'];
+const PDF_LIBS = [libUrl('https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js', 'lib/jspdf.umd.min.js'), libUrl('https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js', 'lib/jspdf.plugin.autotable.min.js')];
 let pdfLibPromise = null;
 function loadPdfLib() {
   if (window.jspdf?.jsPDF?.API?.autoTable) return Promise.resolve(window.jspdf.jsPDF);
@@ -5103,6 +5224,7 @@ function viewDashLinksSection() {
 const PAGES_URL = 'https://adamliq.github.io/splunkdashboard-breakdown/';
 // Inside the claude.ai viewer or a local file the address can't be shared, so links point at the public site.
 function shareBase() {
+  if (SPLUNK?.page) return location.origin + SPLUNK.page;
   try { if (/^https?:$/.test(location.protocol) && window.top === window && !window.claude) return location.origin + location.pathname; } catch { /* cross-origin frame */ }
   return PAGES_URL;
 }
@@ -5171,54 +5293,120 @@ async function loadFromHash() {
 }
 
 /* ============================================================
-   Excel workbook
+   Excel workbook: a small built-in .xlsx writer (no library needed)
    ============================================================ */
-const XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-function sheetFrom(X, head, rows) {
-  const clip = v => { const s = String(v ?? ''); return s.length > 32000 ? s.slice(0, 31990) + ' …(cut)' : s; };
-  const aoa = [head, ...rows.map(r => r.map((c, i) => {
-    const s = clip(c);
-    if (head[i] === '#' && /^#\d+$/.test(s)) return +s.slice(1);
-    if (/^-?\d+(\.\d+)?$/.test(s) && s.length < 15 && !/^0\d/.test(s)) return +s;
-    return s;
-  }))];
-  const ws = X.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = head.map((h, i) => ({ wch: Math.min(60, Math.max(String(h).length + 2, ...aoa.slice(1, 200).map(r => String(r[i] ?? '').split('\n')[0].length + 1))) }));
-  if (rows.length) ws['!autofilter'] = { ref: ws['!ref'] };
-  return ws;
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function deflateRawBytes(bytes) {
+  if (typeof CompressionStream === 'undefined') return null;
+  try { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()); } catch { return null; }
 }
-function addSheet(X, wb, name, ws, used) {
+// files: [{ name, text }] → ZIP bytes (deflated where the browser can, otherwise stored).
+async function zipFiles(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  const now = new Date();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+    const comp = await deflateRawBytes(data);
+    const method = comp && comp.length < data.length ? 8 : 0, body = method ? comp : data;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, method, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true); lh.setUint32(18, body.length, true);
+    lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, body);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, method, true);
+    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true); ch.setUint32(20, body.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + body.length;
+  }
+  const cdSize = central.reduce((s, x) => s + x.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return [...parts, ...central, new Uint8Array(end.buffer)];
+}
+// XML text: escape, and drop characters XML can't hold.
+const xmlEsc = s => String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const xlsxCol = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+function sheetXml(sh) {
+  const rows = [sh.head, ...sh.rows];
+  const widths = sh.head.map((h, i) => Math.min(60, Math.max(String(h).length + 2, ...rows.slice(1, 200).map(r => String(r[i] ?? '').split('\n')[0].length + 1))));
+  const lastCol = xlsxCol(Math.max(0, sh.head.length - 1)), lastRow = rows.length;
+  const cell = (v, r, c, hdr) => {
+    if (v === '' || v === null || v === undefined) return '';
+    const ref = xlsxCol(c) + r, st = hdr ? ' s="1"' : '';
+    return typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+  };
+  return XML_HEAD + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + `<dimension ref="A1:${lastCol}${lastRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+    + `<sheetFormatPr defaultRowHeight="15"/><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+    + `<sheetData>${rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => cell(v, ri + 1, ci, ri === 0)).join('')}</row>`).join('')}</sheetData>`
+    + (sh.rows.length ? `<autoFilter ref="A1:${lastCol}${lastRow}"/>` : '') + '</worksheet>';
+}
+async function writeXlsx(sheets, title) {
+  const n = sheets.length;
+  const filters = sheets.map((s, i) => s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xmlEsc(s.name.replace(/'/g, "''"))}'!$A$1:$${xlsxCol(s.head.length - 1)}$${s.rows.length + 1}</definedName>` : '').join('');
+  const files = [
+    { name: '[Content_Types].xml', text: XML_HEAD + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>' },
+    { name: '_rels/.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>' },
+    { name: 'docProps/core.xml', text: XML_HEAD + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(title)}</dc:title><dc:creator>Studio Dashboard Inventory</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</dcterms:created></cp:coreProperties>` },
+    { name: 'xl/workbook.xml', text: XML_HEAD + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      + sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>' + (filters ? `<definedNames>${filters}</definedNames>` : '') + '</workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+      + `<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', text: XML_HEAD + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
+    ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, text: sheetXml(s) })),
+  ];
+  return new Blob(await zipFiles(files), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+// A sheet with a safe, unique name; numeric-looking cells become numbers, "#12" in a "#" column becomes 12.
+function makeSheet(name, head, rows, used) {
   let base = String(name).replace(/[\[\]:*?/\\]/g, ' ').replace(/^\d+\.\s*/, '').trim().slice(0, 28) || 'Sheet';
-  let n = base, k = 2;
-  while (used.has(n.toLowerCase())) n = `${base.slice(0, 26)} ${k++}`;
-  used.add(n.toLowerCase());
-  X.utils.book_append_sheet(wb, ws, n);
+  let nm = base, k = 2;
+  while (used.has(nm.toLowerCase())) nm = `${base.slice(0, 26)} ${k++}`;
+  used.add(nm.toLowerCase());
+  const clip = v => { const s = String(v ?? ''); return s.length > 32000 ? s.slice(0, 31990) + ' …(cut)' : s; };
+  return {
+    name: nm, head: head.map(String),
+    rows: rows.map(r => r.map((c, i) => {
+      const s = clip(c);
+      if (head[i] === '#' && /^#\d+$/.test(s)) return +s.slice(1);
+      if (/^-?\d+(\.\d+)?$/.test(s) && s.length < 15 && !/^0\d/.test(s)) return +s;
+      return s;
+    })),
+  };
 }
-function workbookForDashboard(X) {
-  const wb = X.utils.book_new(), used = new Set();
-  wb.Props = { Title: M.title + ' - dashboard inventory', Subject: 'Splunk dashboard inventory', Author: 'Studio Dashboard Inventory' };
+function sheetsForDashboard() {
+  const out = [], used = new Set();
   let h2 = 'About', h3 = '';
   for (const b of reportBlocks('xlsx')) {
     if (b.t === 'h2') { h2 = b.text.replace(/^\d+\.\s*/, ''); h3 = ''; }
     else if (b.t === 'h3') h3 = b.text.replace(/\s*\(.*$/, '');
-    else if (b.t === 'table' && b.rows.length) addSheet(X, wb, h3 && h2 !== 'Layout' ? h3 : h2 === 'Layout' && h3 ? 'Layout ' + h3 : h2, sheetFrom(X, b.head, b.rows), used);
+    else if (b.t === 'table' && b.rows.length) out.push(makeSheet(h3 && h2 !== 'Layout' ? h3 : h2 === 'Layout' && h3 ? 'Layout ' + h3 : h2, b.head, b.rows, used));
   }
-  const ds = M.byKind('ds');
-  addSheet(X, wb, 'SPL', sheetFrom(X, ['#', 'Data source', 'ID', 'Type', 'Query', 'Effective SPL (base and chain)', 'Expanded SPL'],
-    ds.map(n => ['#' + invNo(n.id), n.label, n.key, dsTypeLabel(n.type), n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query, n.depth > 0 ? n.effectiveQuery : '', n.expandedQuery || ''])), used);
-  return wb;
+  out.push(makeSheet('SPL', ['#', 'Data source', 'ID', 'Type', 'Query', 'Effective SPL (base and chain)', 'Expanded SPL'],
+    M.byKind('ds').map(n => ['#' + invNo(n.id), n.label, n.key, dsTypeLabel(n.type), n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query, n.depth > 0 ? n.effectiveQuery : '', n.expandedQuery || '']), used));
+  return out;
 }
-function workbookForApp(X) {
-  const wb = X.utils.book_new(), used = new Set();
-  wb.Props = { Title: 'App inventory', Author: 'Studio Dashboard Inventory' };
+function sheetsForApp() {
+  const out = [], used = new Set();
   const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
-  addSheet(X, wb, 'Dashboards', sheetFrom(X, ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations'],
-    DASH.map(d => { const m = d.model; const prev = M; M = m; const recs = recommendations().length; M = prev; return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs]; })), used);
+  out.push(makeSheet('Dashboards', ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations'],
+    DASH.map(d => { const m = d.model, prev = M; M = m; const recs = recommendations().length; M = prev; return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs]; }), used));
   const shared = sharedItems();
-  addSheet(X, wb, 'Shared items', sheetFrom(X, ['Kind', 'Name', 'Dashboards', 'Used by'], shared.map(r => [r.kind, r.name, r.uses.size, [...r.uses].map(([i, d]) => DASH[i].model.title + (d.size ? ` (${[...d].join(', ')})` : '')).join('; ')])), used);
-  addSheet(X, wb, 'Shared by dashboard', sheetFrom(X, ['Dashboard', 'Kind', 'Name', 'Detail'], shared.flatMap(r => [...r.uses].map(([i, d]) => [DASH[i].model.title, r.kind, r.name, [...d].join('; ')]))), used);
-  addSheet(X, wb, 'Dashboard links', sheetFrom(X, ['From dashboard', 'Panel', 'Opens', 'Loaded', 'Passes tokens'], dashLinks().map(l => [DASH[l.from].model.title, l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'not loaded', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')])), used);
-  return wb;
+  out.push(makeSheet('Shared items', ['Kind', 'Name', 'Dashboards', 'Used by'], shared.map(r => [r.kind, r.name, r.uses.size, [...r.uses].map(([i, d]) => DASH[i].model.title + (d.size ? ` (${[...d].join(', ')})` : '')).join('; ')]), used));
+  out.push(makeSheet('Shared by dashboard', ['Dashboard', 'Kind', 'Name', 'Detail'], shared.flatMap(r => [...r.uses].map(([i, d]) => [DASH[i].model.title, r.kind, r.name, [...d].join('; ')])), used));
+  out.push(makeSheet('Dashboard links', ['From dashboard', 'Panel', 'Opens', 'Loaded', 'Passes tokens'], dashLinks().map(l => [DASH[l.from].model.title, l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'not loaded', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')]), used));
+  return out;
 }
 let xlsxBusy = false;
 async function exportXlsx(app = false) {
@@ -5226,15 +5414,8 @@ async function exportXlsx(app = false) {
   xlsxBusy = true;
   toast('Building the Excel workbook…', 0);
   try {
-    try { await loadScriptOnce(XLSX_LIB, () => !!window.XLSX?.utils); }
-    catch (e) {
-      toast(`The spreadsheet library couldn't be loaded (${e.message}). Use Export → Inventory (.csv), which opens in Excel too.`, 10000);
-      return;
-    }
-    const X = window.XLSX;
-    const wb = app ? workbookForApp(X) : workbookForDashboard(X);
-    const data = X.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
-    await download((app ? 'app' : slug(M.title)) + '-inventory.xlsx', new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const blob = await writeXlsx(app ? sheetsForApp() : sheetsForDashboard(), app ? 'App inventory' : M.title + ' - dashboard inventory');
+    await download((app ? 'app' : slug(M.title)) + '-inventory.xlsx', blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     toast('');
   } catch (e) { console.error(e); toast('The workbook could not be built: ' + e.message, 10000); }
   finally { xlsxBusy = false; }
@@ -5353,7 +5534,17 @@ $('#share-config').onchange = refreshShareLink;
 $('#share-copy').onclick = copyShareLink;
 $('#share-close').onclick = () => $('#share-dlg').close();
 window.addEventListener('hashchange', loadFromHash);
+initSplunkLoader();
 loadFromHash();
+function updateSplunkButton() {
+  const b = $('#sp-load'), n = splunkState.selected.size;
+  if (b) { b.disabled = !n; b.textContent = n ? `Load ${plural(n, 'dashboard')}` : 'Choose dashboards to load'; }
+}
+document.addEventListener('input', e => {
+  if (e.target.id !== 'sp-filter') return;
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#splunk-loader .sp-item').forEach(el => { el.hidden = !!q && !el.textContent.toLowerCase().includes(q); });
+});
 
 $('#drawer-close').onclick = closeDrawer;
 $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
@@ -5368,6 +5559,8 @@ document.addEventListener('change', async e => {
   if (t.id === 'mock-names') { mockState.showNames = t.checked; render(); return; }
   if (t.dataset?.fix !== undefined) { const k = +t.dataset.fix; if (t.checked) FIX_SEL.add(k); else FIX_SEL.delete(k); render(); return; }
   if (t.id === 'mat-sort') { matState.sort = t.value; render(); return; }
+  if (t.id === 'sp-app') { splunkState.app = t.value; loadSplunkViews(); return; }
+  if (t.dataset?.spview) { if (t.checked) splunkState.selected.add(t.dataset.spview); else splunkState.selected.delete(t.dataset.spview); updateSplunkButton(); return; }
   if (t.id === 'compat-version') { compatState.version = t.value; saveCompat(); render(); return; }
   if (t.dataset?.compatMin) { const f = COMPAT_FEATURES.find(x => x.key === t.dataset.compatMin); if (t.value === f.min) delete compatState.overrides[f.key]; else compatState.overrides[f.key] = t.value; saveCompat(); render(); return; }
   if (t.id === 'flow-measure') { flowState.measure = t.value; render(); return; }
@@ -5384,6 +5577,9 @@ document.addEventListener('click', e => {
     'mock-reset': () => { resetMockValues(); render(); },
     'mock-svg': () => download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'),
     'mock-png': exportMockupPng,
+    'sp-load': loadFromSplunk,
+    'sp-all': () => { document.querySelectorAll('#splunk-loader .sp-item:not([hidden]) input[data-spview]').forEach(c => { c.checked = true; splunkState.selected.add(c.dataset.spview); }); updateSplunkButton(); },
+    'sp-none': () => { splunkState.selected.clear(); document.querySelectorAll('#splunk-loader input[data-spview]').forEach(c => { c.checked = false; }); updateSplunkButton(); },
     'compat-reset': () => { compatState.overrides = {}; saveCompat(); render(); },
     'fix-all': () => { M.issues.forEach((x, k) => { if (x.fix) FIX_SEL.add(k); }); render(); },
     'fix-none': () => { FIX_SEL.clear(); render(); },
