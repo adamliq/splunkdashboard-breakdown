@@ -174,6 +174,11 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .card.rec { margin-bottom: 10px; }
 .rec-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rec p { margin: 6px 0; }
+/* Share dialog */
+#share-dlg { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 16px 18px; width: min(640px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+#share-dlg::backdrop { background: rgba(0,0,0,.35); }
+#share-dlg h3 { margin: 0 0 6px; font-size: 16px; }
+#share-link { width: 100%; margin: 8px 0 2px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; word-break: break-all; resize: vertical; }
 /* Status message */
 #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2); z-index: 60; font-size: 13px; }
 /* Menus, notes, fixes, compare, config */
@@ -309,6 +314,8 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
         <div class="menu-list" id="export-menu" hidden>
           <button id="btn-export-pdf"><b>Full report (.pdf)</b></button>
           <button id="btn-export-md"><b>Full report (.md)</b></button>
+          <button id="btn-export-xlsx"><b>Excel workbook (.xlsx)</b></button>
+          <button id="btn-share">Share link…</button>
           <button id="btn-export-summary">Printable summary (.html)</button>
           <button id="btn-export-inv">Inventory (.csv)</button>
           <button id="btn-export-rel">Relationships (.csv)</button>
@@ -322,6 +329,15 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     <div id="view"></div>
   </section>
 </div>
+
+<dialog id="share-dlg" aria-labelledby="share-title">
+  <h3 id="share-title">Share this dashboard as a link</h3>
+  <p class="small">The link holds the whole dashboard definition, compressed, after the <code>#</code>. Opening it loads the dashboard in Studio Dashboard Inventory. That part of a link is never sent to a web server, but <b>anyone you give the link to can read the definition, including its searches</b>.</p>
+  <label id="share-config-row" class="small"><input type="checkbox" id="share-config"> Include the pasted Splunk config (macros, saved searches, data models)</label>
+  <textarea id="share-link" readonly rows="4" aria-label="Share link"></textarea>
+  <p class="small muted" id="share-info"></p>
+  <div class="loader-actions"><button class="btn primary" id="share-copy">Copy link</button><button class="btn" id="share-close">Close</button></div>
+</dialog>
 
 <aside id="drawer" aria-label="Item details" aria-hidden="true">
   <header>
@@ -577,7 +593,7 @@ function fromXml(text, name = '') {
   const child = n => [...root.children].find(c => c.nodeName.toLowerCase() === n);
   const defEl = child('definition') || doc.getElementsByTagName('definition')[0];
   if (!defEl) {
-    if (/^(dashboard|form)$/i.test(root.nodeName)) return convertClassic(root, name);
+    if (/^(dashboard|form)$/i.test(root.nodeName)) return { ...convertClassic(root, name), xmlText: text };
     throw new Error('No <definition> block was found in the XML.');
   }
   const repairs = [];
@@ -1280,9 +1296,10 @@ function buildModel(src) {
       } else if (/unsetToken/i.test(t)) {
         n.drilldowns.push({ type: t, text: 'Unsets ' + toks.map(x => '$' + x.token + '$').join(', ') });
       } else if (/linkToDashboard/i.test(t)) {
-        n.drilldowns.push({ type: t, text: `Opens dashboard ${ho.app ? ho.app + '/' : ''}${ho.dashboard || '?'}` + (toks.length ? ' passing ' + toks.map(x => x.token + '=' + fmt(x.value)).join(', ') : '') });
+        n.drilldowns.push({ type: t, text: `Opens dashboard ${ho.app ? ho.app + '/' : ''}${ho.dashboard || '?'}` + (toks.length ? ' passing ' + toks.map(x => x.token + '=' + fmt(x.value)).join(', ') : ''),
+          target: ho.dashboard ? { app: ho.app || '', dashboard: String(ho.dashboard), tokens: toks.filter(x => x?.token).map(x => ({ token: x.token, value: fmt(x.value) })) } : null });
       } else if (/linkToUrl|customUrl/i.test(t)) {
-        n.drilldowns.push({ type: t, text: 'Opens URL ' + fmt(ho.url) });
+        n.drilldowns.push({ type: t, text: 'Opens URL ' + fmt(ho.url), target: dashFromUrl(ho.url) });
       } else if (/linkToSearch/i.test(t)) {
         n.drilldowns.push({ type: t, text: 'Opens search' + (ho.query ? ': ' + ho.query : '') });
       } else if (/linkToReport/i.test(t)) {
@@ -1785,6 +1802,7 @@ function viewOverview() {
     ${(() => { const rc = recommendations(), hi = rc.filter(r => r.impact === 'High').length; return `<button class="stat" style="--kc: var(--accent)" data-view="recommendations"><div class="n">${rc.length}</div><div class="l">Recommendations</div><div class="s">${hi ? `<b>${hi} high impact</b> · ` : ''}optimisations and best practice</div></button>`; })()}
   </div>
   ${M.issues.length ? `<div class="section-title">Top issues</div>${issueTable(M.issues.slice(0, 8))}` : ''}
+  ${dashLinks(CUR_I).length ? `<div class="section-title">Opens other dashboards</div>${linksTable(dashLinks(CUR_I), false)}` : ''}
   <div class="section-title">Search lineage</div>
   <div class="card">${dsTree()}</div>`;
 }
@@ -2496,9 +2514,10 @@ function viewApp() {
     { h: 'Errors', f: x => { const n = sev(x.d.model, 'error'); return n ? badge(n, 'sev-error') : '0'; } },
     { h: 'Warnings', f: x => { const n = sev(x.d.model, 'warning'); return n ? badge(n, 'sev-warning') : '0'; } },
   ], DASH.map((d, i) => ({ d, i })))}
+  ${viewDashLinksSection()}
   <div class="section-title">Shared across dashboards</div>
   <p class="muted small" style="margin:0 0 6px">Indexes, sourcetypes, lookups, macros, data models and saved searches, with every dashboard that uses each. The most widely shared are listed first.</p>
-  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="app-csv">Download app inventory (.csv)</button></div>
+  <div class="loader-actions" style="margin-bottom:8px"><button class="btn small" id="app-csv">Download app inventory (.csv)</button><button class="btn small" id="app-xlsx">Download app workbook (.xlsx)</button></div>
   ${table([
     { h: 'Kind', f: r => badge(r.kind) },
     { h: 'Name', f: r => `<code>${esc(r.name)}</code>` },
@@ -3499,7 +3518,7 @@ function reportBlocks(format) {
   }
   for (const t of tabs) {
     h3(`${t.label} (${t.key}, ${t.layoutType || 'canvas'} layout)`);
-    if (format !== 'md' && (t.items || []).length) B.push({ t: 'img', svg: mockupSvg(t.id, true), caption: `Mockup of "${t.label}". Positions from the layout; charts are placeholders.` });
+    if ((format === 'pdf' || format === 'html') && (t.items || []).length) B.push({ t: 'img', svg: mockupSvg(t.id, true), caption: `Mockup of "${t.label}". Positions from the layout; charts are placeholders.` });
     tbl(['#', 'Item', 'Kind', 'Type', 'Position (x, y, w x h)', 'Data source lineage'], (t.items || []).map(i => {
       const n = M.nodes.get(i.id), ps = i.position;
       return [num(n.id), n.label, KINDS[n.kind].label, shortType(n.type), ps && ps.x !== undefined ? `${ps.x}, ${ps.y}, ${ps.w} x ${ps.h}` : '', n.kind === 'viz' ? lineage(n) : (n.token ? 'sets $' + n.token + '$' : '')];
@@ -3580,6 +3599,12 @@ function reportBlocks(format) {
   tbl(['#', 'Visualization', 'ID', 'Type', 'Placed on', 'Data source lineage', 'Reads from', 'Uses tokens', 'Sets tokens', 'Drilldown', 'Visibility'], M.byKind('viz').map(n => [
     num(n.id), n.label, n.key, shortType(n.type), L(tabsOf(n.id)), lineage(n), L(vizSources(n.id)), L(directTokens(n.id)),
     L(outs(n.id, ['drilldown-sets']).map(e => e.to)), n.drilldowns.map(d => d.text).join('; '), n.visibility || '']));
+
+  const outLinks = dashLinks(CUR_I);
+  if (outLinks.length) {
+    h2('Links to other dashboards');
+    tbl(['#', 'Panel', 'Opens', 'Loaded here', 'Passes tokens'], outLinks.map(l => [num(l.viz.id), l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'no', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')]));
+  }
 
   h2('Tokens');
   tbl(['#', 'Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(t => [
@@ -3840,6 +3865,269 @@ function toast(msg, ms = 6000) {
 }
 
 /* ============================================================
+   Shared helpers: load a library from jsDelivr once
+   ============================================================ */
+const scriptPromises = new Map();
+function loadScriptOnce(src, ready) {
+  if (ready()) return Promise.resolve();
+  if (!scriptPromises.has(src)) scriptPromises.set(src, new Promise((res, rej) => {
+    const s = document.createElement('script');
+    const timer = setTimeout(() => rej(new Error('timed out')), 20000);
+    s.src = src; s.async = true;
+    s.onload = () => { clearTimeout(timer); ready() ? res() : rej(new Error('the library did not initialise')); };
+    s.onerror = () => { clearTimeout(timer); rej(new Error('blocked or offline')); };
+    document.head.appendChild(s);
+  }).catch(e => { scriptPromises.delete(src); throw e; }));
+  return scriptPromises.get(src);
+}
+
+/* ============================================================
+   Drilldown links between dashboards
+   ============================================================ */
+const NOT_DASHBOARDS = new Set(['search', 'report', 'reports', 'alert', 'alerts', 'datasets', 'dashboards', 'data_model_editor', 'job_manager', 'pivot', 'analytics_workspace']);
+// "/app/<app>/<dashboard>?form.tok=$value$" → { app, dashboard, tokens }
+function dashFromUrl(url) {
+  const m = String(url || '').match(/\/app\/([^/?#\s"]+)\/([^/?#\s"]+)(\?[^#\s"]*)?/);
+  if (!m || NOT_DASHBOARDS.has(m[2].toLowerCase())) return null;
+  let tokens = [];
+  try { tokens = [...new URLSearchParams(m[3] || '').entries()].map(([k, v]) => ({ token: k.replace(/^form\./, ''), value: v })); } catch { /* keep none */ }
+  return { app: m[1], dashboard: m[2], tokens };
+}
+// Names a loaded dashboard could be linked by: its view name (REST entry or file name) and its title.
+function dashKeys(d) {
+  const stem = String(d.src.name || '').split(/[\\/]/).pop().replace(/\.(json|xml|txt)$/i, '').replace(/ #\d+$/, '');
+  return uniq([stem, slug(stem), slug(d.model.title), d.model.title].filter(Boolean).map(s => s.toLowerCase()));
+}
+function resolveDash(target) {
+  const t = String(target.dashboard || '').toLowerCase();
+  if (!t) return -1;
+  return DASH.findIndex(d => dashKeys(d).includes(t) || dashKeys(d).includes(slug(t)));
+}
+// Every "link to dashboard" drilldown in the loaded dashboards (or only in `onlyIndex`).
+function dashLinks(onlyIndex) {
+  const out = [];
+  DASH.forEach((d, i) => {
+    if (onlyIndex !== undefined && i !== onlyIndex) return;
+    for (const v of d.model.byKind('viz')) for (const dd of v.drilldowns || []) {
+      if (!dd.target) continue;
+      out.push({ from: i, viz: v, target: dd.target, kind: dd.type, to: resolveDash(dd.target) });
+    }
+  });
+  return out;
+}
+const targetLabel = t => `${t.app ? t.app + '/' : ''}${t.dashboard}`;
+function linksTable(links, showFrom) {
+  return table([
+    ...(showFrom ? [{ h: 'From dashboard', f: l => `<button class="chip k-tab" data-dash="${l.from}">${esc(DASH[l.from].model.title)}</button>` }] : []),
+    { h: 'Panel', f: l => l.from === CUR_I ? chip(l.viz.id) : esc(l.viz.label) },
+    { h: 'Opens', f: l => l.to >= 0 ? `<button class="chip k-tab" data-dash="${l.to}">${esc(DASH[l.to].model.title)}</button> <span class="muted small">${esc(targetLabel(l.target))}</span>` : `<code>${esc(targetLabel(l.target))}</code> <span class="badge sev-info">not loaded</span>` },
+    { h: 'Passes tokens', f: l => l.target.tokens.length ? l.target.tokens.map(t => `<code>${esc(t.token)}=${esc(t.value)}</code>`).join(' ') : '<span class="muted">—</span>' },
+    { h: 'Received as', f: l => {
+      if (l.to < 0 || !l.target.tokens.length) return '<span class="muted">—</span>';
+      const m = DASH[l.to].model;
+      return l.target.tokens.map(t => m.nodes.has('token:' + t.token) ? `<code>$${esc(t.token)}$</code> ✓` : `<code>$${esc(t.token)}$</code> <span class="badge sev-warning" title="The target dashboard never uses this token">unused there</span>`).join(' ');
+    } },
+  ], links);
+}
+// Columns by link depth; a dashboard links rightwards to the dashboards it opens.
+function dashMapSvg(links) {
+  const nodes = new Map(); // key → { key, label, sub, dash }
+  DASH.forEach((d, i) => nodes.set('d' + i, { key: 'd' + i, label: d.model.title, sub: plural(d.model.byKind('viz').length, 'panel'), dash: i }));
+  const edges = new Map();
+  for (const l of links) {
+    const to = l.to >= 0 ? 'd' + l.to : 'x:' + targetLabel(l.target).toLowerCase();
+    if (!nodes.has(to)) nodes.set(to, { key: to, label: l.target.dashboard, sub: (l.target.app ? l.target.app + ' · ' : '') + 'not loaded', dash: -1 });
+    const k = 'd' + l.from + '\u0001' + to;
+    edges.set(k, { from: 'd' + l.from, to, n: (edges.get(k)?.n || 0) + 1 });
+  }
+  const E = [...edges.values()];
+  const layer = new Map([...nodes.keys()].map(k => [k, 0]));
+  for (let it = 0; it < nodes.size; it++) for (const e of E) if (e.from !== e.to && layer.get(e.to) < layer.get(e.from) + 1 && layer.get(e.from) + 1 < nodes.size) layer.set(e.to, layer.get(e.from) + 1);
+  const cols = [];
+  for (const [k, l] of layer) (cols[l] ||= []).push(k);
+  const W = 210, H = 44, CW = 290, GAP = 16, PAD = 20;
+  const maxRows = Math.max(1, ...cols.map(c => c?.length || 0));
+  const P = new Map();
+  cols.forEach((c, ci) => (c || []).forEach((k, ri) => P.set(k, { x: PAD + ci * CW, y: PAD + 56 + ri * (H + GAP) + ((maxRows - c.length) * (H + GAP)) / 2 })));
+  const width = PAD * 2 + (cols.length - 1) * CW + W, height = PAD * 2 + 112 + maxRows * (H + GAP); // room for arcs above and below
+  const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
+  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Map of drilldown links between dashboards"><defs><marker id="ar-dl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-data" d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+  for (const e of E) {
+    const a = P.get(e.from), b = P.get(e.to);
+    let d;
+    if (e.from === e.to) d = `M${a.x + W - 30},${a.y} C${a.x + W - 30},${a.y - 26} ${a.x + W + 20},${a.y - 26} ${a.x + W},${a.y + 10}`;
+    // Forward links leave from the upper part of a box and back links from the lower part, so a pair of
+    // dashboards that open each other shows two separate arrows. Links that skip a column arc over the boxes between.
+    else if (b.x > a.x) {
+      const x1 = a.x + W, y1 = a.y + H * 0.35, x2 = b.x - 2, y2 = b.y + H * 0.35, dx = (x2 - x1) / 2;
+      d = b.x - a.x > CW + 1 ? `M${x1},${y1} C${x1 + 70},${y1 - H - 20} ${x2 - 70},${y2 - H - 20} ${x2},${y2}` : `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    } else {
+      const x1 = a.x, y1 = a.y + H * 0.7, x2 = b.x + W + 2, y2 = b.y + H * 0.7, dx = Math.max(50, (x1 - x2) / 2);
+      d = `M${x1},${y1} C${x1 - dx},${y1 + H} ${x2 + dx},${y2 + H} ${x2},${y2}`;
+    }
+    svg += `<path class="gedge data${b.x <= a.x && e.from !== e.to ? ' back' : ''}" d="${d}" marker-end="url(#ar-dl)"><title>${esc(nodes.get(e.from).label + ' opens ' + nodes.get(e.to).label + ' (' + plural(e.n, 'link') + ')')}</title></path>`;
+    if (e.n > 1 && e.from !== e.to) svg += `<text class="colhead" x="${((a.x + W + b.x) / 2).toFixed(0)}" y="${((a.y + b.y) / 2 + H / 2 - 4).toFixed(0)}">×${e.n}</text>`;
+  }
+  for (const [k, nd] of nodes) {
+    const p = P.get(k);
+    svg += `<g class="gnode k-tab${nd.dash < 0 ? ' undef' : ''}" transform="translate(${p.x},${p.y})" ${nd.dash >= 0 ? `data-dash="${nd.dash}"` : ''} tabindex="0"><title>${esc(nd.label)}</title><rect class="box" width="${W}" height="${H}" rx="6"/><rect class="bar" width="4" height="${H}" rx="2"/><text x="12" y="17">${esc(trunc(nd.label, 30))}</text><text class="sub" x="12" y="32">${esc(trunc(nd.sub, 34))}</text></g>`;
+  }
+  return svg + '</svg>';
+}
+function viewDashLinksSection() {
+  const links = dashLinks();
+  const linked = new Set(links.flatMap(l => [l.from, l.to]).filter(i => i >= 0));
+  return `<div class="section-title">Drilldowns between dashboards</div>
+  <p class="muted small" style="margin:0 0 6px">Which dashboards open which, through "link to dashboard" drilldowns and links to <code>/app/&lt;app&gt;/&lt;dashboard&gt;</code>. Targets are matched to loaded dashboards by view name (the file or REST name) or title. Click a loaded dashboard to open it.</p>
+  ${links.length ? `<div class="graph-wrap" style="max-height:420px;margin-bottom:10px">${dashMapSvg(links)}</div>${linksTable(links, true)}
+    ${DASH.length - linked.size > 0 ? `<p class="muted small">${plural(DASH.length - linked.size, 'loaded dashboard')} neither link${DASH.length - linked.size === 1 ? 's' : ''} to nor ${DASH.length - linked.size === 1 ? 'is' : 'are'} linked from another: ${esc(DASH.filter((d, i) => !linked.has(i)).map(d => d.model.title).join(', '))}.</p>` : ''}`
+    : '<p class="muted">No drilldown in the loaded dashboards opens another dashboard.</p>'}`;
+}
+
+/* ============================================================
+   Shareable links
+   ============================================================ */
+const PAGES_URL = 'https://adamliq.github.io/splunkdashboard-breakdown/';
+// Inside the claude.ai viewer or a local file the address can't be shared, so links point at the public site.
+function shareBase() {
+  try { if (/^https?:$/.test(location.protocol) && window.top === window && !window.claude) return location.origin + location.pathname; } catch { /* cross-origin frame */ }
+  return PAGES_URL;
+}
+const toB64url = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const fromB64url = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/')); const out = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i); return out; };
+async function deflateText(str) {
+  const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return toB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+async function inflateText(b64) {
+  const stream = new Blob([fromB64url(b64)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Response(stream).text();
+}
+function shareSource() {
+  const s = M.src;
+  return s.classic && s.xmlText ? s.xmlText : JSON.stringify(stripInternal(structuredClone(s.def)));
+}
+async function buildShareLink(withConfig) {
+  const payload = { v: 1, n: M.src.name || '', s: shareSource() };
+  if (withConfig && hasConfig()) payload.c = { conf: CONFIG.conf, dm: CONFIG.dm };
+  return shareBase() + '#d=' + await deflateText(JSON.stringify(payload));
+}
+async function openShareDialog() {
+  const dlg = $('#share-dlg');
+  if (typeof CompressionStream === 'undefined') { toast('This browser can\'t make share links (it has no CompressionStream). Use a current Chrome, Edge, Firefox or Safari.', 8000); return; }
+  $('#share-config-row').hidden = !hasConfig();
+  dlg.showModal();
+  await refreshShareLink();
+}
+async function refreshShareLink() {
+  const out = $('#share-link'), info = $('#share-info');
+  out.value = 'Building the link…';
+  try {
+    const link = await buildShareLink($('#share-config').checked);
+    out.value = link;
+    const warn = link.length > 30000 ? ' This is a very long link: some chat and email apps cut long links off, so test it before relying on it.' : link.length > 8000 ? ' Some apps shorten or cut long links; if it doesn\'t open, send the file instead.' : '';
+    info.textContent = `${link.length.toLocaleString()} characters.${warn}`;
+  } catch (e) { out.value = ''; info.textContent = 'The link could not be built: ' + e.message; }
+}
+async function copyShareLink() {
+  const out = $('#share-link');
+  try { await navigator.clipboard.writeText(out.value); toast('Link copied.', 3000); }
+  catch { out.focus(); out.select(); toast('Copying was blocked here. The link is selected: press Ctrl+C (or ⌘C) to copy it.', 6000); }
+}
+// Open a dashboard from a share link (#d=…) when the page loads or the fragment changes.
+async function loadFromHash() {
+  const m = location.hash.match(/[#&]d=([A-Za-z0-9_-]+)/);
+  if (!m) return false;
+  try {
+    if (typeof DecompressionStream === 'undefined') throw new Error('this browser can\'t read share links; use a current Chrome, Edge, Firefox or Safari');
+    let payload;
+    try { payload = JSON.parse(await inflateText(m[1])); } catch { throw new Error('the link is damaged or incomplete'); }
+    if (!payload || typeof payload.s !== 'string') throw new Error('the link holds no dashboard');
+    if (payload.c) { $('#ldr-conf').value = payload.c.conf || ''; $('#ldr-dm').value = payload.c.dm || ''; }
+    applyConfig(payload.c?.conf || '', payload.c?.dm || '');
+    $('#source').value = payload.s;
+    loadDashboards([{ name: payload.n || 'shared link', text: payload.s }]);
+    if (!$('#app').hidden) toast('Opened from a shared link.', 4000);
+    return true;
+  } catch (e) {
+    const err = $('#load-error');
+    err.textContent = 'This shared link could not be opened: ' + e.message + '. It may have been cut short when it was copied; ask for the link again, or for the dashboard file.';
+    err.hidden = false;
+    return false;
+  }
+}
+
+/* ============================================================
+   Excel workbook
+   ============================================================ */
+const XLSX_LIB = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+function sheetFrom(X, head, rows) {
+  const clip = v => { const s = String(v ?? ''); return s.length > 32000 ? s.slice(0, 31990) + ' …(cut)' : s; };
+  const aoa = [head, ...rows.map(r => r.map((c, i) => {
+    const s = clip(c);
+    if (head[i] === '#' && /^#\d+$/.test(s)) return +s.slice(1);
+    if (/^-?\d+(\.\d+)?$/.test(s) && s.length < 15 && !/^0\d/.test(s)) return +s;
+    return s;
+  }))];
+  const ws = X.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = head.map((h, i) => ({ wch: Math.min(60, Math.max(String(h).length + 2, ...aoa.slice(1, 200).map(r => String(r[i] ?? '').split('\n')[0].length + 1))) }));
+  if (rows.length) ws['!autofilter'] = { ref: ws['!ref'] };
+  return ws;
+}
+function addSheet(X, wb, name, ws, used) {
+  let base = String(name).replace(/[\[\]:*?/\\]/g, ' ').replace(/^\d+\.\s*/, '').trim().slice(0, 28) || 'Sheet';
+  let n = base, k = 2;
+  while (used.has(n.toLowerCase())) n = `${base.slice(0, 26)} ${k++}`;
+  used.add(n.toLowerCase());
+  X.utils.book_append_sheet(wb, ws, n);
+}
+function workbookForDashboard(X) {
+  const wb = X.utils.book_new(), used = new Set();
+  wb.Props = { Title: M.title + ' - dashboard inventory', Subject: 'Splunk dashboard inventory', Author: 'Studio Dashboard Inventory' };
+  let h2 = 'About', h3 = '';
+  for (const b of reportBlocks('xlsx')) {
+    if (b.t === 'h2') { h2 = b.text.replace(/^\d+\.\s*/, ''); h3 = ''; }
+    else if (b.t === 'h3') h3 = b.text.replace(/\s*\(.*$/, '');
+    else if (b.t === 'table' && b.rows.length) addSheet(X, wb, h3 && h2 !== 'Layout' ? h3 : h2 === 'Layout' && h3 ? 'Layout ' + h3 : h2, sheetFrom(X, b.head, b.rows), used);
+  }
+  const ds = M.byKind('ds');
+  addSheet(X, wb, 'SPL', sheetFrom(X, ['#', 'Data source', 'ID', 'Type', 'Query', 'Effective SPL (base and chain)', 'Expanded SPL'],
+    ds.map(n => ['#' + invNo(n.id), n.label, n.key, dsTypeLabel(n.type), n.type === 'ds.savedSearch' ? `| savedsearch "${n.ref}"` : n.query, n.depth > 0 ? n.effectiveQuery : '', n.expandedQuery || ''])), used);
+  return wb;
+}
+function workbookForApp(X) {
+  const wb = X.utils.book_new(), used = new Set();
+  wb.Props = { Title: 'App inventory', Author: 'Studio Dashboard Inventory' };
+  const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
+  addSheet(X, wb, 'Dashboards', sheetFrom(X, ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations'],
+    DASH.map(d => { const m = d.model; const prev = M; M = m; const recs = recommendations().length; M = prev; return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs]; })), used);
+  const shared = sharedItems();
+  addSheet(X, wb, 'Shared items', sheetFrom(X, ['Kind', 'Name', 'Dashboards', 'Used by'], shared.map(r => [r.kind, r.name, r.uses.size, [...r.uses].map(([i, d]) => DASH[i].model.title + (d.size ? ` (${[...d].join(', ')})` : '')).join('; ')])), used);
+  addSheet(X, wb, 'Shared by dashboard', sheetFrom(X, ['Dashboard', 'Kind', 'Name', 'Detail'], shared.flatMap(r => [...r.uses].map(([i, d]) => [DASH[i].model.title, r.kind, r.name, [...d].join('; ')]))), used);
+  addSheet(X, wb, 'Dashboard links', sheetFrom(X, ['From dashboard', 'Panel', 'Opens', 'Loaded', 'Passes tokens'], dashLinks().map(l => [DASH[l.from].model.title, l.viz.label, targetLabel(l.target), l.to >= 0 ? DASH[l.to].model.title : 'not loaded', l.target.tokens.map(t => `${t.token}=${t.value}`).join(', ')])), used);
+  return wb;
+}
+let xlsxBusy = false;
+async function exportXlsx(app = false) {
+  if (xlsxBusy) return;
+  xlsxBusy = true;
+  toast('Building the Excel workbook…', 0);
+  try {
+    try { await loadScriptOnce(XLSX_LIB, () => !!window.XLSX?.utils); }
+    catch (e) {
+      toast(`The spreadsheet library couldn't be loaded (${e.message}). Use Export → Inventory (.csv), which opens in Excel too.`, 10000);
+      return;
+    }
+    const X = window.XLSX;
+    const wb = app ? workbookForApp(X) : workbookForDashboard(X);
+    const data = X.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
+    await download((app ? 'app' : slug(M.title)) + '-inventory.xlsx', new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    toast('');
+  } catch (e) { console.error(e); toast('The workbook could not be built: ' + e.message, 10000); }
+  finally { xlsxBusy = false; }
+}
+
+/* ============================================================
    Loading and wiring
    ============================================================ */
 let DASH = [];        // every loaded dashboard: [{ src, model }]
@@ -3946,6 +4234,13 @@ $('#btn-export-json').onclick = exportJson;
 $('#btn-export-def').onclick = downloadDefinition;
 $('#btn-export-svg').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'); };
 $('#btn-export-png').onclick = () => { if (!mockState.tab) mockState.tab = mockTabs()[0]?.id; exportMockupPng(); };
+$('#btn-export-xlsx').onclick = () => exportXlsx(false);
+$('#btn-share').onclick = openShareDialog;
+$('#share-config').onchange = refreshShareLink;
+$('#share-copy').onclick = copyShareLink;
+$('#share-close').onclick = () => $('#share-dlg').close();
+window.addEventListener('hashchange', loadFromHash);
+loadFromHash();
 
 $('#drawer-close').onclick = closeDrawer;
 $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
@@ -3976,6 +4271,7 @@ document.addEventListener('click', e => {
     'fix-download': downloadDefinition,
     'fix-load': loadFixed,
     'app-csv': exportAppCsv,
+    'app-xlsx': () => exportXlsx(true),
     'inv-csv': exportInventory,
     'cmp-run': () => startCompare($('#cmp-source').value, 'version B'),
     'cmp-clear': () => { COMPARE = null; render(); },
