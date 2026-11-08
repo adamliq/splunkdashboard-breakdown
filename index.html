@@ -174,6 +174,33 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .card.rec { margin-bottom: 10px; }
 .rec-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rec p { margin: 6px 0; }
+/* Relationship map: segmented buttons, tab groups, focus item */
+.graph-controls label { max-width: 100%; }
+.graph-controls select { max-width: min(360px, 62vw); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 5px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent); font-weight: 600; }
+.ggroup rect { fill: color-mix(in srgb, var(--k-tab) 6%, transparent); stroke: color-mix(in srgb, var(--k-tab) 45%, transparent); stroke-dasharray: 4 3; }
+.ggroup text { fill: var(--k-tab); font-size: 11.5px; font-weight: 600; }
+.ggroup { cursor: pointer; }
+.gnode.center rect.box { stroke: var(--kc); stroke-width: 2.5; fill: color-mix(in srgb, var(--kc) 10%, var(--panel)); }
+/* Token matrix */
+.matrix table { width: auto; }
+.matrix th, .matrix td { padding: 4px 6px; }
+.matrix tbody th { position: sticky; left: 0; background: var(--panel); z-index: 1; white-space: nowrap; }
+.matrix .mat-group { text-align: center; font-size: 11.5px; color: var(--muted); border-left: 1px solid var(--border); }
+.matrix .mat-col { vertical-align: bottom; padding: 4px 2px; cursor: default; }
+.mat-head { border: 0; background: none; padding: 0; cursor: pointer; color: var(--text); writing-mode: vertical-rl; transform: rotate(180deg); max-height: 160px; font-size: 12px; text-align: left; }
+.mat-head:hover { color: var(--accent); }
+.matrix td.mat-cell { text-align: center; padding: 0; min-width: 26px; border-left: 1px solid var(--border); }
+.matrix td.mat-cell button { border: 0; background: none; cursor: pointer; width: 100%; padding: 4px 2px; font-size: 14px; line-height: 1; }
+.matrix tbody tr:hover td, .matrix tbody tr:hover th { background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.mat-direct { color: var(--k-token); } .mat-search { color: var(--k-ds); } .mat-condition { color: var(--k-condition); } .mat-sets { color: var(--k-viz); }
+/* Sankey */
+.sankey-wrap { padding: 8px; }
+.sk-node { cursor: pointer; }
+.sk-node:hover rect { opacity: .8; }
 /* Share dialog */
 #share-dlg { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); padding: 16px 18px; width: min(640px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
 #share-dlg::backdrop { background: rgba(0,0,0,.35); }
@@ -1659,7 +1686,8 @@ function tokensAffecting(id) {
    ============================================================ */
 let M = null;
 let view = 'overview';
-const graphState = { focus: '', tokens: true, sources: true, commands: false, selected: null };
+// mode: 'focus' (one item and its lineage) or 'all'; layout: 'columns' or 'elk'
+const graphState = { mode: 'focus', center: null, depth: 3, layout: 'columns', focus: '', tokens: true, sources: true, commands: false, selected: null };
 
 function chip(id, detail) {
   const n = M.nodes.get(id);
@@ -1723,6 +1751,8 @@ const VIEWS = [
   { id: 'conditions', label: 'Visibility conditions', kind: 'condition', hideEmpty: true },
   { sep: 'Relationships' },
   { id: 'graph', label: 'Relationship map' },
+  { id: 'tokenmatrix', label: 'Token matrix', count: () => M.byKind('token').length || '' },
+  { id: 'dataflow', label: 'Data flow (Sankey)' },
   { id: 'relationships', label: 'Relationship list' },
   { sep: 'Checks and tools' },
   { id: 'issues', label: 'Issues' },
@@ -1758,7 +1788,7 @@ function render() {
     overview: viewOverview, mockup: viewMockup, tabs: viewTabs, inputs: viewInputs, datasources: viewDataSources,
     visualizations: viewVisualizations, tokens: viewTokens, conditions: viewConditions, sources: viewSources, lookups: viewLookups, datamodels: viewDatamodels, macros: viewMacros, commands: viewCommands,
     graph: () => '', relationships: viewRelationships, issues: viewIssues,
-    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations
+    app: viewApp, compare: viewCompare, config: viewConfig, inventory: viewInventory, recommendations: viewRecommendations, tokenmatrix: viewTokenMatrix, dataflow: viewDataFlow
   })[view]();
   if (view === 'graph') renderGraph(root);
   applyFilter();
@@ -3034,47 +3064,108 @@ function issueTable(list) {
 /* ============================================================
    Relationship map (SVG)
    ============================================================ */
+const ELK_LIB = 'https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js';
+const GW = 196, GH = 36; // node box size on the map
+const graphSub = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
+  : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model'
+  : n.kind === 'macro' ? 'macro' : n.kind === 'command' ? 'command · ' + n.category.toLowerCase() : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
+const gtrunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
+const isHiddenKind = id => (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) || (!graphState.sources && /^(index|sourcetype|lookup|datamodel|macro):/.test(id)) || (!graphState.commands && id.startsWith('command:'));
+// Start on the first placed panel that has a data source: it has the most lineage to show.
+function defaultCenter() {
+  const viz = M.byKind('viz');
+  return (viz.find(v => outs(v.id, ['contains']).length && ins(v.id, ['feeds']).length) || viz.find(v => ins(v.id, ['feeds']).length) || viz[0] || invItems()[0])?.id || null;
+}
+// The item, plus everything up to `depth` steps upstream and downstream of it.
+function focusSet(center, depth) {
+  const ids = new Set([center]);
+  for (const up of [true, false]) {
+    let frontier = [center];
+    const seen = new Set([center]);
+    for (let d = 0; d < depth && frontier.length; d++) {
+      const next = [];
+      for (const id of frontier) for (const e of (up ? M.inE : M.outE).get(id) || []) {
+        const x = up ? e.from : e.to;
+        if (x.startsWith('dashboard:') || seen.has(x)) continue;
+        seen.add(x);
+        if (!isHiddenKind(x)) ids.add(x);
+        next.push(x); // hidden kinds are walked through, so lineage beyond them still shows
+      }
+      frontier = next;
+    }
+  }
+  return ids;
+}
+function graphIds() {
+  let ids;
+  if (graphState.mode === 'focus') {
+    if (!graphState.center || !M.nodes.has(graphState.center)) graphState.center = defaultCenter();
+    if (!graphState.center) return new Set();
+    ids = focusSet(graphState.center, graphState.depth === 'all' ? 99 : +graphState.depth);
+  } else {
+    ids = new Set(M.nodes.keys());
+    if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
+    for (const id of [...ids]) if (isHiddenKind(id)) ids.delete(id);
+  }
+  return ids;
+}
+
 function renderGraph(root) {
   const tabs = M.byKind('tab').sort((a, b) => a.order - b.order);
+  const focus = graphState.mode === 'focus';
+  if (focus && (!graphState.center || !M.nodes.has(graphState.center))) graphState.center = defaultCenter();
+  const items = invItems();
+  const centerOptions = INV_ORDER.filter(k => M.byKind(k).length).map(k => `<optgroup label="${esc(KINDS[k].plural)}">${M.byKind(k).map(n => `<option value="${esc(n.id)}" ${graphState.center === n.id ? 'selected' : ''}>#${invNo(n.id)} ${esc(n.kind === 'token' ? n.label : n.label)}</option>`).join('')}</optgroup>`).join('');
   root.innerHTML = `<div class="graph-controls">
-    <label>Focus <select id="g-focus"><option value="">Whole dashboard</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>
-    <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Show inputs, tokens and conditions</label>
-    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Show indexes, sourcetypes, lookups, data models and macros</label>
-    <label><input type="checkbox" id="g-commands" ${graphState.commands ? 'checked' : ''}> Show SPL commands</label>
+    <div class="seg" role="group" aria-label="What to show">
+      <button data-gmode="focus" aria-pressed="${focus}">Focus on one item</button><button data-gmode="all" aria-pressed="${!focus}">Whole dashboard</button>
+    </div>
+    ${focus ? `<label>Item <select id="g-center">${centerOptions}</select></label>
+      <label>Steps each way <select id="g-depth">${['1', '2', '3', '4', 'all'].map(d => `<option value="${d}" ${String(graphState.depth) === d ? 'selected' : ''}>${d === 'all' ? 'All' : d}</option>`).join('')}</select></label>`
+      : `<label>Tab <select id="g-focus"><option value="">All tabs</option>${tabs.map(t => `<option value="${esc(t.id)}" ${graphState.focus === t.id ? 'selected' : ''}>${esc(t.label)} (and everything feeding it)</option>`).join('')}</select></label>`}
+    <label>Layout <select id="g-layout"><option value="columns" ${graphState.layout === 'columns' ? 'selected' : ''}>Columns</option><option value="elk" ${graphState.layout === 'elk' ? 'selected' : ''}>Layered, grouped by tab (ELK)</option></select></label>
+  </div>
+  <div class="graph-controls">
+    <label><input type="checkbox" id="g-tokens" ${graphState.tokens ? 'checked' : ''}> Inputs, tokens and conditions</label>
+    <label><input type="checkbox" id="g-sources" ${graphState.sources ? 'checked' : ''}> Indexes, sourcetypes, lookups, data models and macros</label>
+    <label><input type="checkbox" id="g-commands" ${graphState.commands ? 'checked' : ''}> SPL commands</label>
     <span class="legend"><span><i style="border-color:var(--e-data)"></i>data</span><span><i style="border-color:var(--e-token)"></i>token</span><span><i style="border-color:var(--e-vis)"></i>visibility</span><span><i style="border-color:var(--e-layout)"></i>layout</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>flows back</span></span>
   </div>
-  <p class="muted small" style="margin:0 0 8px">Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.</p>
+  <p class="muted small" style="margin:0 0 8px">${focus
+    ? `Showing <b>${esc(M.nodes.get(graphState.center)?.label || '—')}</b> and what it depends on and what depends on it, ${graphState.depth === 'all' ? 'all the way' : plural(+graphState.depth, 'step') + ' each way'}. Click any item to move the focus to it; its details open on the right.`
+    : 'Every item in the dashboard. Click an item to highlight everything upstream and downstream of it and to open its details. Click empty space to clear.'}
+    ${items.length ? '' : ''}</p>
   <div class="graph-wrap" id="g-wrap"></div>`;
-  $('#g-focus').onchange = e => { graphState.focus = e.target.value; graphState.selected = null; drawGraph(); };
-  $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; graphState.selected = null; drawGraph(); };
-  $('#g-sources').onchange = e => { graphState.sources = e.target.checked; graphState.selected = null; drawGraph(); };
-  $('#g-commands').onchange = e => { graphState.commands = e.target.checked; graphState.selected = null; drawGraph(); };
+  const redraw = () => { graphState.selected = graphState.mode === 'focus' ? graphState.center : null; drawGraph(); };
+  root.querySelectorAll('[data-gmode]').forEach(b => b.onclick = () => { graphState.mode = b.dataset.gmode; graphState.selected = null; render(); });
+  if (focus) {
+    $('#g-center').onchange = e => { graphState.center = e.target.value; render(); };
+    $('#g-depth').onchange = e => { graphState.depth = e.target.value; render(); };
+  } else $('#g-focus').onchange = e => { graphState.focus = e.target.value; redraw(); };
+  $('#g-layout').onchange = e => { graphState.layout = e.target.value; redraw(); };
+  $('#g-tokens').onchange = e => { graphState.tokens = e.target.checked; redraw(); };
+  $('#g-sources').onchange = e => { graphState.sources = e.target.checked; redraw(); };
+  $('#g-commands').onchange = e => { graphState.commands = e.target.checked; redraw(); };
+  if (focus) graphState.selected = graphState.center;
   drawGraph();
 }
 
-function drawGraph() {
-  let ids = new Set(M.nodes.keys());
-  if (graphState.focus) { ids = closure(graphState.focus, 'up'); ids.add(graphState.focus); }
-  if (!graphState.tokens) for (const id of [...ids]) if (/^(token|input|defaults|condition):/.test(id)) ids.delete(id);
-  if (!graphState.sources) for (const id of [...ids]) if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) ids.delete(id);
-  if (!graphState.commands) for (const id of [...ids]) if (id.startsWith('command:')) ids.delete(id);
+/* Columns layout: one column per kind of item, ordered to reduce crossings. */
+function layoutColumns(ids, vEdges) {
   const D = M.maxDepth;
   const colOf = n => ({ input: 0, defaults: 0, token: 1, condition: 2, index: 3, sourcetype: 3, lookup: 3, datamodel: 3, macro: 3, command: 3, ds: 4 + (n.depth || 0), viz: 5 + D, tab: 6 + D, dashboard: 7 + D })[n.kind];
   const colName = c => c === 0 ? 'Inputs & defaults' : c === 1 ? 'Tokens' : c === 2 ? 'Conditions' : c === 3 ? 'Sources, macros & commands' : c === 4 ? 'Searches' : c < 5 + D ? `Chain level ${c - 4}` : c === 5 + D ? 'Visualizations' : c === 6 + D ? 'Tabs' : 'Dashboard';
-
   const byCol = new Map();
   for (const id of ids) { const c = colOf(M.nodes.get(id)); if (!byCol.has(c)) byCol.set(c, []); byCol.get(c).push(id); }
   const colKeys = [...byCol.keys()].sort((a, b) => a - b);
   const cols = colKeys.map(k => byCol.get(k));
   const colIndex = new Map();
   cols.forEach((col, ci) => col.forEach(id => colIndex.set(id, ci)));
-  const vEdges = M.edges.filter(e => ids.has(e.from) && ids.has(e.to));
   const nbrs = new Map();
   for (const e of vEdges) {
     if (!nbrs.has(e.from)) nbrs.set(e.from, []); if (!nbrs.has(e.to)) nbrs.set(e.to, []);
     nbrs.get(e.from).push(e.to); nbrs.get(e.to).push(e.from);
   }
-  // Order each column by barycentre of its neighbours to reduce crossings.
   const kindOrder = { input: 0, defaults: 1, index: 0, sourcetype: 1, lookup: 2, datamodel: 3, macro: 4, command: 5 };
   cols.forEach(col => col.sort((a, b) => (kindOrder[M.nodes.get(a).kind] ?? 0) - (kindOrder[M.nodes.get(b).kind] ?? 0)));
   const pos = new Map();
@@ -3092,66 +3183,312 @@ function drawGraph() {
       setPos(col);
     }
   }
-
-  const W = 196, H = 36, GAP = 10, COLW = 270, PADX = 24, TOP = 40;
+  const GAP = 10, COLW = 270, PADX = 24, TOP = 40;
   const maxRows = Math.max(1, ...cols.map(c => c.length));
-  const height = TOP + maxRows * (H + GAP) + 20;
-  const width = PADX * 2 + (cols.length - 1) * COLW + W;
   const P = new Map();
   cols.forEach((col, ci) => {
-    const off = ((maxRows - col.length) * (H + GAP)) / 2;
-    col.forEach((id, i) => P.set(id, { x: PADX + ci * COLW, y: TOP + off + i * (H + GAP) }));
+    const off = ((maxRows - col.length) * (GH + GAP)) / 2;
+    col.forEach((id, i) => P.set(id, { x: PADX + ci * COLW, y: TOP + off + i * (GH + GAP) }));
   });
-  const trunc = (s, n) => (s = String(s)).length > n ? s.slice(0, n - 1) + '…' : s;
-  const subOf = n => n.kind === 'ds' ? dsTypeLabel(n.type) : n.kind === 'viz' ? shortType(n.type) : n.kind === 'input' ? shortType(n.type) + (n.token ? ' → $' + n.token + '$' : '')
-    : n.kind === 'token' ? n.status : n.kind === 'index' ? 'index' : n.kind === 'sourcetype' ? 'sourcetype' : n.kind === 'lookup' ? 'lookup · ' + n.accessLabel : n.kind === 'datamodel' ? 'data model' : n.kind === 'macro' ? 'macro' : n.kind === 'command' ? 'command · ' + n.category.toLowerCase() : n.kind === 'tab' ? (n.layoutType || 'tab') : n.kind === 'condition' ? 'condition' : n.kind === 'defaults' ? 'defaults' : 'dashboard';
-
-  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="img" aria-label="Relationship map">
-  <defs>${['data', 'token', 'layout', 'vis', 'spl'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
-  cols.forEach((col, ci) => { svg += `<text class="colhead" x="${PADX + ci * COLW}" y="22">${esc(colName(colKeys[ci]))} (${col.length})</text>`; });
+  const paths = new Map();
   for (const e of vEdges) {
     const a = P.get(e.from), b = P.get(e.to);
-    const g = REL[e.rel].group;
-    let d, back = false;
     if (b.x > a.x) {
-      const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2, dx = (x2 - x1) / 2;
-      d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+      const x1 = a.x + GW, y1 = a.y + GH / 2, x2 = b.x - 2, y2 = b.y + GH / 2, dx = (x2 - x1) / 2;
+      paths.set(e, { d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`, back: false });
     } else {
-      back = true;
-      const x1 = a.x, y1 = a.y + H / 2, x2 = b.x + W + 2, y2 = b.y + H / 2, dx = Math.max(50, (x1 - x2) / 2);
-      d = `M${x1},${y1} C${x1 - dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`;
+      const x1 = a.x, y1 = a.y + GH / 2, x2 = b.x + GW + 2, y2 = b.y + GH / 2, dx = Math.max(50, (x1 - x2) / 2);
+      paths.set(e, { d: `M${x1},${y1} C${x1 - dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`, back: true });
     }
-    svg += `<path class="gedge ${g}${back ? ' back' : ''}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${d}" marker-end="url(#ar-${g})"><title>${esc(M.nodes.get(e.from).label + ' → ' + REL[e.rel].fwd + ' → ' + M.nodes.get(e.to).label + (e.detail ? ' (' + e.detail + ')' : ''))}</title></path>`;
+  }
+  return {
+    P, paths, groups: [], headers: cols.map((col, ci) => ({ x: PADX + ci * COLW, y: 22, text: `${colName(colKeys[ci])} (${col.length})` })),
+    width: PADX * 2 + (cols.length - 1) * COLW + GW, height: TOP + maxRows * (GH + GAP) + 20,
+  };
+}
+
+/* ELK layered layout: right-angle edges, items grouped inside their tab. */
+async function layoutElk(ids, vEdges) {
+  await loadScriptOnce(ELK_LIB, () => typeof window.ELK === 'function');
+  const elk = new window.ELK();
+  // Each visible tab becomes a box holding the panels and inputs placed on it.
+  const parentOf = new Map();
+  for (const id of ids) {
+    const n = M.nodes.get(id);
+    if (n.kind !== 'viz' && n.kind !== 'input') continue;
+    const tab = tabsOf(id).find(t => ids.has(t) && t.startsWith('tab:'));
+    if (tab) parentOf.set(id, tab);
+  }
+  const leaf = id => ({ id, width: GW, height: GH });
+  const children = [];
+  for (const id of ids) {
+    const n = M.nodes.get(id);
+    if (n.kind === 'dashboard' || parentOf.has(id)) continue;
+    if (n.kind === 'tab') {
+      const kids = [...ids].filter(x => parentOf.get(x) === id).map(leaf);
+      children.push(kids.length ? { id, layoutOptions: { 'elk.padding': '[top=34,left=12,bottom=12,right=12]' }, children: kids } : leaf(id));
+    } else children.push(leaf(id));
+  }
+  const present = new Set(children.flatMap(c => [c.id, ...(c.children || []).map(k => k.id)]));
+  const edges = vEdges.filter(e => present.has(e.from) && present.has(e.to) && !(e.rel === 'contains' && parentOf.get(e.from) === e.to))
+    .map((e, i) => ({ id: 'e' + i, sources: [e.from], targets: [e.to], _e: e }));
+  const graph = await elk.layout({
+    id: '__root',
+    layoutOptions: {
+      'elk.algorithm': 'layered', 'elk.direction': 'RIGHT', 'elk.edgeRouting': 'ORTHOGONAL', 'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '56', 'elk.spacing.nodeNode': '14', 'elk.spacing.edgeEdge': '6', 'elk.spacing.edgeNode': '10',
+      'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP', 'elk.padding': '[top=20,left=20,bottom=20,right=20]',
+    },
+    children, edges: edges.map(({ _e, ...rest }) => rest),
+  });
+  // Shapes come back relative to their parent, and each edge relative to its "container" node.
+  const abs = new Map([['__root', { x: 0, y: 0 }]]);
+  const P = new Map(), groups = [];
+  const walk = (node, ox, oy) => {
+    for (const c of node.children || []) {
+      const x = ox + c.x, y = oy + c.y;
+      abs.set(c.id, { x, y });
+      if (c.children?.length) { groups.push({ id: c.id, x, y, w: c.width, h: c.height }); walk(c, x, y); }
+      else P.set(c.id, { x, y });
+    }
+  };
+  walk(graph, 0, 0);
+  const byId = new Map(edges.map(e => [e.id, e._e]));
+  const paths = new Map();
+  const collect = node => {
+    for (const ed of node.edges || []) {
+      const off = abs.get(ed.container || node.id) || { x: 0, y: 0 };
+      const s = ed.sections?.[0];
+      if (!s) continue;
+      const pts = [s.startPoint, ...(s.bendPoints || []), s.endPoint].map(p => `${(p.x + off.x).toFixed(1)},${(p.y + off.y).toFixed(1)}`);
+      paths.set(byId.get(ed.id), { d: 'M' + pts.join(' L'), back: s.endPoint.x < s.startPoint.x });
+    }
+    for (const c of node.children || []) collect(c);
+  };
+  collect(graph);
+  return { P, paths, groups, headers: [], width: graph.width, height: graph.height };
+}
+
+async function drawGraph() {
+  const wrap = $('#g-wrap');
+  if (!wrap) return;
+  const ids = graphIds();
+  const vEdges = M.edges.filter(e => ids.has(e.from) && ids.has(e.to));
+  let L;
+  if (graphState.layout === 'elk') {
+    wrap.innerHTML = '<p class="muted" style="padding:12px">Laying out the map…</p>';
+    try { L = await layoutElk(ids, vEdges); }
+    catch (e) {
+      console.error(e);
+      toast(`The ELK layout couldn't be loaded (${e.message}), so the map uses columns.`, 8000);
+      graphState.layout = 'columns';
+      const sel = $('#g-layout'); if (sel) sel.value = 'columns';
+      L = layoutColumns(ids, vEdges);
+    }
+    if (!$('#g-wrap')) return; // the view changed while laying out
+  } else L = layoutColumns(ids, vEdges);
+  const { P, paths } = L;
+  let svg = `<svg class="graph" xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(L.width)}" height="${Math.ceil(L.height)}" role="img" aria-label="Relationship map">
+  <defs>${['data', 'token', 'layout', 'vis', 'spl'].map(g => `<marker id="ar-${g}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-${g}" d="M0,0 L10,5 L0,10 z"/></marker>`).join('')}</defs>`;
+  for (const h of L.headers) svg += `<text class="colhead" x="${h.x}" y="${h.y}">${esc(h.text)}</text>`;
+  for (const g of L.groups) {
+    const n = M.nodes.get(g.id);
+    svg += `<g class="ggroup" data-id="${esc(g.id)}"><rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="8"/><text x="${g.x + 12}" y="${g.y + 21}">${esc(n.global ? 'Global inputs' : 'Tab: ' + n.label)}</text></g>`;
+  }
+  for (const e of vEdges) {
+    const pth = paths.get(e);
+    if (!pth) continue;
+    const g = REL[e.rel].group;
+    svg += `<path class="gedge ${g}${pth.back ? ' back' : ''}" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${pth.d}" marker-end="url(#ar-${g})"><title>${esc(M.nodes.get(e.from).label + ' → ' + REL[e.rel].fwd + ' → ' + M.nodes.get(e.to).label + (e.detail ? ' (' + e.detail + ')' : ''))}</title></path>`;
   }
   for (const id of ids) {
     const n = M.nodes.get(id), p = P.get(id);
-    svg += `<g class="gnode k-${n.kind}${n.status === 'Undefined' || issuesFor(id).some(i => i.severity === 'error') ? ' undef' : ''}" data-id="${esc(id)}" transform="translate(${p.x},${p.y})" tabindex="0">
+    if (!p) continue;
+    const center = graphState.mode === 'focus' && id === graphState.center;
+    svg += `<g class="gnode k-${n.kind}${n.status === 'Undefined' || issuesFor(id).some(i => i.severity === 'error') ? ' undef' : ''}${center ? ' center' : ''}" data-id="${esc(id)}" transform="translate(${p.x},${p.y})" tabindex="0">
       <title>${esc(KINDS[n.kind].label + ': ' + n.label + (n.label !== n.key && n.kind !== 'token' ? ' [' + n.key + ']' : ''))}</title>
-      <rect class="box" width="${W}" height="${H}" rx="6"/><rect class="bar" width="4" height="${H}" rx="2"/>
-      <text x="12" y="15">${esc(trunc(n.label, 28))}</text><text class="sub" x="12" y="29">${esc(trunc(subOf(n), 32))}</text></g>`;
+      <rect class="box" width="${GW}" height="${GH}" rx="6"/><rect class="bar" width="4" height="${GH}" rx="2"/>
+      <text x="12" y="15">${esc(gtrunc(n.label, 28))}</text><text class="sub" x="12" y="29">${esc(gtrunc(graphSub(n), 32))}</text></g>`;
   }
   svg += '</svg>';
-  const wrap = $('#g-wrap');
   wrap.innerHTML = ids.size ? svg : '<p class="muted" style="padding:12px">Nothing to show.</p>';
   const el = wrap.querySelector('svg');
   if (!el) return;
+  const pick = id => {
+    if (graphState.mode === 'focus') { graphState.center = id; graphState.selected = id; openDrawer(id); render(); return; }
+    graphState.selected = id; highlight(el); openDrawer(id);
+  };
   el.addEventListener('click', ev => {
-    const g = ev.target.closest('.gnode');
-    if (!g) { graphState.selected = null; highlight(el); return; }
-    graphState.selected = g.dataset.id;
-    highlight(el);
-    openDrawer(g.dataset.id);
+    const g = ev.target.closest('.gnode, .ggroup');
+    if (!g) { if (graphState.mode !== 'focus') { graphState.selected = null; highlight(el); } return; }
+    pick(g.dataset.id);
   });
   el.addEventListener('keydown', ev => {
     const g = ev.target.closest('.gnode');
-    if (g && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); graphState.selected = g.dataset.id; highlight(el); openDrawer(g.dataset.id); }
+    if (g && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); pick(g.dataset.id); }
   });
   highlight(el);
-  if (graphState.selected && P.has(graphState.selected)) {
-    const p = P.get(graphState.selected);
+  const target = graphState.mode === 'focus' ? graphState.center : graphState.selected;
+  if (target && P.has(target)) {
+    const p = P.get(target);
     wrap.scrollTo({ left: Math.max(0, p.x - wrap.clientWidth / 2), top: Math.max(0, p.y - wrap.clientHeight / 2) });
   }
 }
+
+/* ---------- Token matrix ---------- */
+const matState = { cols: 'viz' };
+// How a token reaches an item: direct use, through its search, through a condition, or set by it.
+function tokenLinks(tokId, itemId) {
+  const n = M.nodes.get(itemId), out = [];
+  if (outs(itemId, ['drilldown-sets', 'smart-source']).some(e => e.to === tokId)) out.push('sets');
+  if (outs(tokId, ['uses-token']).some(e => e.to === itemId)) out.push('direct');
+  if (n.kind === 'viz') {
+    const feeds = ins(itemId, ['feeds']).flatMap(e => M.nodes.get(e.from)?.lineage || []);
+    if (feeds.some(d => directTokens(d).includes(tokId))) out.push('search');
+    if (ins(itemId, ['visibility']).some(e => directTokens(e.from).includes(tokId))) out.push('condition');
+  } else if (n.kind === 'ds') {
+    if ((n.lineage || []).slice(0, -1).some(d => directTokens(d).includes(tokId))) out.push('search');
+  }
+  return out;
+}
+const MAT_SYMBOL = { direct: '●', search: '○', condition: '▲', sets: '◆' };
+const MAT_TEXT = { direct: 'uses it directly (title, options or query)', search: 'uses it through its search', condition: 'is shown or hidden by a condition that uses it', sets: 'sets it (drilldown or search result)' };
+function matrixColumns() {
+  if (matState.cols === 'ds') return M.byKind('ds').map(n => ({ id: n.id, group: dsTypeLabel(n.type) }));
+  const out = [];
+  for (const t of mockTabs()) for (const it of t.items || []) if (it.id.startsWith('viz:')) out.push({ id: it.id, group: t.label });
+  for (const v of M.byKind('viz')) if (!out.some(c => c.id === v.id)) out.push({ id: v.id, group: 'Not placed' });
+  return out;
+}
+function viewTokenMatrix() {
+  const toks = M.byKind('token');
+  if (!toks.length) return '<p class="muted">This dashboard uses no tokens.</p>';
+  const cols = matrixColumns();
+  const groups = [];
+  for (const c of cols) { const g = groups[groups.length - 1]; if (g && g.name === c.group) g.n++; else groups.push({ name: c.group, n: 1 }); }
+  const cells = new Map(toks.map(t => [t.id, cols.map(c => tokenLinks(t.id, c.id))]));
+  const btn = (k, label) => `<button data-matcols="${k}" aria-pressed="${matState.cols === k}">${label}</button>`;
+  return `<div class="graph-controls">
+    <div class="seg" role="group" aria-label="Columns">${btn('viz', 'Tokens × panels')}${btn('ds', 'Tokens × searches')}</div>
+    <span class="legend">${Object.entries(MAT_SYMBOL).map(([k, s]) => `<span><b class="mat-${k}">${s}</b> ${esc(MAT_TEXT[k])}</span>`).join('')}</span>
+  </div>
+  <p class="muted small" style="margin:0 0 8px">Each row is a token; each column a ${matState.cols === 'ds' ? 'data source' : 'panel'}${matState.cols === 'ds' ? '' : ', grouped by tab'}. Read across a row to see everything a token changes. Click a token, ${matState.cols === 'ds' ? 'search' : 'panel'} or mark for details.</p>
+  <div class="tablewrap matrix"><table>
+    <thead>
+      <tr><th class="mat-corner" rowspan="2">Token</th><th rowspan="2">Set by</th>${groups.map(g => `<th class="mat-group" colspan="${g.n}">${esc(g.name)}</th>`).join('')}<th rowspan="2">Total</th></tr>
+      <tr>${cols.map(c => `<th class="mat-col"><button class="mat-head" data-open="${esc(c.id)}" title="${esc(M.nodes.get(c.id).label)}"><span>${esc(gtrunc(M.nodes.get(c.id).label, 26))}</span></button></th>`).join('')}</tr>
+    </thead>
+    <tbody>${toks.map(t => {
+      const row = cells.get(t.id);
+      return `<tr class="filterable"><th scope="row">${chip(t.id)}</th><td class="small">${esc(ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => M.nodes.get(e.from).label).join(', ') || '—')}</td>${row.map((r, i) => r.length
+        ? `<td class="mat-cell"><button data-open="${esc(cols[i].id)}" title="${esc(`${M.nodes.get(cols[i].id).label} ${r.map(x => MAT_TEXT[x]).join(', and ')}`)}">${r.map(x => `<span class="mat-${x}">${MAT_SYMBOL[x]}</span>`).join('')}</button></td>`
+        : '<td class="mat-cell"></td>').join('')}<td class="num">${row.filter(r => r.length).length}</td></tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+/* ---------- Data flow (Sankey) ---------- */
+// Sources → base searches → panels → tabs. Each panel counts as 1, split across its data sources and tabs.
+function sankeyData() {
+  const nodes = new Map(), links = new Map();
+  const node = (id, col, label, kind) => { if (!nodes.has(id)) nodes.set(id, { id, col, label, kind, in: 0, out: 0 }); return nodes.get(id); };
+  const link = (a, b, v) => { const k = a + '\u0001' + b; links.set(k, { from: a, to: b, v: (links.get(k)?.v || 0) + v }); nodes.get(a).out += v; nodes.get(b).in += v; };
+  const rootValue = new Map();
+  for (const v of M.byKind('viz')) {
+    const feeds = ins(v.id, ['feeds']).map(e => M.nodes.get(e.from)).filter(Boolean);
+    if (!feeds.length) continue;
+    node(v.id, 2, v.label, 'viz');
+    for (const d of feeds) {
+      const r = M.nodes.get(d.rootId) || d;
+      node(r.id, 1, r.label, 'ds');
+      link(r.id, v.id, 1 / feeds.length);
+      rootValue.set(r.id, (rootValue.get(r.id) || 0) + 1 / feeds.length);
+    }
+    const tabs = tabsOf(v.id).filter(t => t.startsWith('tab:'));
+    if (!tabs.length) { node('tab:(none)', 3, 'Not placed', 'tab'); link(v.id, 'tab:(none)', 1); }
+    for (const t of tabs) { node(t, 3, M.nodes.get(t).label, 'tab'); link(v.id, t, 1 / tabs.length); }
+  }
+  for (const [rid, val] of rootValue) {
+    const r = M.nodes.get(rid);
+    const src = [];
+    for (const x of r.eff_index || []) if (!x.excluded && !x.value.includes('$') && M.nodes.has('index:' + x.value)) src.push(['index:' + x.value, x.value, 'index']);
+    for (const l of r.eff_lookups || []) if (l.mode === 'read' && M.nodes.has('lookup:' + l.name)) src.push(['lookup:' + l.name, l.name, 'lookup']);
+    for (const d of r.eff_datamodels || []) if (M.nodes.has('datamodel:' + d.model)) src.push(['datamodel:' + d.model, d.model, 'datamodel']);
+    const uniqSrc = [...new Map(src.map(s => [s[0], s])).values()];
+    if (!uniqSrc.length) {
+      const first = (r.sources?.commands || [])[0]?.name;
+      uniqSrc.push(r.type === 'ds.savedSearch' ? ['src:saved', 'Saved searches (report)', 'other'] : NO_EVENT_TIME.has(first) ? ['src:gen', 'Generated (' + first + ')', 'other'] : ['src:none', 'No index named', 'other']);
+    }
+    for (const [id, label, kind] of uniqSrc) { node(id, 0, label, kind); link(id, rid, val / uniqSrc.length); }
+  }
+  return { nodes: [...nodes.values()], links: [...links.values()] };
+}
+function sankeySvg(light = false, width = 1100) {
+  const { nodes, links } = sankeyData();
+  if (!links.length) return '';
+  const cs = getComputedStyle(document.documentElement);
+  const col = (v, d) => (light ? '' : cs.getPropertyValue(v).trim()) || d;
+  const C = { text: col('--text', '#1b1f24'), muted: col('--muted', '#5f6b7a'), bg: col('--panel', '#ffffff'),
+    index: col('--k-index', '#9a5b22'), lookup: col('--k-lookup', '#1f7f9e'), datamodel: col('--k-datamodel', '#b0458f'), other: col('--k-defaults', '#7a7f87'),
+    ds: col('--k-ds', '#2f6fde'), viz: col('--k-viz', '#2e8b57'), tab: col('--k-tab', '#6d4fd8') };
+  const NW = 12, PAD = 10, LEFT = 8, LABELW = 210;
+  const colX = [LEFT, LEFT + (width - LEFT - LABELW - NW) / 3, LEFT + 2 * (width - LEFT - LABELW - NW) / 3, width - LABELW - NW];
+  const cols = [0, 1, 2, 3].map(c => nodes.filter(n => n.col === c));
+  const val = n => Math.max(n.in, n.out);
+  // Order: sources by size, then each later column by the average position of what feeds it.
+  cols[0].sort((a, b) => val(b) - val(a));
+  const order = new Map();
+  const setOrder = () => cols.forEach(c => c.forEach((n, i) => order.set(n.id, i)));
+  setOrder();
+  for (let it = 0; it < 4; it++) for (let c = 1; c < 4; c++) {
+    const bc = n => { const ls = links.filter(l => l.to === n.id); const w = ls.reduce((s, l) => s + l.v, 0); return w ? ls.reduce((s, l) => s + order.get(l.from) * l.v, 0) / w : order.get(n.id); };
+    cols[c].sort((a, b) => bc(a) - bc(b)); setOrder();
+  }
+  const rows = Math.max(...cols.map(c => c.length));
+  const height = Math.max(320, rows * 30 + 40);
+  const k = Math.min(...cols.filter(c => c.length).map(c => (height - 40 - (c.length - 1) * PAD) / c.reduce((s, n) => s + val(n), 0)));
+  const pos = new Map();
+  cols.forEach((c, ci) => {
+    const total = c.reduce((s, n) => s + val(n) * k, 0) + (c.length - 1) * PAD;
+    let y = 20 + (height - 40 - total) / 2;
+    for (const n of c) { pos.set(n.id, { x: colX[ci], y, h: Math.max(2, val(n) * k), outY: y, inY: y }); y += val(n) * k + PAD; }
+  });
+  const colorOf = n => C[n.kind] || C.other;
+  let out = '';
+  const sorted = [...links].sort((a, b) => pos.get(a.from).y - pos.get(b.from).y || pos.get(a.to).y - pos.get(b.to).y);
+  // Stack link ends on each node in the order of the node at the other end, to avoid crossings.
+  const outs2 = new Map(), ins2 = new Map();
+  for (const l of [...sorted].sort((a, b) => pos.get(a.to).y - pos.get(b.to).y)) (outs2.get(l.from) || outs2.set(l.from, []).get(l.from)).push(l);
+  for (const l of [...sorted].sort((a, b) => pos.get(a.from).y - pos.get(b.from).y)) (ins2.get(l.to) || ins2.set(l.to, []).get(l.to)).push(l);
+  const yOut = new Map(), yIn = new Map();
+  for (const [id, ls] of outs2) { let y = pos.get(id).y; for (const l of ls) { yOut.set(l, y); y += l.v * k; } }
+  for (const [id, ls] of ins2) { let y = pos.get(id).y; for (const l of ls) { yIn.set(l, y); y += l.v * k; } }
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
+  for (const l of sorted) {
+    const a = pos.get(l.from), b = pos.get(l.to), t = Math.max(1, l.v * k);
+    const x1 = a.x + NW, x2 = b.x, xm = (x1 + x2) / 2, y1 = yOut.get(l), y2 = yIn.get(l);
+    const nf = nodeById.get(l.from), nt = nodeById.get(l.to);
+    out += `<path d="M${x1},${y1} C${xm},${y1} ${xm},${y2} ${x2},${y2} L${x2},${y2 + t} C${xm},${y2 + t} ${xm},${y1 + t} ${x1},${y1 + t} Z" fill="${colorOf(nf)}" fill-opacity="0.28"><title>${esc(`${nf.label} → ${nt.label}: ${+l.v.toFixed(2)} panel${l.v === 1 ? '' : 's'}`)}</title></path>`;
+  }
+  for (const n of nodes) {
+    const p = pos.get(n.id);
+    const real = M.nodes.has(n.id);
+    const lx = n.col === 3 ? p.x + NW + 6 : p.x + NW + 6;
+    out += `<g ${real ? `class="sk-node" data-open="${esc(n.id)}" tabindex="0"` : ''}><rect x="${p.x}" y="${p.y.toFixed(1)}" width="${NW}" height="${p.h.toFixed(1)}" fill="${colorOf(n)}" rx="2"/>`
+      + `<text x="${lx}" y="${(p.y + p.h / 2 + 4).toFixed(1)}" font-size="11.5" fill="${C.text}" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">${esc(gtrunc(n.label, 30))}<tspan fill="${C.muted}"> ${+val(n).toFixed(1)}</tspan></text>`
+      + `<title>${esc(`${n.label}: ${+val(n).toFixed(2)} panel${val(n) === 1 ? '' : 's'}`)}</title></g>`;
+  }
+  const heads = ['Sources', 'Base searches', 'Panels', 'Tabs'].map((h, i) => `<text x="${colX[i]}" y="12" font-size="10.5" font-weight="600" fill="${C.muted}" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" letter-spacing=".05em">${h.toUpperCase()}</text>`).join('');
+  return `<svg class="sankey" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Data flow from sources through searches to panels and tabs">${light ? `<rect width="${width}" height="${height}" fill="#ffffff"/>` : ''}${heads}${out}</svg>`;
+}
+function viewDataFlow() {
+  const svg = sankeySvg(false);
+  const noData = M.byKind('viz').filter(v => !ins(v.id, ['feeds']).length).length;
+  return `<p class="muted small" style="margin-top:0">Where each panel's data comes from: indexes, lookups and data models, through the base searches (chain searches are counted with their base), to the panels and the tabs they sit on. Band width is the number of panels; a panel fed by two sources counts half to each. Hover a band for numbers; click a named item for details.</p>
+  ${svg ? `<div class="graph-wrap sankey-wrap">${svg}</div>` : '<p class="muted">No panel in this dashboard gets data from a search.</p>'}
+  ${noData ? `<p class="muted small">${plural(noData, 'panel')} with no data source (markdown, images and shapes) ${noData === 1 ? 'is' : 'are'} not shown.</p>` : ''}`;
+}
+
 function highlight(svg) {
   const sel = graphState.selected;
   svg.classList.toggle('has-sel', !!sel);
@@ -3280,7 +3617,7 @@ function openDrawer(id, push = true) {
   if (n.raw) html += `<details style="margin-top:14px"><summary>Definition JSON</summary><pre>${esc(JSON.stringify(n.raw, null, 2))}</pre></details>`;
   $('#drawer-body').innerHTML = html;
   $('#drawer-body').scrollTop = 0;
-  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; view = 'graph'; render(); };
+  $('#drawer-map').onclick = () => { graphState.selected = id; graphState.mode = 'focus'; graphState.center = id; graphState.focus = ''; if (!graphState.tokens && /^(token|input|defaults|condition):/.test(id)) graphState.tokens = true; if (/^(index|sourcetype|lookup|datamodel|macro):/.test(id)) graphState.sources = true; if (id.startsWith('command:')) graphState.commands = true; view = 'graph'; render(); };
   const d = $('#drawer');
   d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
 }
@@ -3610,6 +3947,13 @@ function reportBlocks(format) {
   tbl(['#', 'Token', 'Status', 'Set by', 'Default', 'Used by'], M.byKind('token').map(t => [
     num(t.id), t.label, t.status, ins(t.id, ['sets', 'drilldown-sets', 'default', 'smart-source']).map(e => `${lbl(e.from)} (${REL[e.rel].rev.toLowerCase()})`).join(', '),
     (t.defaults || []).map(d => fmt(d.value)).join(', '), L(outs(t.id, ['uses-token']).map(e => e.to))]));
+  const mcols = matrixColumns();
+  if (M.byKind('token').length && mcols.length && mcols.length <= 24) {
+    h3('Token matrix (tokens x panels)');
+    p('D = uses it directly, S = through its search, C = through a visibility condition, set = sets it.');
+    const abbr = { direct: 'D', search: 'S', condition: 'C', sets: 'set' };
+    tbl(['Token', ...mcols.map(c => `${num(c.id)} ${lbl(c.id)}`.trim())], M.byKind('token').map(t => [t.label, ...mcols.map(c => tokenLinks(t.id, c.id).map(x => abbr[x]).join(' '))]));
+  }
   h3('Where each token is referenced');
   tbl(['Token', 'Item', 'Location', 'As written'], M.usages.map(u => [lbl(u.token), `${num(u.node)} ${lbl(u.node)}`.trim(), u.path, u.raw]));
 
@@ -3620,6 +3964,10 @@ function reportBlocks(format) {
   }
 
   h2('Relationships');
+  if (format === 'pdf' || format === 'html') {
+    const sk = sankeySvg(true);
+    if (sk) B.push({ t: 'img', svg: sk, caption: 'Data flow: sources -> base searches -> panels -> tabs. Band width is the number of panels.' });
+  }
   p('Every connection, in the direction data and token values flow.');
   tbl(['From', 'Relationship', 'To', 'Detail'], M.edges.map(e => [
     `${num(e.from)} ${lbl(e.from)} (${KINDS[M.nodes.get(e.from).kind].label})`.trim(), REL[e.rel].fwd, `${num(e.to)} ${lbl(e.to)} (${KINDS[M.nodes.get(e.to).kind].label})`.trim(), e.detail]));
@@ -4162,7 +4510,7 @@ function selectDash(i, v = 'overview') {
   CUR_I = i; M = DASH[i].model;
   FIX_SEL = new Set();
   mockState.tab = null; mockState.values = null;
-  graphState.focus = ''; graphState.selected = null;
+  graphState.focus = ''; graphState.selected = null; graphState.center = null;
   invState.kind = '';
   if (COMPARE && v !== 'compare') COMPARE = null;
   view = v;
@@ -4283,6 +4631,8 @@ document.addEventListener('click', e => {
   if (actions[id] && e.target.closest('button')) { actions[id](); return; }
   const v = e.target.closest('[data-view]');
   if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  const mc = e.target.closest('[data-matcols]');
+  if (mc) { matState.cols = mc.dataset.matcols; render(); return; }
   const ik = e.target.closest('[data-invkind]');
   if (ik) { invState.kind = ik.dataset.invkind; render(); return; }
   const dsh = e.target.closest('[data-dash]');

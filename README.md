@@ -4,7 +4,7 @@
 
 **Try it online: [adamliq.github.io/splunkdashboard-breakdown](https://adamliq.github.io/splunkdashboard-breakdown/)**
 
-Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network requests load the PDF or spreadsheet library the first time you export a PDF report or Excel workbook.)
+Or open `index.html` from this repository in a browser. Either way it needs no server, build step or install, and it sends nothing anywhere: dashboards you load stay in your browser. Paste or drop in the dashboard source, or click **Load sample dashboard**. (The only network requests load a library the first time you need it: the PDF library for a PDF report, the spreadsheet library for an Excel workbook, and the layout library for the ELK map layout.)
 
 ## Accepted input
 
@@ -108,7 +108,17 @@ Each relationship is stored as an edge pointing the way data and token values fl
 - condition → *controls visibility of* → visualization / input
 - visualization / input → *placed on* → tab → dashboard
 
-Explore them through the detail panel (click any item), the **Relationship map**, the **Relationship list**, and the "Driven by tokens" column.
+Explore them through:
+
+- **Detail panel.** Click any item for its relationships and full lineage.
+- **Relationship map.** A left-to-right flow from inputs and tokens through sources and searches to panels and tabs.
+  - **Focus on one item** (the default) shows a single item and what it depends on and what depends on it, 1 to 4 steps each way or all the way. Clicking any item moves the focus to it. **Whole dashboard** shows everything, optionally only what feeds one tab.
+  - Two layouts: **Columns** (one column per kind of item), or **Layered, grouped by tab (ELK)**. ELK draws right-angle lines, places items to reduce crossings, and puts each tab's panels and inputs in a box. It uses [ELK](https://eclipse.dev/elk/) (elkjs), loaded from jsDelivr the first time you choose it.
+  - Inputs and tokens, sources, and SPL commands can each be hidden. In focus mode, lineage is still followed through hidden items.
+- **Token matrix.** Tokens down the side and panels (grouped by tab) or searches across the top. Each cell shows how the token reaches the item: used directly (●), through its search (○), through a visibility condition (▲), or set by it (◆). It is the clearest way to see what an input changes. It is also in the reports when there are 24 or fewer panels.
+- **Data flow (Sankey).** Where each panel's data comes from: indexes, lookups and data models, through base searches, to panels and tabs. Band width is the number of panels. It is also in the PDF report.
+- **Relationship list.** Every connection as a table.
+- **"Driven by tokens"** column on the Tabs page.
 
 **Between dashboards.** Drilldowns that open another dashboard ("link to dashboard", or a link to `/app/<app>/<dashboard>`) are listed on the Overview and in the reports. With several dashboards loaded, the **All dashboards** page draws a map of which dashboards open which, and lists each link with the tokens it passes. It also checks whether the target dashboard uses those tokens. Targets are matched to loaded dashboards by view name (file or REST name) or title; others are marked "not loaded".
 
