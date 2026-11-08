@@ -172,13 +172,15 @@ From the **Export** menu:
 - **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
 - **Share links** point at the app's page in the same Splunk instance.
 
-Build the package (Python 3, standard library only):
+**Download:** a ready-built package is in the repository at [`splunk-app/package/dashboard_inventory-1.0.0.tgz`](splunk-app/package/dashboard_inventory-1.0.0.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**.
+
+To build the package yourself (Python 3, standard library only):
 
 ```sh
 python3 splunk-app/build.py        # writes dist/dashboard_inventory-<version>.tgz
 ```
 
-The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries, and writes the archive with the file permissions Splunk Cloud expects. Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**.
+The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/` so the download stays current.
 
 **AppInspect:** version 1.0.0 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
 
