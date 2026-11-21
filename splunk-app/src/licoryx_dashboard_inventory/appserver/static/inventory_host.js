@@ -1,12 +1,12 @@
 /*
- * Dashboard Inventory: shows the inventory page (inventory.html, in this app's static folder)
+ * Licoryx Dashboard Inventory: shows the inventory page (inventory.html, in this app's static folder)
  * inside this dashboard. It tells the page where Splunk's REST API is, so the page can list and
  * read dashboards with the viewer's own session (read-only), and passes any share link on.
  * Plain script: no Splunk Web libraries are imported.
  */
 (function () {
   'use strict';
-  var APP = 'dashboard_inventory';
+  var APP = 'licoryx_dashboard_inventory';
   var VERSION = '@VERSION@';
 
   function mount() {
@@ -29,7 +29,7 @@
 
     var frame = document.createElement('iframe');
     frame.src = base + '/static/app/' + APP + '/inventory.html?' + params + (window.location.hash || '');
-    frame.title = 'Dashboard Inventory';
+    frame.title = 'Licoryx Dashboard Inventory';
     frame.className = 'sdi-frame';
     frame.setAttribute('allow', 'clipboard-write');
     host.textContent = '';

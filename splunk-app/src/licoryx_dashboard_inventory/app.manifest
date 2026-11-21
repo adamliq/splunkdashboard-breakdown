@@ -1,10 +1,10 @@
 {
   "schemaVersion": "2.0.0",
   "info": {
-    "title": "Dashboard Inventory",
+    "title": "Licoryx Dashboard Inventory",
     "id": {
       "group": null,
-      "name": "dashboard_inventory",
+      "name": "licoryx_dashboard_inventory",
       "version": "1.0.0"
     },
     "author": [

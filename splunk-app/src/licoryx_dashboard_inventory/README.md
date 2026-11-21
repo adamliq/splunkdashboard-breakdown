@@ -1,4 +1,4 @@
-# Dashboard Inventory for Splunk
+# Licoryx Dashboard Inventory for Splunk
 
 Inventory, check and document Splunk dashboards, both Dashboard Studio and Classic Simple XML.
 
@@ -13,7 +13,7 @@ For each dashboard it lists every tab, input, data source, search, chain search,
 
 ## Using it
 
-1. Open **Dashboard Inventory** from the app menu.
+1. Open **Licoryx Dashboard Inventory** from the app menu.
 2. Under **Load from Splunk**, pick an app, tick one or more dashboards, and select **Load**. Tick **Also load the macros, saved searches and data models** to let the app look inside them.
 3. Alternatively, paste a dashboard's source, or choose files exported from another Splunk instance.
 
