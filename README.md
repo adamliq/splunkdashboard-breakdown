@@ -1,6 +1,6 @@
 # splunkdashboard-breakdown
 
-**Studio Dashboard Inventory** is a single, standalone web page (`index.html`). It lists everything in a Splunk dashboard, shows how the items relate, checks for problems before you deploy, and can repair what it safely can.
+**Licoryx Dashboard Inventory** is a single, standalone web page (`index.html`). It lists everything in a Splunk dashboard, shows how the items relate, checks for problems before you deploy, and can repair what it safely can.
 
 **Try it online: [adamliq.github.io/splunkdashboard-breakdown](https://adamliq.github.io/splunkdashboard-breakdown/)**
 
@@ -165,19 +165,19 @@ From the **Export** menu:
 
 ## Splunk app
 
-`splunk-app/` packages the page as the **Dashboard Inventory** Splunk app (`dashboard_inventory`), for Splunk Enterprise 8.2 or later and Splunk Cloud Platform (Victoria and Classic experience).
+`splunk-app/` packages the page as the **Licoryx Dashboard Inventory** Splunk app (`licoryx_dashboard_inventory`), for Splunk Enterprise 8.2 or later and Splunk Cloud Platform (Victoria and Classic experience).
 
 - **Load from Splunk:** pick an app, tick one or more dashboards, and select **Load**. Tick **Also load the macros, saved searches and data models** to expand them, as with pasted config. Pasting and choosing files still work.
 - **Read-only:** it reads through Splunk's REST API with the viewer's own session, using GET requests only, so each user sees only what they can already read. It never changes, saves or schedules anything; fixes and exports are downloaded.
 - **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
 - **Share links** point at the app's page in the same Splunk instance.
 
-**Download:** a ready-built package is in the repository at [`splunk-app/package/dashboard_inventory-1.0.0.tgz`](splunk-app/package/dashboard_inventory-1.0.0.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**.
+**Download:** a ready-built package is in the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.0.0.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.0.0.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
 
 To build the package yourself (Python 3, standard library only):
 
 ```sh
-python3 splunk-app/build.py        # writes dist/dashboard_inventory-<version>.tgz
+python3 splunk-app/build.py        # writes dist/licoryx_dashboard_inventory-<version>.tgz
 ```
 
 The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/` so the download stays current.
@@ -185,7 +185,7 @@ The build turns `index.html` into `appserver/static/inventory.html`, `inventory.
 **AppInspect:** version 1.0.0 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
 
 ```sh
-splunk-appinspect inspect dist/dashboard_inventory-1.0.0.tgz --mode precert --included-tags cloud
+splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.0.0.tgz --mode precert --included-tags cloud
 ```
 
 ## Examples

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build the Dashboard Inventory Splunk app package.
+"""Build the Licoryx Dashboard Inventory Splunk app package.
 
-    python3 splunk-app/build.py            # writes dist/dashboard_inventory-<version>.tgz
+    python3 splunk-app/build.py            # writes dist/licoryx_dashboard_inventory-<version>.tgz
 
 What it does:
-  * copies the app skeleton from splunk-app/src/dashboard_inventory
+  * copies the app skeleton from splunk-app/src/licoryx_dashboard_inventory
   * turns the repository's index.html into appserver/static/inventory.html, with the page's
     stylesheet and script split out into inventory.css and inventory.js (no inline code)
   * copies the bundled libraries and their licences from splunk-app/vendor/lib
@@ -23,11 +23,11 @@ import tarfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, 'splunk-app', 'src', 'dashboard_inventory')
+SRC = os.path.join(ROOT, 'splunk-app', 'src', 'licoryx_dashboard_inventory')
 VENDOR = os.path.join(ROOT, 'splunk-app', 'vendor', 'lib')
 PAGE = os.path.join(ROOT, 'index.html')
 DIST = os.path.join(ROOT, 'dist')
-APP = 'dashboard_inventory'
+APP = 'licoryx_dashboard_inventory'
 
 # Splunk Web adds an i18n_register({...}) call to the top of every app .js file it serves. The page
 # runs in its own frame, where Splunk's i18n library is not loaded, so it defines a no-op. A function

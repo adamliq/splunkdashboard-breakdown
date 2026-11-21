@@ -1,6 +1,6 @@
 # Third-party software
 
-Dashboard Inventory bundles these libraries, unmodified, so that it never loads code from outside Splunk. Each is loaded only when the feature that needs it is used.
+Licoryx Dashboard Inventory bundles these libraries, unmodified, so that it never loads code from outside Splunk. Each is loaded only when the feature that needs it is used.
 
 | File | Library | Version | Used for | License |
 | --- | --- | --- | --- | --- |

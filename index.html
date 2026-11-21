@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Studio Dashboard Inventory</title>
+<title>Licoryx Dashboard Inventory</title>
 <meta name="description" content="Inventory and relationship map for a Splunk Dashboard Studio dashboard: tabs, inputs, data sources, searches, chain searches, visualizations and tokens.">
 <style>
 :root {
@@ -325,7 +325,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 </head>
 <body>
 <header class="topbar">
-  <h1>Studio Dashboard Inventory</h1>
+  <h1>Licoryx Dashboard Inventory</h1>
   <select id="dash-switch" aria-label="Dashboard" hidden></select>
   <span class="dash-title" id="dash-title"></span>
   <button class="btn" id="btn-new" hidden>Load another dashboard</button>
@@ -394,7 +394,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 
 <dialog id="share-dlg" aria-labelledby="share-title">
   <h3 id="share-title">Share this dashboard as a link</h3>
-  <p class="small">The link holds the whole dashboard definition, compressed, after the <code>#</code>. Opening it loads the dashboard in Studio Dashboard Inventory. That part of a link is never sent to a web server, but <b>anyone you give the link to can read the definition, including its searches</b>.</p>
+  <p class="small">The link holds the whole dashboard definition, compressed, after the <code>#</code>. Opening it loads the dashboard in Licoryx Dashboard Inventory. That part of a link is never sent to a web server, but <b>anyone you give the link to can read the definition, including its searches</b>.</p>
   <label id="share-config-row" class="small"><input type="checkbox" id="share-config"> Include the pasted Splunk config (macros, saved searches, data models)</label>
   <textarea id="share-link" readonly rows="4" aria-label="Share link"></textarea>
   <p class="small muted" id="share-info"></p>
@@ -540,7 +540,7 @@ async function initSplunkLoader() {
     const r = await splunkGet('/services/apps/local', { f: ['label', 'visible'] });
     splunkState.apps = (r.entry || []).filter(e => e.content?.visible !== false && e.content?.visible !== '0')
       .map(e => ({ name: e.name, label: e.content?.label || e.name })).sort((a, b) => a.label.localeCompare(b.label));
-    const want = splunkState.apps.some(a => a.name === SPLUNK.app) && SPLUNK.app !== 'dashboard_inventory' ? SPLUNK.app : 'search';
+    const want = splunkState.apps.some(a => a.name === SPLUNK.app) && SPLUNK.app !== 'licoryx_dashboard_inventory' ? SPLUNK.app : 'search';
     splunkState.app = splunkState.apps.some(a => a.name === want) ? want : splunkState.apps[0]?.name || '';
     await loadSplunkViews();
   } catch (e) { splunkState.loading = false; splunkState.error = `Couldn't list the apps in Splunk (${e.message}). You can still paste or choose a dashboard below.`; renderSplunkLoader(); }
@@ -551,7 +551,7 @@ async function loadSplunkViews() {
     const app = splunkState.app;
     const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views`, { f: ['label', 'version', 'isDashboard', 'isVisible'] });
     splunkState.views = (r.entry || [])
-      .filter(e => e.acl?.app === app && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && !(app === 'dashboard_inventory' && e.name === 'inventory'))
+      .filter(e => e.acl?.app === app && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && !(app === 'licoryx_dashboard_inventory' && e.name === 'inventory'))
       .map(e => ({ name: e.name, label: e.content?.label || e.name, kind: String(e.content?.version) === '2' ? 'Studio' : 'Classic', sharing: e.acl?.sharing || '' }))
       .sort((a, b) => a.label.localeCompare(b.label));
   } catch (e) { splunkState.error = `Couldn't list the dashboards in this app (${e.message}).`; }
@@ -4953,7 +4953,7 @@ async function blocksToPdf(B, jsPDF) {
     for (const line of doc.splitTextToSize(pdfSafe(s), W)) { ensure(size * 1.3); doc.text(line, MG, y + size); y += size * 1.3; }
     y += after;
   };
-  doc.setProperties({ title: pdfSafe(M.title + ' - dashboard report'), subject: 'Splunk dashboard inventory report', creator: 'Studio Dashboard Inventory' });
+  doc.setProperties({ title: pdfSafe(M.title + ' - dashboard report'), subject: 'Splunk dashboard inventory report', creator: 'Licoryx Dashboard Inventory' });
   // Draw the images first so their size is known: a heading then stays on the same page as its image.
   const imgs = new Map();
   for (const b of B) if (b.t === 'img') {
@@ -5357,7 +5357,7 @@ async function writeXlsx(sheets, title) {
       + sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
       + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>' },
     { name: '_rels/.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>' },
-    { name: 'docProps/core.xml', text: XML_HEAD + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(title)}</dc:title><dc:creator>Studio Dashboard Inventory</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</dcterms:created></cp:coreProperties>` },
+    { name: 'docProps/core.xml', text: XML_HEAD + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(title)}</dc:title><dc:creator>Licoryx Dashboard Inventory</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</dcterms:created></cp:coreProperties>` },
     { name: 'xl/workbook.xml', text: XML_HEAD + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
       + sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>' + (filters ? `<definedNames>${filters}</definedNames>` : '') + '</workbook>' },
     { name: 'xl/_rels/workbook.xml.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -5466,7 +5466,7 @@ function selectDash(i, v = 'overview') {
   sw.hidden = DASH.length < 2;
   sw.innerHTML = DASH.map((d, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${esc(d.model.title)}</option>`).join('');
   $('#dash-title').textContent = DASH.length > 1 ? '' : M.title;
-  document.title = M.title + ' · Studio Dashboard Inventory';
+  document.title = M.title + ' · Licoryx Dashboard Inventory';
   render();
 }
 async function filesToList(fileList) { return Promise.all([...fileList].map(async f => ({ name: f.name, text: await f.text() }))); }
@@ -5509,7 +5509,7 @@ srcBox.addEventListener('drop', async e => {
 $('#btn-new').onclick = () => {
   closeDrawer();
   $('#app').hidden = true; $('#loader').hidden = false; $('#btn-new').hidden = true; $('#dash-switch').hidden = true;
-  $('#dash-title').textContent = ''; document.title = 'Studio Dashboard Inventory';
+  $('#dash-title').textContent = ''; document.title = 'Licoryx Dashboard Inventory';
   $('#ldr-conf').value = CONFIG.conf; $('#ldr-dm').value = CONFIG.dm;
 };
 $('#dash-switch').onchange = e => selectDash(+e.target.value, view === 'app' ? 'overview' : view);
