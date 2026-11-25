@@ -1,0 +1,119 @@
+name: CI
+
+# Builds the Splunk app, checks the committed package is current, runs Splunk AppInspect, and tests
+# the app in a browser: against the stand-in for Splunk Web, and in real Splunk (Docker) 10.x, 9.4 and 8.2.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and AppInspect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build, and check splunk-app/package/ holds this build
+        run: python3 splunk-app/build.py --check
+      - name: Install Splunk AppInspect
+        run: pip install splunk-appinspect
+      - name: AppInspect (Splunk Cloud and other tag sets)
+        run: |
+          for tags in cloud private_victoria private_classic future aarch64_compatibility; do
+            splunk-appinspect inspect dist/*.tgz --mode precert --included-tags "$tags" \
+              --data-format json --output-file "appinspect-$tags.json" > /dev/null
+          done
+          python3 .github/scripts/appinspect_gate.py appinspect-*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-package
+          path: |
+            dist/*.tgz
+            appinspect-*.json
+
+  browser-stand-in:
+    name: Browser test (stand-in for Splunk Web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Build and extract the app
+        run: |
+          python3 splunk-app/build.py
+          mkdir -p "$RUNNER_TEMP/app" && tar xzf dist/*.tgz -C "$RUNNER_TEMP/app"
+      - name: Test
+        run: |
+          node tests/mock-splunk.js "$RUNNER_TEMP/app/licoryx_dashboard_inventory" 8765 &
+          sleep 2
+          node tests/e2e.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-stand-in
+          path: tests/out/*.png
+
+  browser-splunk:
+    name: Browser test (Splunk ${{ matrix.splunk }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        splunk: ['latest', '9.4', '8.2']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space (Splunk will not run searches with under 5 GB free)
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Build the app
+        run: python3 splunk-app/build.py
+      - name: Start Splunk ${{ matrix.splunk }} with the app installed
+        run: |
+          pw="Ci-$(openssl rand -hex 10)"
+          echo "::add-mask::$pw"
+          echo "SPLUNK_PASSWORD=$pw" >> "$GITHUB_ENV"
+          docker run -d --name splunk -p 8000:8000 -p 8089:8089 \
+            -e SPLUNK_START_ARGS=--accept-license -e SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com \
+            -e SPLUNK_PASSWORD="$pw" -e SPLUNK_APPS_URL=/tmp/app.tgz \
+            -v "$PWD/$(ls dist/*.tgz)":/tmp/app.tgz:ro "splunk/splunk:${{ matrix.splunk }}"
+          for i in $(seq 1 90); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' splunk)
+            [ "$status" = healthy ] && break
+            sleep 10
+          done
+          docker exec splunk head -1 /opt/splunk/etc/splunk.version
+          [ "$status" = healthy ] || { docker logs splunk | tail -50; exit 1; }
+      - name: Add the test dashboards, macros and saved search
+        run: python3 tests/seed-splunk.py
+      - name: Test
+        env:
+          SPLUNK_URL: http://127.0.0.1:8000
+        run: node tests/e2e.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-splunk-${{ matrix.splunk }}
+          path: tests/out/*.png

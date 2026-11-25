@@ -5,7 +5,7 @@
     "id": {
       "group": null,
       "name": "licoryx_dashboard_inventory",
-      "version": "1.0.1"
+      "version": "1.1.0"
     },
     "author": [
       {
@@ -25,9 +25,9 @@
     },
     "commonInformationModels": null,
     "license": {
-      "name": null,
-      "text": null,
-      "uri": null
+      "name": "MIT",
+      "text": "LICENSE.txt",
+      "uri": "https://opensource.org/license/mit"
     },
     "privacyPolicy": {
       "name": null,

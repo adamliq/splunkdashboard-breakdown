@@ -317,6 +317,12 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
   .topbar { padding: 10px 16px; flex-wrap: wrap; }
   .search { min-width: 0; flex: 1; }
 }
+/* Inside the Splunk app, Splunk's own page title already names the app. */
+.in-splunk .topbar h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.in-splunk body:has(#loader:not([hidden])) .topbar { display: none; }
+.app-version { text-align: center; margin: 18px 0 4px; }
+.nowrap { white-space: nowrap; }
+.nav-version { padding: 10px 12px 4px; }
 @media print {
   #nav, .topbar .btn, .toolbar .btn, .search, #drawer { display: none !important; }
   #app { display: block; }
@@ -507,6 +513,16 @@ const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const fmt = v => v === undefined ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
 const uniq = a => [...new Set(a)];
 const plural = (n, s, p) => `${n} ${n === 1 ? s : (p || s + 's')}`;
+const APP_NAME = 'Licoryx Dashboard Inventory', APP_VERSION = '1.1.0'; // build.py checks this matches app.conf
+const SELF_APP = 'licoryx_dashboard_inventory';
+// Run fn over items with at most `limit` running at once; onDone(count) after each finishes.
+async function pool(items, limit, fn, onDone) {
+  const out = new Array(items.length);
+  let next = 0, done = 0;
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); onDone?.(++done); } };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
 
 /* ============================================================
    Running inside the Splunk app: libraries from the app, and loading straight from Splunk
@@ -522,6 +538,16 @@ const SPLUNK = (() => {
     return { splunkd: d, app: (q.get('app') || '').replace(/[^\w.\-]/g, ''), page: /^\/[\w\-./]*$/.test(page) ? page : '' };
   } catch { return null; }
 })();
+if (SPLUNK) document.documentElement.classList.add('in-splunk');
+// Follow the theme the viewer chose in Splunk (light, dark, or the system setting, which the page already follows).
+async function applySplunkTheme() {
+  try {
+    const r = await splunkGet('/services/data/user-prefs/general', { f: ['theme'] });
+    const t = String(r.entry?.[0]?.content?.theme || '').toLowerCase();
+    if (t === 'dark') document.documentElement.dataset.theme = 'dark';
+    else if (t === 'light' || t === 'enterprise') document.documentElement.dataset.theme = 'light';
+  } catch { /* older Splunk versions have no theme preference */ }
+}
 // Library location: inside the app from its own folder (no outside connections), otherwise from jsDelivr.
 const libUrl = (cdn, local) => SPLUNK ? local : cdn;
 async function splunkGet(path, params = {}) {
@@ -531,6 +557,40 @@ async function splunkGet(path, params = {}) {
   if (!r.ok) throw new Error(r.status === 403 ? 'permission denied' : r.status === 404 ? 'not found' : `HTTP ${r.status}`);
   return r.json();
 }
+// The one request that is not a GET: a search, run only when the viewer asks for view counts.
+// Splunk Web requires its CSRF token (from its cookie) on POST requests.
+async function splunkSearch(spl) {
+  const m = document.cookie.match(/(?:^|;\s*)splunkweb_csrf_token_\d+=([^;]+)/);
+  const r = await fetch(SPLUNK.splunkd + '/services/search/jobs', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Splunk-Form-Key': m ? decodeURIComponent(m[1]) : '', 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    body: new URLSearchParams({ search: spl, exec_mode: 'oneshot', output_mode: 'json', count: '0' }).toString()
+  });
+  if (!r.ok) {
+    // Splunk explains refusals (permissions, disk space, search quotas) in its messages: show that text.
+    let why = ''; try { why = (await r.json()).messages?.map(x => x.text).join(' ') || ''; } catch { /* not JSON */ }
+    throw new Error(why || (r.status === 403 ? 'permission denied' : r.status === 401 ? 'not signed in' : `HTTP ${r.status}`));
+  }
+  return (await r.json()).results || [];
+}
+// Per app: what exists in Splunk for the dependency checks. Filled when loading from Splunk.
+const SPLUNK_INV = new Map(); // app -> { indexes, lookups, macros, saved, datamodels } (each a Set, or null if unreadable)
+const USAGE_DAYS = 30;
+const USAGE_SPL = `search index=_internal sourcetype=splunk_web_access earliest=-${USAGE_DAYS}d@d uri_path="*/app/*" user!="-" | rex field=uri_path "/app/(?<app>[^/]+)/(?<view>[^/?]+)$" | where isnotnull(view) AND tonumber(status) < 400 | stats count AS views dc(user) AS users max(_time) AS last BY app view`;
+let USAGE = null; // 'app/view' -> { views, users, last }
+const splunkKey = src => src?.splunk ? src.splunk.app + '/' + src.splunk.name : '';
+const usageOf = src => USAGE?.get(splunkKey(src)) || null;
+const dateOf = v => { if (!v) return ''; const d = typeof v === 'number' ? new Date(v * 1000) : new Date(v); return isNaN(d) ? String(v) : d.toISOString().slice(0, 10); };
+async function loadUsage() {
+  document.querySelectorAll('.sp-usage').forEach(b => { b.disabled = true; b.textContent = 'Running the search…'; });
+  try {
+    const rows = await splunkSearch(USAGE_SPL);
+    USAGE = new Map(rows.map(r => [r.app + '/' + r.view, { views: +r.views || 0, users: +r.users || 0, last: +r.last || 0 }]));
+    toast(rows.length ? `View counts for the last ${USAGE_DAYS} days loaded (${plural(rows.length, 'dashboard')} viewed).` : `The search found no dashboard views. You may not have permission to search index=_internal.`, 8000);
+  } catch (e) { toast(`Couldn't get view counts (${e.message}).`, 10000); }
+  render();
+}
+const usageButton = () => `<button class="btn small sp-usage" id="sp-usage" title="Runs one search on Splunk's web access log (index=_internal). Needs permission to search _internal.">Get view counts (last ${USAGE_DAYS} days)</button>`;
 const splunkState = { apps: [], app: '', views: [], selected: new Set(), loading: false, error: '' };
 async function initSplunkLoader() {
   if (!SPLUNK) return;
@@ -540,7 +600,7 @@ async function initSplunkLoader() {
     const r = await splunkGet('/services/apps/local', { f: ['label', 'visible'] });
     splunkState.apps = (r.entry || []).filter(e => e.content?.visible !== false && e.content?.visible !== '0')
       .map(e => ({ name: e.name, label: e.content?.label || e.name })).sort((a, b) => a.label.localeCompare(b.label));
-    const want = splunkState.apps.some(a => a.name === SPLUNK.app) && SPLUNK.app !== 'licoryx_dashboard_inventory' ? SPLUNK.app : 'search';
+    const want = splunkState.apps.some(a => a.name === SPLUNK.app) && SPLUNK.app !== SELF_APP ? SPLUNK.app : 'search';
     splunkState.app = splunkState.apps.some(a => a.name === want) ? want : splunkState.apps[0]?.name || '';
     await loadSplunkViews();
   } catch (e) { splunkState.loading = false; splunkState.error = `Couldn't list the apps in Splunk (${e.message}). You can still paste or choose a dashboard below.`; renderSplunkLoader(); }
@@ -548,13 +608,22 @@ async function initSplunkLoader() {
 async function loadSplunkViews() {
   splunkState.loading = true; splunkState.error = ''; splunkState.views = []; splunkState.selected.clear(); renderSplunkLoader();
   try {
-    const app = splunkState.app;
-    const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views`, { f: ['label', 'version', 'isDashboard', 'isVisible'] });
+    const app = splunkState.app, all = app === '-';
+    const r = await splunkGet(`/servicesNS/-/${all ? '-' : encodeURIComponent(app)}/data/ui/views`, { f: ['label', 'version', 'isDashboard', 'isVisible', 'rootNode'] });
+    const appLabel = a => splunkState.apps.find(x => x.name === a)?.label || a;
     splunkState.views = (r.entry || [])
-      .filter(e => e.acl?.app === app && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && !(app === 'licoryx_dashboard_inventory' && e.name === 'inventory'))
-      .map(e => ({ name: e.name, label: e.content?.label || e.name, kind: String(e.content?.version) === '2' ? 'Studio' : 'Classic', sharing: e.acl?.sharing || '' }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  } catch (e) { splunkState.error = `Couldn't list the dashboards in this app (${e.message}).`; }
+      // Dashboards only: Studio and Classic have a <dashboard> or <form> root; <view> pages are HTML or framework pages.
+      .filter(e => (all || e.acl?.app === app) && e.content?.isDashboard !== false && e.content?.isDashboard !== '0' && (!e.content?.rootNode || /^(dashboard|form)$/.test(e.content.rootNode)) && !(e.acl?.app === SELF_APP && e.name === 'inventory'))
+      .map(e => {
+        const a = e.acl?.app || app;
+        return {
+          key: a + '/' + e.name, name: e.name, app: a, appLabel: appLabel(a), label: e.content?.label || e.name,
+          kind: String(e.content?.version) === '2' ? 'Studio' : 'Classic', sharing: e.acl?.sharing || '', owner: e.acl?.owner || e.author || '',
+          perms: { read: [].concat(e.acl?.perms?.read || []), write: [].concat(e.acl?.perms?.write || []) }, updated: e.updated || ''
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label) || a.app.localeCompare(b.app));
+  } catch (e) { splunkState.error = `Couldn't list the dashboards (${e.message}).`; }
   splunkState.loading = false; renderSplunkLoader();
 }
 function renderSplunkLoader() {
@@ -562,29 +631,33 @@ function renderSplunkLoader() {
   if (!box) return;
   const S = splunkState, n = S.selected.size;
   box.innerHTML = `<h2>Load from Splunk</h2>
-    <p class="small muted" style="margin-top:0">Pick dashboards from any app you can see. The page only reads them; nothing in Splunk is changed.</p>
+    <p class="small muted" style="margin-top:0">Pick dashboards from one app, or from all apps you can see. The page only reads them; nothing in Splunk is changed.</p>
     <div class="loader-actions">
-      <label>App <select id="sp-app" ${S.loading && !S.apps.length ? 'disabled' : ''}>${S.apps.map(a => `<option value="${esc(a.name)}" ${a.name === S.app ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}</select></label>
+      <label>App <select id="sp-app" ${S.loading && !S.apps.length ? 'disabled' : ''}><option value="-" ${S.app === '-' ? 'selected' : ''}>All apps</option>${S.apps.map(a => `<option value="${esc(a.name)}" ${a.name === S.app ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}</select></label>
       <input class="search" id="sp-filter" type="search" placeholder="Filter dashboards…" aria-label="Filter dashboards">
     </div>
     ${S.error ? `<div class="error">${esc(S.error)}</div>` : ''}
-    ${S.loading ? '<p class="muted">Loading…</p>' : S.views.length ? `<div class="sp-list" role="group" aria-label="Dashboards">${S.views.map(v => `<label class="sp-item"><input type="checkbox" data-spview="${esc(v.name)}" ${S.selected.has(v.name) ? 'checked' : ''}> <span><b>${esc(v.label)}</b> <span class="muted small">${esc(v.name)}${v.kind ? ' · ' + v.kind : ''}${v.sharing ? ' · ' + esc(v.sharing) : ''}</span></span></label>`).join('')}</div>` : (S.error ? '' : '<p class="muted">There are no dashboards in this app that you can see.</p>')}
-    <label class="small" style="display:block;margin:8px 0"><input type="checkbox" id="sp-config" checked> Also load the macros, saved searches and data models visible in this app, so the page can look inside them</label>
+    ${S.loading ? '<p class="muted">Loading…</p>' : S.views.length ? `<div class="sp-list" role="group" aria-label="Dashboards">${S.views.map(v => `<label class="sp-item"><input type="checkbox" data-spview="${esc(v.key)}" ${S.selected.has(v.key) ? 'checked' : ''}> <span><b>${esc(v.label)}</b> <span class="muted small">${S.app === '-' ? esc(v.appLabel) + ' · ' : ''}${esc(v.name)} · ${v.kind}${v.sharing ? ' · ' + esc(v.sharing) : ''}${v.owner ? ' · ' + esc(v.owner) : ''}</span></span></label>`).join('')}</div>` : (S.error ? '' : '<p class="muted">There are no dashboards in this app that you can see.</p>')}
+    <label class="small" style="display:block;margin:8px 0"><input type="checkbox" id="sp-config" checked> Also check what the dashboards use (indexes, lookups, macros, saved searches, data models) against Splunk, and load the macros, saved searches and data models so the page can look inside them</label>
     <div class="loader-actions">
       <button class="btn primary" id="sp-load" ${n ? '' : 'disabled'}>${n ? `Load ${plural(n, 'dashboard')}` : 'Choose dashboards to load'}</button>
       ${S.views.length ? '<button class="btn small" id="sp-all">Select all shown</button><button class="btn small" id="sp-none">Clear</button>' : ''}
     </div>`;
 }
 const confLine = (k, v) => `${k} = ${String(v ?? '').replace(/\r?\n/g, ' \\\n')}`;
-// The app's macros and saved searches as .conf text, and its data models as JSON, for the expansion features.
+// One app's macros and saved searches as .conf text and its data models as REST entries (for expansion),
+// plus the names of what exists there (for the dependency checks). Each part is read separately: one that
+// can't be read is left unchecked rather than reported as missing.
 async function splunkConfig(app) {
   const ns = `/servicesNS/-/${encodeURIComponent(app)}`;
-  const [mac, sav, dm] = await Promise.allSettled([
+  const [mac, sav, dm, ldef, lfile] = await Promise.allSettled([
     splunkGet(ns + '/configs/conf-macros', { f: ['definition', 'args', 'iseval'] }), // Splunk Web does not pass /admin/ paths
     splunkGet(ns + '/saved/searches', { f: ['search', 'dispatch.earliest_time', 'dispatch.latest_time', 'cron_schedule'] }),
     splunkGet(ns + '/datamodel/model', { f: ['eai:data'] }),
+    splunkGet(ns + '/data/transforms/lookups', { f: ['filename'] }),
+    splunkGet(ns + '/data/lookup-table-files', { f: ['title'] }),
   ]);
-  const notes = [];
+  const notes = [], names = p => p.status === 'fulfilled' ? new Set((p.value.entry || []).map(e => e.name)) : null;
   let conf = '';
   if (mac.status === 'fulfilled') for (const e of mac.value.entry || []) {
     const c = e.content || {};
@@ -594,30 +667,57 @@ async function splunkConfig(app) {
     const c = e.content || {};
     conf += `[${e.name}]\n${confLine('search', c.search)}\n${c['dispatch.earliest_time'] ? confLine('dispatch.earliest_time', c['dispatch.earliest_time']) + '\n' : ''}${c['dispatch.latest_time'] ? confLine('dispatch.latest_time', c['dispatch.latest_time']) + '\n' : ''}${c.cron_schedule ? confLine('cron_schedule', c.cron_schedule) + '\n' : ''}\n`;
   } else notes.push('saved searches: ' + sav.reason.message);
-  const dmText = dm.status === 'fulfilled' ? JSON.stringify({ entry: (dm.value.entry || []).map(e => ({ content: { 'eai:data': e.content?.['eai:data'] } })) }) : '';
+  const dmEntries = dm.status === 'fulfilled' ? (dm.value.entry || []).map(e => ({ content: { 'eai:data': e.content?.['eai:data'] } })) : [];
   if (dm.status !== 'fulfilled') notes.push('data models: ' + dm.reason.message);
-  return { conf, dm: dmText, notes };
+  let lookups = null;
+  if (ldef.status === 'fulfilled' && lfile.status === 'fulfilled') lookups = new Set([...names(ldef), ...names(lfile)]);
+  else notes.push('lookups: ' + (ldef.status !== 'fulfilled' ? ldef : lfile).reason.message);
+  const inv = { macros: names(mac), saved: names(sav), datamodels: dm.status === 'fulfilled' ? new Set((dm.value.entry || []).map(e => e.name)) : null, lookups };
+  return { conf, dmEntries, notes, inv };
+}
+// Indexes the viewer can see on this search head (one list for every app).
+async function splunkIndexes() {
+  const r = await splunkGet('/services/data/indexes', { datatype: 'all', f: ['title'] });
+  const set = new Set((r.entry || []).map(e => e.name));
+  return set.size ? set : null;
 }
 async function loadFromSplunk() {
-  const S = splunkState, app = S.app, names = S.views.map(v => v.name).filter(n => S.selected.has(n));
-  if (!names.length) return;
-  const btn = $('#sp-load'); if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  const S = splunkState, picked = S.views.filter(v => S.selected.has(v.key));
+  if (!picked.length) return;
+  const btn = $('#sp-load'), say = t => { if (btn) btn.textContent = t; };
+  if (btn) btn.disabled = true;
   const errors = [];
-  const files = (await Promise.all(names.map(async name => {
+  // At most 6 requests at a time, so a large app doesn't flood the search head.
+  say(`Loading 0 of ${picked.length}…`);
+  const files = (await pool(picked, 6, async v => {
     try {
-      const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(app)}/data/ui/views/${encodeURIComponent(name)}`, { f: ['eai:data'] });
+      const r = await splunkGet(`/servicesNS/-/${encodeURIComponent(v.app)}/data/ui/views/${encodeURIComponent(v.name)}`, { f: ['eai:data'] });
       const text = r.entry?.[0]?.content?.['eai:data'];
       if (!text) throw new Error('no source returned');
-      return { name, text };
-    } catch (e) { errors.push(`${name}: ${e.message}`); return null; }
-  }))).filter(Boolean);
-  if ($('#sp-config')?.checked) {
-    const c = await splunkConfig(app);
-    $('#ldr-conf').value = c.conf; $('#ldr-dm').value = c.dm;
-    applyConfig(c.conf, c.dm);
-    if (c.notes.length) errors.push('Some configuration could not be read (' + c.notes.join('; ') + '). Expansion uses what was read.');
+      return { name: v.name, text, splunk: { app: v.app, appLabel: v.appLabel, name: v.name, owner: v.owner, sharing: v.sharing, perms: v.perms, updated: v.updated } };
+    } catch (e) { errors.push(`${v.app}/${v.name}: ${e.message}`); return null; }
+  }, d => say(`Loading ${d} of ${picked.length}…`))).filter(Boolean);
+  SPLUNK_INV.clear();
+  if ($('#sp-config')?.checked && files.length) {
+    const apps = uniq(files.map(f => f.splunk.app));
+    say(`Reading what ${apps.length > 1 ? plural(apps.length, 'app') + ' contain' : 'the app contains'}…`);
+    const [cfgs, idx] = await Promise.all([
+      pool(apps, 2, a => splunkConfig(a)),
+      splunkIndexes().catch(e => { errors.push(`The list of indexes could not be read (${e.message}), so index names were not checked.`); return null; }),
+    ]);
+    let conf = '';
+    const dmEntries = [];
+    apps.forEach((a, k) => {
+      const c = cfgs[k];
+      conf += c.conf; dmEntries.push(...c.dmEntries);
+      SPLUNK_INV.set(a, { ...c.inv, indexes: idx });
+      if (c.notes.length) errors.push(`Some configuration${apps.length > 1 ? ` in ${a}` : ''} could not be read (${c.notes.join('; ')}). Checks and expansion use what was read.`);
+    });
+    const dm = dmEntries.length ? JSON.stringify({ entry: dmEntries }) : '';
+    $('#ldr-conf').value = conf; $('#ldr-dm').value = dm;
+    applyConfig(conf, dm);
   } else applyConfig($('#ldr-conf').value, $('#ldr-dm').value);
-  if (btn) { btn.disabled = false; btn.textContent = `Load ${plural(names.length, 'dashboard')}`; }
+  if (btn) { btn.disabled = false; updateSplunkButton(); }
   if (!files.length) { const err = $('#load-error'); err.textContent = errors.join('\n') || 'Nothing was loaded.'; err.hidden = false; return; }
   loadDashboards(files);
   if (errors.length) { LOAD_ERRORS.push(...errors); toast(errors.join(' '), 10000); if (view === 'app') render(); }
@@ -1658,6 +1758,7 @@ function buildModel(src) {
   // `fix`, when given, is { label, apply(definition) }: a safe change offered on the Issues page.
   const issue = (severity, message, ref, fix) => issues.push({ severity, message, ref, fix });
   const byKind = k => [...nodes.values()].filter(n => n.kind === k);
+  const inv = src.splunk ? SPLUNK_INV.get(src.splunk.app) || null : null; // what exists in Splunk, when loaded from Splunk
   const L = isObj(def.layout) ? def.layout : {};
   const SECTION = { viz: 'visualizations', input: 'inputs', ds: 'dataSources' };
 
@@ -1845,11 +1946,11 @@ function buildModel(src) {
       if (CONFIG.macros.size) for (const m of ex.info.missing) {
         const argc = +(m.key.match(/\((\d+)\)$/)?.[1] || 0);
         if (m.other.length) issue('error', `SPL: macro \`${m.key}\` is called with ${plural(argc, 'argument')}, but macros.conf only defines ${m.other.map(k => '`' + k + '`').join(', ')}.`, n.id);
-        else issue('info', `Macro \`${m.key}\` isn't in the pasted macros.conf, so it wasn't expanded.`, n.id);
+        else if (!inv) issue('info', `Macro \`${m.key}\` isn't in the pasted macros.conf, so it wasn't expanded.`, n.id);
       }
       for (const k of ex.info.loops) issue('error', `SPL: macro \`${k}\` expands into itself.`, n.id);
       for (const k of ex.info.evalMacros) issue('info', `Macro \`${k}\` is an eval-based macro. Its SPL is computed when the search runs, so it can't be expanded here.`, n.id);
-      for (const r of ex.info.savedMissing) issue('info', `Saved search "${r}" isn't in the pasted savedsearches.conf.`, n.id);
+      if (!inv) for (const r of ex.info.savedMissing) issue('info', `Saved search "${r}" isn't in the pasted savedsearches.conf.`, n.id);
       for (const r of ex.info.datasetMissing) issue('info', `Dataset ${r} isn't in the pasted data model JSON.`, n.id);
     }
     if (n.type !== 'ds.savedSearch') for (const l of lintSpl(n.query, n.type === 'ds.chain'))
@@ -1908,6 +2009,40 @@ function buildModel(src) {
     n.eff_lookups = n.lineage.flatMap(id => (nodes.get(id).sources?.lookups || []).filter(l => id === n.id || l.mode === 'read').map(l => ({ ...l, inherited: id !== n.id })));
     if (n.type === 'ds.search' && !n.sources.index.length && !n.sources.other.length && !n.sources.macros.length && !n.sources.datamodels.length && n.query && !/^\s*\|/.test(n.query))
       issue('info', 'This search names no index, so it runs against the default indexes of whoever views the dashboard.', n.id);
+  }
+
+  // ---- Dependencies: is everything the searches use there in Splunk, for this viewer?
+  const deps = inv ? { checked: 0, missing: [] } : null;
+  if (inv) {
+    const where = `app "${src.splunk.app}"`;
+    const missing = (n, kind, name, message, severity = 'warning') => { if (n.kind !== 'ds') n.missing = true; deps.missing.push({ kind, name, ref: n.id }); issue(severity, message, n.id); };
+    if (inv.indexes) for (const n of byKind('index')) {
+      deps.checked++;
+      const v = n.key, re = new RegExp('^' + v.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$', 'i');
+      if (!(v.includes('*') ? [...inv.indexes].some(x => re.test(x)) : [...inv.indexes].some(x => x.toLowerCase() === v.toLowerCase())))
+        missing(n, 'Index', v, `Index "${v}" isn't in this search head's list of indexes you can see${v.includes('*') ? ' (no index matches)' : ''}. If your indexes are defined only on the indexers, you can ignore this.`, 'info');
+    }
+    if (inv.lookups) for (const n of byKind('lookup')) {
+      if (!n.access?.has('read')) continue; // written only: outputlookup creates the file
+      deps.checked++;
+      if (!inv.lookups.has(n.key)) missing(n, 'Lookup', n.key, `Lookup "${n.key}" wasn't found in ${where}: there is no lookup definition or lookup file with that name that you can read. Searches that use it fail.`);
+    }
+    if (inv.macros) for (const n of byKind('macro')) {
+      deps.checked++;
+      if (!inv.macros.has(n.key)) missing(n, 'Macro', n.key, `Macro \`${n.key}\` wasn't found in ${where}, or isn't shared with it. Searches that use it fail.`);
+    }
+    if (inv.datamodels) for (const n of byKind('datamodel')) {
+      deps.checked++;
+      if (!inv.datamodels.has(n.key)) missing(n, 'Data model', n.key, `Data model "${n.key}" wasn't found in ${where}, or isn't shared with it. Searches that use it return nothing.`);
+    }
+    if (inv.saved) for (const n of byKind('ds')) {
+      const refs = uniq([...(n.type === 'ds.savedSearch' && n.ref ? [n.ref] : []), ...[...String(n.query || '').matchAll(/(?:^|\||\[)\s*savedsearch\s+("([^"]+)"|[^\s|\]]+)/gi)].map(r => r[2] || r[1])]);
+      for (const r of refs) {
+        if (r.includes('$')) continue;
+        deps.checked++;
+        if (!inv.saved.has(r)) missing(n, 'Saved search', r, `Saved search "${r}" wasn't found in ${where}, or isn't shared with it. This data source fails.`);
+      }
+    }
   }
 
   // ---- Layout: tabs / canvases
@@ -2100,7 +2235,7 @@ function buildModel(src) {
   return {
     title: dash.label, description: dash.description, format: src.format,
     layoutSummary: hasTabBar ? `${tabsDef.length} tabs` : (tabsDef.length ? `single ${tabsDef[0].def.type || ''} canvas`.replace('  ', ' ') : 'no layout'),
-    nodes, edges, issues, usages, outE, inE, maxDepth, byKind, src
+    nodes, edges, issues, usages, outE, inE, maxDepth, byKind, src, deps
   };
 }
 
@@ -2233,7 +2368,7 @@ function renderNav() {
     else if (v.id === 'issues') count = M.issues.length;
     const alert = v.id === 'issues' && M.issues.some(i => i.severity !== 'info');
     return `<button data-view="${v.id}" ${view === v.id ? 'aria-current="page"' : ''}><span>${esc(v.label)}</span><span class="count ${alert ? 'alert' : ''}">${count}</span></button>`;
-  }).join('');
+  }).join('') + `<div class="small muted nav-version">${esc(APP_NAME)} ${APP_VERSION}</div>`;
 }
 
 function render() {
@@ -2252,6 +2387,18 @@ function render() {
   applyFilter();
 }
 
+function splunkWhere(sp) {
+  const perms = sp.perms || {};
+  return `${esc(sp.appLabel || sp.app)} / <code>${esc(sp.name)}</code>${sp.owner ? ` · owner <b>${esc(sp.owner)}</b>` : ''}${sp.sharing ? ` · shared: ${esc(sp.sharing)}` : ''}${perms.read?.length ? ` · read: ${esc(perms.read.join(', '))}` : ''}${perms.write?.length ? ` · write: ${esc(perms.write.join(', '))}` : ''}${sp.updated ? ` · updated ${esc(dateOf(sp.updated))}` : ''}`;
+}
+function depsSummary(d, html) {
+  if (!d.missing.length) return `All ${plural(d.checked, 'item')} checked were found in Splunk`;
+  const by = {};
+  for (const m of d.missing) by[m.kind] = (by[m.kind] || 0) + 1;
+  const list = Object.entries(by).map(([k, n]) => plural(n, k.toLowerCase())).join(', ');
+  return html ? `<b style="color:var(--sev-warning)">${d.missing.length} of ${d.checked} not found in Splunk</b> (${esc(list)}) <button class="btn small" data-view="issues">See issues</button>` : `${d.missing.length} of ${d.checked} not found (${list})`;
+}
+const usageText = u => `${plural(u.views, 'view')} by ${plural(u.users, 'user')} in the last ${USAGE_DAYS} days, last on ${dateOf(u.last)}`;
 function viewOverview() {
   const ds = M.byKind('ds');
   const nType = t => ds.filter(n => n.type === t).length;
@@ -2262,6 +2409,7 @@ function viewOverview() {
   const otherDs = ds.length - nType('ds.search') - nType('ds.chain') - nType('ds.savedSearch');
   const stat = (v, k, n, l, s) => `<button class="stat k-${k}" style="--kc: var(--k-${k})" data-view="${v}"><div class="n">${n}</div><div class="l">${esc(l)}</div><div class="s">${s}</div></button>`;
   return `
+  ${DASH.length === 1 && LOAD_ERRORS.length ? `<div class="error" style="margin-bottom:12px"><b>Some sources could not be loaded:</b><br>${LOAD_ERRORS.map(esc).join('<br>')}</div>` : ''}
   <div class="card">
     <dl class="meta-grid">
       <dt>Title</dt><dd><b>${esc(M.title)}</b></dd>
@@ -2270,6 +2418,9 @@ function viewOverview() {
       <dt>Source</dt><dd>${esc(M.format)}</dd>
       <dt>Relationships</dt><dd>${M.edges.length} connections between ${M.nodes.size - 1} items</dd>
       ${(() => { const c = compatSummary(); return c.needs ? `<dt>Needs</dt><dd>Splunk Enterprise ${esc(c.needs)} or later (approximately; for ${esc(c.why.join(', '))})${c.unsupported.length ? ` · <b style="color:var(--sev-error)">${plural(c.unsupported.length, 'feature')} not supported on your version</b>` : ''} <button class="btn small" data-view="compat">Check</button></dd>` : ''; })()}
+      ${M.src.splunk ? `<dt>In Splunk</dt><dd>${splunkWhere(M.src.splunk)}</dd>` : ''}
+      ${M.deps ? `<dt>Dependencies</dt><dd>${depsSummary(M.deps, true)}</dd>` : ''}
+      ${M.src.splunk && SPLUNK ? `<dt>Usage</dt><dd>${usageOf(M.src) ? usageText(usageOf(M.src)) : USAGE ? `Not viewed in the last ${USAGE_DAYS} days` : usageButton()}</dd>` : ''}
       ${hasConfig() ? `<dt>Splunk config</dt><dd>${plural(CONFIG.macros.size, 'macro')}, ${plural(CONFIG.saved.size, 'saved search', 'saved searches')} and ${plural(CONFIG.datamodels.size, 'data model')} loaded and expanded</dd>` : ''}
     </dl>
     ${(M.src.repairs || []).length || (M.src.notes || []).length ? `<div class="notes"><b>While loading:</b><ul>${[...(M.src.repairs || []).map(r => 'Repaired: ' + r), ...(M.src.notes || [])].map(r => `<li>${esc(r)}</li>`).join('')}</ul>${(M.src.repairs || []).length ? '<button class="btn small" data-view="issues">Download the clean definition from the Issues page</button>' : ''}</div>` : ''}
@@ -2990,11 +3141,27 @@ function viewApp() {
   const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
   const dashBtn = (i, detail) => `<button class="chip k-tab" data-dash="${i}" title="Open this dashboard">${esc(DASH[i].model.title)}${detail ? ` <span class="det">${esc(detail)}</span>` : ''}</button>`;
   const shared = sharedItems();
+  const fromSplunk = DASH.some(d => d.src.splunk);
+  const titles = DASH.map(d => d.model.title.toLowerCase());
+  const dupTitles = new Set(titles.filter((t, k) => titles.indexOf(t) !== k));
   return `${LOAD_ERRORS.length ? `<div class="error" style="margin-bottom:12px"><b>Some sources could not be loaded:</b><br>${LOAD_ERRORS.map(esc).join('<br>')}</div>` : ''}
   <p class="muted small">${plural(DASH.length, 'dashboard')} loaded. Open one to see its full inventory, or use the table below to see what the dashboards share.</p>
+  ${fromSplunk && SPLUNK ? `<div class="loader-actions" style="margin-bottom:8px">${usageButton()}<span class="muted small">${USAGE ? `View counts from the last ${USAGE_DAYS} days are shown.` : 'Runs one search on index=_internal; needs permission to search it.'}</span></div>` : ''}
   ${table([
-    { h: 'Dashboard', f: x => dashBtn(x.i) },
-    { h: 'Source', f: x => `<span class="small">${esc(x.d.src.name || '')}</span><div class="muted small">${esc(x.d.model.format)}</div>` },
+    { h: 'Dashboard', f: x => dashBtn(x.i) + (dupTitles.has(x.d.model.title.toLowerCase()) ? ' <span class="badge sev-warning" title="Another loaded dashboard has the same title">same title</span>' : '') },
+    ...(fromSplunk ? [
+      { h: 'App', f: x => esc(x.d.src.splunk?.appLabel || x.d.src.splunk?.app || '') },
+      { h: 'Owner', f: x => esc(x.d.src.splunk?.owner || '') },
+      { h: 'Sharing', f: x => esc(x.d.src.splunk?.sharing || '') },
+      { h: 'Updated', f: x => `<span class="nowrap">${esc(dateOf(x.d.src.splunk?.updated))}</span>` },
+      { h: 'Not found', f: x => { const d = x.d.model.deps; return !d ? '' : d.missing.length ? badge(d.missing.length, 'sev-warning') : '0'; } },
+    ] : []),
+    ...(USAGE ? [
+      { h: `Views (${USAGE_DAYS} d)`, f: x => String(usageOf(x.d.src)?.views || 0) },
+      { h: 'Users', f: x => String(usageOf(x.d.src)?.users || 0) },
+      { h: 'Last viewed', f: x => `<span class="nowrap">${esc(dateOf(usageOf(x.d.src)?.last)) || '—'}</span>` },
+    ] : []),
+    { h: 'Source', f: x => x.d.src.splunk ? `<span class="small">${esc(x.d.src.splunk.name)}</span><div class="muted small">${/Classic/.test(x.d.model.format) ? 'Classic' : 'Studio'}</div>` : `<span class="small">${esc(x.d.src.name || '')}</span><div class="muted small">${esc(x.d.model.format)}</div>` },
     { h: 'Tabs', f: x => String(x.d.model.byKind('tab').filter(t => !t.global).length) },
     { h: 'Panels', f: x => String(x.d.model.byKind('viz').length) },
     { h: 'Searches', f: x => String(x.d.model.byKind('ds').length) },
@@ -4668,7 +4835,10 @@ function reportBlocks(format) {
   h1(M.title);
   if (M.description) p(M.description);
   tbl(['Field', 'Value'], [
-    ['Source', M.format], ['Layout', M.layoutSummary], ['Generated', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'],
+    ['Source', M.format], ['Layout', M.layoutSummary], ['Generated', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'], ['Generated by', `${APP_NAME} ${APP_VERSION}`],
+    ...(M.src.splunk ? [['In Splunk', splunkWhere(M.src.splunk).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")]] : []),
+    ...(M.deps ? [['Dependencies', depsSummary(M.deps, false)]] : []),
+    ...(usageOf(M.src) ? [['Usage', usageText(usageOf(M.src))]] : []),
     ['Items', invItems().length], ['Relationships', M.edges.length],
     ['Issues', `${plural(sev('error'), 'error')}, ${plural(sev('warning'), 'warning')}, ${plural(sev('info'), 'note')}`],
     ['Splunk config', hasConfig() ? `${plural(CONFIG.macros.size, 'macro')}, ${plural(CONFIG.saved.size, 'saved search', 'saved searches')}, ${plural(CONFIG.datamodels.size, 'data model')} (expanded)` : 'not loaded'],
@@ -4953,7 +5123,7 @@ async function blocksToPdf(B, jsPDF) {
     for (const line of doc.splitTextToSize(pdfSafe(s), W)) { ensure(size * 1.3); doc.text(line, MG, y + size); y += size * 1.3; }
     y += after;
   };
-  doc.setProperties({ title: pdfSafe(M.title + ' - dashboard report'), subject: 'Splunk dashboard inventory report', creator: 'Licoryx Dashboard Inventory' });
+  doc.setProperties({ title: pdfSafe(M.title + ' - dashboard report'), subject: 'Splunk dashboard inventory report', creator: `${APP_NAME} ${APP_VERSION}` });
   // Draw the images first so their size is known: a heading then stays on the same page as its image.
   const imgs = new Map();
   for (const b of B) if (b.t === 'img') {
@@ -5040,6 +5210,7 @@ async function blocksToPdf(B, jsPDF) {
   for (let i = 1; i <= n; i++) {
     doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED);
     doc.text(pdfSafe(M.title), MG, PH - 18);
+    doc.text(pdfSafe(`${APP_NAME} ${APP_VERSION}`), PW / 2, PH - 18, { align: 'center' });
     doc.text(`Page ${i} of ${n}`, PW - MG, PH - 18, { align: 'right' });
   }
   return doc.output('blob');
@@ -5357,7 +5528,7 @@ async function writeXlsx(sheets, title) {
       + sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
       + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>' },
     { name: '_rels/.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>' },
-    { name: 'docProps/core.xml', text: XML_HEAD + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(title)}</dc:title><dc:creator>Licoryx Dashboard Inventory</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</dcterms:created></cp:coreProperties>` },
+    { name: 'docProps/core.xml', text: XML_HEAD + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(title)}</dc:title><dc:creator>${xmlEsc(APP_NAME + ' ' + APP_VERSION)}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</dcterms:created></cp:coreProperties>` },
     { name: 'xl/workbook.xml', text: XML_HEAD + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
       + sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>' + (filters ? `<definedNames>${filters}</definedNames>` : '') + '</workbook>' },
     { name: 'xl/_rels/workbook.xml.rels', text: XML_HEAD + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -5400,8 +5571,17 @@ function sheetsForDashboard() {
 function sheetsForApp() {
   const out = [], used = new Set();
   const sev = (m, s) => m.issues.filter(i => i.severity === s).length;
-  out.push(makeSheet('Dashboards', ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations'],
-    DASH.map(d => { const m = d.model, prev = M; M = m; const recs = recommendations().length; M = prev; return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs]; }), used));
+  const sp = DASH.some(d => d.src.splunk);
+  out.push(makeSheet('Dashboards', ['Dashboard', 'Source', 'Format', 'Tabs', 'Panels', 'Searches', 'Inputs', 'Tokens', 'Errors', 'Warnings', 'Recommendations',
+    ...(sp ? ['App', 'View name', 'Owner', 'Sharing', 'Read', 'Write', 'Updated', 'Dependencies checked', 'Not found in Splunk'] : []),
+    ...(USAGE ? [`Views (${USAGE_DAYS} days)`, `Users (${USAGE_DAYS} days)`, 'Last viewed'] : [])],
+    DASH.map(d => {
+      const m = d.model, prev = M; M = m; const recs = recommendations().length; M = prev;
+      const s2 = d.src.splunk || {}, u = usageOf(d.src);
+      return [m.title, d.src.name || '', m.format, m.byKind('tab').filter(t => !t.global).length, m.byKind('viz').length, m.byKind('ds').length, m.byKind('input').length, m.byKind('token').length, sev(m, 'error'), sev(m, 'warning'), recs,
+        ...(sp ? [s2.app || '', s2.name || '', s2.owner || '', s2.sharing || '', (s2.perms?.read || []).join(', '), (s2.perms?.write || []).join(', '), dateOf(s2.updated), m.deps ? m.deps.checked : '', m.deps ? m.deps.missing.map(x => `${x.kind} ${x.name}`).join('; ') : ''] : []),
+        ...(USAGE ? [u?.views || 0, u?.users || 0, dateOf(u?.last)] : [])];
+    }), used));
   const shared = sharedItems();
   out.push(makeSheet('Shared items', ['Kind', 'Name', 'Dashboards', 'Used by'], shared.map(r => [r.kind, r.name, r.uses.size, [...r.uses].map(([i, d]) => DASH[i].model.title + (d.size ? ` (${[...d].join(', ')})` : '')).join('; ')]), used));
   out.push(makeSheet('Shared by dashboard', ['Dashboard', 'Kind', 'Name', 'Detail'], shared.flatMap(r => [...r.uses].map(([i, d]) => [DASH[i].model.title, r.kind, r.name, [...d].join('; ')])), used));
@@ -5436,7 +5616,7 @@ function loadDashboards(files) {
     try {
       for (const s of parseSources(f.text, f.name)) {
         if (s.error) errors.push(`${s.name || f.name || 'dashboard'}: ${s.error}`);
-        else ok.push(s);
+        else { if (f.splunk) s.splunk = f.splunk; ok.push(s); }
       }
     } catch (e) { errors.push((files.length > 1 ? (f.name || 'pasted text') + ': ' : '') + e.message); }
   }
@@ -5535,7 +5715,9 @@ $('#share-copy').onclick = copyShareLink;
 $('#share-close').onclick = () => $('#share-dlg').close();
 window.addEventListener('hashchange', loadFromHash);
 initSplunkLoader();
+if (SPLUNK) applySplunkTheme();
 loadFromHash();
+{ const v = document.createElement('p'); v.className = 'small muted app-version'; v.textContent = `${APP_NAME} ${APP_VERSION}`; $('#loader').appendChild(v); }
 function updateSplunkButton() {
   const b = $('#sp-load'), n = splunkState.selected.size;
   if (b) { b.disabled = !n; b.textContent = n ? `Load ${plural(n, 'dashboard')}` : 'Choose dashboards to load'; }
@@ -5578,6 +5760,7 @@ document.addEventListener('click', e => {
     'mock-svg': () => download(mockFileName('svg'), mockupSvg(), 'image/svg+xml'),
     'mock-png': exportMockupPng,
     'sp-load': loadFromSplunk,
+    'sp-usage': loadUsage,
     'sp-all': () => { document.querySelectorAll('#splunk-loader .sp-item:not([hidden]) input[data-spview]').forEach(c => { c.checked = true; splunkState.selected.add(c.dataset.spview); }); updateSplunkButton(); },
     'sp-none': () => { splunkState.selected.clear(); document.querySelectorAll('#splunk-loader input[data-spview]').forEach(c => { c.checked = false; }); updateSplunkButton(); },
     'compat-reset': () => { compatState.overrides = {}; saveCompat(); render(); },
