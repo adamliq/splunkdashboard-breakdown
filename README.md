@@ -165,31 +165,63 @@ From the **Export** menu:
 
 ## Splunk app
 
-`splunk-app/` packages the page as the **Licoryx Dashboard Inventory** Splunk app (`licoryx_dashboard_inventory`), for Splunk Enterprise 8.2 or later and Splunk Cloud Platform (Victoria and Classic experience).
+`splunk-app/` packages the page as the **Licoryx Dashboard Inventory** Splunk app (`licoryx_dashboard_inventory`), for Splunk Enterprise 8.2 or later and Splunk Cloud Platform (Victoria and Classic experience). It is tested in Splunk Enterprise 8.2, 9.4 and 10.6.
 
-- **Load from Splunk:** pick an app, tick one or more dashboards, and select **Load**. Tick **Also load the macros, saved searches and data models** to expand them, as with pasted config. Pasting and choosing files still work.
-- **Read-only:** it reads through Splunk's REST API with the viewer's own session, using GET requests only, so each user sees only what they can already read. It never changes, saves or schedules anything; fixes and exports are downloaded.
+- **Load from Splunk:** pick an app, or **All apps**, tick dashboards, and select **Load**. Only real dashboards are listed (Studio and Classic), not HTML or framework pages. Up to 6 are fetched at a time, with progress shown, so loading a whole instance doesn't flood the search head. Pasting and choosing files still work.
+- **Dependency check:** with **Also check what the dashboards use** ticked (the default), each dashboard's indexes, lookups, macros, saved searches and data models are checked against what exists in its app and what the viewer can read. Anything missing is listed on the Issues page, for example: *Lookup "geo_sites" wasn't found in app "search"*. The same option loads the macros, saved searches and data models so the page can expand them. Indexes are checked against the search head's index list; if your indexes are defined only on the indexers, ignore those notes.
+- **Ownership:** each dashboard's app, owner, sharing, read and write roles, and last update are shown on its Overview, in **All dashboards**, and in the reports and workbook. **All dashboards** also flags dashboards with the same title.
+- **View counts (optional):** **Get view counts** runs one search on Splunk's web access log (`index=_internal`, last 30 days) and adds views, users and last viewed for each dashboard. It runs only when you click it, and needs permission to search `_internal`.
+- **Theme:** follows the light or dark theme chosen in Splunk.
+- **Read-only:** it reads through Splunk's REST API with the viewer's own session, using GET requests, so each user sees only what they can already read. The only other request is the view-count search, when asked for. It never changes, saves or schedules anything; fixes and exports are downloaded.
 - **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
 - **Share links** point at the app's page in the same Splunk instance.
 
-**Download:** a ready-built package is in the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.0.1.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.0.1.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
+**Download:** get the package from the [latest release](https://github.com/adamliq/splunkdashboard-breakdown/releases/latest), or from the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.1.0.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.1.0.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
 
 To build the package yourself (Python 3, standard library only):
 
 ```sh
-python3 splunk-app/build.py        # writes dist/licoryx_dashboard_inventory-<version>.tgz
+python3 splunk-app/build.py          # writes dist/licoryx_dashboard_inventory-<version>.tgz
+python3 splunk-app/build.py --check  # also fails if splunk-app/package/ holds a different build
 ```
 
-The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/` so the download stays current.
+The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries and `LICENSE.txt`, checks that the version in `app.conf`, `app.manifest` and `index.html` (`APP_VERSION`) match, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/`; CI fails if you forget.
 
-**AppInspect:** version 1.0.1 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
+**AppInspect:** version 1.1.0 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
 
 ```sh
-splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.0.1.tgz --mode precert --included-tags cloud
+splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.0.tgz --mode precert --included-tags cloud
 ```
+
+### Tests and releases
+
+`tests/e2e.js` drives the app in a browser (Playwright) and checks loading, dependency checks, view counts, exports, the map layout, share links, **All apps**, that every request but the view-count search is a GET, that nothing goes outside Splunk, and that there are no Content Security Policy violations. It runs against either:
+
+- **a stand-in for Splunk Web** (`tests/mock-splunk.js`), which takes seconds:
+
+  ```sh
+  python3 splunk-app/build.py && mkdir -p /tmp/app && tar xzf dist/*.tgz -C /tmp/app
+  node tests/mock-splunk.js /tmp/app/licoryx_dashboard_inventory &
+  node tests/e2e.js
+  ```
+
+- **a real Splunk** in Docker, with the app installed and test content added by `tests/seed-splunk.py`:
+
+  ```sh
+  SPLUNK_PASSWORD=… python3 tests/seed-splunk.py
+  SPLUNK_URL=http://127.0.0.1:8000 SPLUNK_PASSWORD=… node tests/e2e.js
+  ```
+
+**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and package check, AppInspect (fails on any failure or warning), the stand-in test, and the real-Splunk test in Splunk 10.x, 9.4 and 8.2. Screenshots are kept as build artifacts.
+
+**Releases:** push a tag matching the app version, for example `git tag v1.1.0 && git push origin v1.1.0`. `.github/workflows/release.yml` rebuilds the package, checks it against AppInspect, and publishes a GitHub release with the `.tgz` attached.
 
 ## Examples
 
 - `examples/monitoringTemplateDiscreteMetrics.json`: a corrected Studio template.
 - `examples/classicWebErrors.xml`: a Classic Simple XML dashboard for trying the converter.
 - `examples/badPractices.json`: a dashboard that triggers most recommendations.
+
+## License
+
+[MIT](LICENSE). The bundled libraries keep their own licences: see `splunk-app/vendor/lib/THIRD-PARTY-NOTICES.md`.

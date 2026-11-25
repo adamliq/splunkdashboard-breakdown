@@ -1,0 +1,38 @@
+name: Release
+
+# Push a tag named after the app version (for example v1.1.0) to publish a GitHub release with the
+# Splunk app package attached. The tag must match the version in app.conf.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build, and check splunk-app/package/ holds this build
+        run: python3 splunk-app/build.py --check
+      - name: Check the tag matches the app version
+        run: |
+          version=$(sed -n 's/^version = //p' splunk-app/src/licoryx_dashboard_inventory/default/app.conf | head -1)
+          [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "Tag $GITHUB_REF_NAME does not match app version $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: AppInspect (Splunk Cloud)
+        run: |
+          pip install splunk-appinspect
+          splunk-appinspect inspect dist/*.tgz --mode precert --included-tags cloud \
+            --data-format json --output-file appinspect-cloud.json > /dev/null
+          python3 .github/scripts/appinspect_gate.py appinspect-cloud.json
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.tgz \
+            --title "Licoryx Dashboard Inventory $VERSION" --generate-notes

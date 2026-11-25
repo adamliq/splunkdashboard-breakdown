@@ -1,0 +1,12 @@
+{
+  "title": "Web SLA detail",
+  "inputs": { "in_week": { "type": "input.text", "title": "Week", "options": { "token": "week", "defaultValue": "-1w@w" } } },
+  "dataSources": {
+    "ds_sla": { "type": "ds.search", "name": "SLA by day", "options": { "query": "index=web sourcetype=access_combined earliest=$week$ | timechart span=1d count", "queryParameters": { "earliest": "-30d@d", "latest": "now" } } }
+  },
+  "visualizations": {
+    "viz_sla": { "type": "splunk.line", "title": "Requests per day", "dataSources": { "primary": "ds_sla" },
+      "eventHandlers": [ { "type": "drilldown.linkToDashboard", "options": { "app": "search", "dashboard": "web_ops", "tokens": [ { "token": "host", "value": "$row.host.value$" } ] } } ] }
+  },
+  "layout": { "type": "grid", "globalInputs": ["in_week"], "structure": [ { "item": "viz_sla", "type": "block", "position": { "x": 0, "y": 0, "w": 1200, "h": 300 } } ] }
+}
