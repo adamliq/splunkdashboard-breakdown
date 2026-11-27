@@ -14,6 +14,9 @@
   --sev-error: #c53030; --sev-warning: #b7791f; --sev-info: #2f6fde;
   --e-data: #2f6fde; --e-token: #c08a25; --e-layout: #9aa3ae; --e-vis: #c2417a;
   --code-bg: #f3f5f8; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  /* Accessible variants: field outlines at 3:1+, selected text and links at 4.5:1+ on tints */
+  --field-border: #7b8595; --accent-strong: #1f57c0; --accent-hover: #2a63c9;
+  --sev-warning-text: #8a5a12; --sev-info-text: #1f57c0; --ok-text: #1e6b43;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -25,6 +28,8 @@
     --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
     --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
     --code-bg: #161a20; --shadow: none;
+    --field-border: #6b7584; --accent-strong: #8fb4f7; --accent-hover: #7aa5f5;
+    --sev-warning-text: #e0a84a; --sev-info-text: #6c9cf2; --ok-text: #5cc189;
     color-scheme: dark;
   }
 }
@@ -36,6 +41,8 @@
   --sev-error: #f07171; --sev-warning: #e0a84a; --sev-info: #6c9cf2;
   --e-data: #6c9cf2; --e-token: #d9a24a; --e-layout: #5d6673; --e-vis: #e7799f;
   --code-bg: #161a20; --shadow: none;
+  --field-border: #6b7584; --accent-strong: #8fb4f7; --accent-hover: #7aa5f5;
+  --sev-warning-text: #e0a84a; --sev-info-text: #6c9cf2; --ok-text: #5cc189;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -46,7 +53,11 @@ pre { background: var(--code-bg); border: 1px solid var(--border); border-radius
 button, select, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 [hidden] { display: none !important; }
-a { color: var(--accent); }
+a { color: var(--accent-strong); }
+::placeholder { color: var(--muted); opacity: 1; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* A <label class="btn"> wrapping a visually hidden file input: show focus on the label */
+label.btn:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
 .topbar h1 { font-size: 16px; margin: 0; font-weight: 650; white-space: nowrap; }
@@ -54,7 +65,8 @@ a { color: var(--accent); }
 .btn { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 .btn:hover { background: var(--panel-2); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
-.btn.primary:hover { filter: brightness(1.07); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn:disabled, .btn:disabled:hover { cursor: not-allowed; background: var(--panel-2); border-color: var(--border); color: var(--muted); font-weight: inherit; }
 .btn.small { padding: 3px 8px; font-size: 12.5px; }
 
 /* Loader */
@@ -62,7 +74,7 @@ a { color: var(--accent); }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 18px 20px; }
 #loader h2 { margin: 0 0 6px; font-size: 20px; }
 #loader p { margin: 6px 0; color: var(--muted); }
-#source { width: 100%; min-height: 300px; resize: vertical; margin: 12px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+#source { width: 100%; min-height: 300px; resize: vertical; margin: 12px 0; padding: 10px; border: 1px solid var(--field-border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
 #source.dragover { outline: 2px dashed var(--accent); }
 .loader-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .error { color: var(--sev-error); background: color-mix(in srgb, var(--sev-error) 10%, transparent); border: 1px solid color-mix(in srgb, var(--sev-error) 35%, transparent); padding: 8px 12px; border-radius: 6px; margin-top: 10px; }
@@ -76,22 +88,27 @@ a { color: var(--accent); }
 #nav { border-right: 1px solid var(--border); background: var(--panel); padding: 12px 8px; position: sticky; top: 53px; height: calc(100vh - 53px); overflow: auto; }
 #nav button { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
 #nav button:hover { background: var(--panel-2); }
-#nav button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
+#nav button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-strong); font-weight: 600; }
 #nav .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-#nav .count.alert { color: var(--sev-error); font-weight: 600; }
+#nav .count.alert { color: #fff; background: var(--sev-error); font-weight: 600; border-radius: 999px; padding: 0 7px; min-width: 20px; text-align: center; }
+:root[data-theme="dark"] #nav .count.alert { color: #12151a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #nav .count.alert { color: #12151a; } }
 #nav hr { border: 0; border-top: 1px solid var(--border); margin: 10px 4px; }
 #nav .navlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 4px 10px; }
 .content { padding: 18px 22px 40px; min-width: 0; }
 .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .toolbar h2 { margin: 0; font-size: 18px; flex: 1; min-width: 160px; }
-.search { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); min-width: 220px; }
+.search { padding: 6px 10px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--panel); min-width: 220px; }
 .muted { color: var(--muted); }
 .small { font-size: 12.5px; }
 .section-title { font-size: 14px; font-weight: 650; margin: 22px 0 8px; }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 12px 0 6px; }
 .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; text-align: left; border-left: 4px solid var(--kc, var(--border)); }
-.stat:hover { background: var(--panel-2); }
+.stat { position: relative; }
+.stat::after { content: "›"; position: absolute; right: 12px; top: 8px; font-size: 20px; line-height: 1; color: var(--muted); }
+.stat:hover { background: var(--panel-2); border-color: var(--kc, var(--field-border)); }
+.stat:hover::after { color: var(--text); }
 .stat .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .stat .l { font-weight: 600; }
 .stat .s { color: var(--muted); font-size: 12px; }
@@ -103,6 +120,8 @@ a { color: var(--accent); }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--border); }
 th { background: var(--panel-2); font-weight: 600; font-size: 12.5px; position: sticky; top: 0; cursor: pointer; user-select: none; white-space: nowrap; }
+th::after { content: " ↕"; font-size: 10px; color: var(--muted); }
+.matrix th::after, th.nosort::after { content: none; }
 th[data-dir="asc"]::after { content: " ▲"; font-size: 10px; }
 th[data-dir="desc"]::after { content: " ▼"; font-size: 10px; }
 tr:last-child td { border-bottom: 0; }
@@ -122,11 +141,11 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .k-datamodel { --kc: var(--k-datamodel); } .k-macro { --kc: var(--k-macro); } .k-command { --kc: var(--k-command); }
 .badge { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--border); white-space: nowrap; line-height: 1.6; }
 .badge.sev-error { color: var(--sev-error); border-color: color-mix(in srgb, var(--sev-error) 45%, transparent); }
-.badge.sev-warning { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
-.badge.sev-info { color: var(--sev-info); border-color: color-mix(in srgb, var(--sev-info) 45%, transparent); }
-.badge.read { color: var(--k-ds); border-color: color-mix(in srgb, var(--k-ds) 45%, transparent); }
-.badge.write { color: var(--sev-warning); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
-.badge.ok { color: var(--k-viz); border-color: color-mix(in srgb, var(--k-viz) 45%, transparent); }
+.badge.sev-warning { color: var(--sev-warning-text); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
+.badge.sev-info { color: var(--sev-info-text); border-color: color-mix(in srgb, var(--sev-info) 45%, transparent); }
+.badge.read { color: var(--accent-strong); border-color: color-mix(in srgb, var(--k-ds) 45%, transparent); }
+.badge.write { color: var(--sev-warning-text); border-color: color-mix(in srgb, var(--sev-warning) 45%, transparent); }
+.badge.ok { color: var(--ok-text); border-color: color-mix(in srgb, var(--k-viz) 45%, transparent); }
 
 .tabcard { margin-bottom: 14px; }
 .tabcard h3 { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -147,7 +166,8 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .mock-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
 .mock-inputs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
 .mock-input { min-width: 170px; max-width: 280px; cursor: pointer; border-radius: 4px; }
-.mock-input:hover, .mock-panel:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mock-input:hover, .mock-panel:hover { outline: 2px dashed var(--accent); outline-offset: 1px; }
+.mock-item:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; z-index: 2; }
 .mock-input .lbl, .mock-panel .lbl { font-size: 11.5px; color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-ctl { border: 1px solid var(--border); background: var(--panel); border-radius: 4px; padding: 4px 8px; font-size: 12.5px; min-height: 28px; display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; }
 .mock-ctl .caret { margin-left: auto; color: var(--muted); }
@@ -180,7 +200,8 @@ td.num { color: var(--muted); font-variant-numeric: tabular-nums; text-align: ri
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
 .seg button { border: 0; background: var(--panel); padding: 5px 12px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--border); }
-.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent); font-weight: 600; }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent-strong); font-weight: 600; }
+.seg button:not([aria-pressed="true"]):hover { background: var(--panel-2); }
 .ggroup rect { fill: color-mix(in srgb, var(--k-tab) 6%, transparent); stroke: color-mix(in srgb, var(--k-tab) 45%, transparent); stroke-dasharray: 4 3; }
 .ggroup text { fill: var(--k-tab); font-size: 11.5px; font-weight: 600; }
 .ggroup { cursor: pointer; }
@@ -257,9 +278,9 @@ svg.graph.panning { cursor: grabbing; }
 pre.diff span { display: block; } pre.diff span.del { background: color-mix(in srgb, var(--sev-error) 10%, transparent); } pre.diff span.ins { background: color-mix(in srgb, var(--k-viz) 12%, transparent); }
 .cmp-source { width: 100%; min-height: 180px; margin: 8px 0; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
 .cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
-.cfg-text { width: 100%; min-height: 160px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; }
+.cfg-text { width: 100%; min-height: 160px; padding: 8px; border: 1px solid var(--field-border); border-radius: 8px; background: var(--code-bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; }
 .lbl2 { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
-.mock-panel.hidden-panel { opacity: .35; border-style: dashed; }
+.mock-panel.hidden-panel { opacity: .6; border-style: dashed; }
 .mock-panel .waiting { position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); text-align: center; font-size: 12px; font-weight: 600; color: var(--sev-warning); background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 4px; border-radius: 4px; }
 .mock-panel .b.faded { opacity: .25; }
 .mock-panel .flags span.warn { color: var(--sev-warning); } .mock-panel .flags span.err { color: var(--sev-error); }
@@ -286,7 +307,7 @@ select.mock-ctl, input.mock-ctl { width: 100%; font-size: 12.5px; }
 
 /* Graph */
 .graph-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
-.graph-controls select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.graph-controls select { padding: 4px 8px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--panel); }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
 .graph-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); max-height: calc(100vh - 210px); }
@@ -346,7 +367,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
     <textarea id="source" spellcheck="false" placeholder='Paste the Dashboard Studio JSON ({"visualizations": …, "dataSources": …}), the dashboard XML (<dashboard version="2"> … <definition><![CDATA[ … ]]></definition>), or a REST API response from data/ui/views.'></textarea>
     <div class="loader-actions">
       <button class="btn primary" id="btn-analyze">Analyze</button>
-      <label class="btn">Choose files… <input type="file" id="file" multiple accept=".json,.xml,.txt,application/json,text/xml" hidden></label>
+      <label class="btn">Choose files… <input type="file" id="file" multiple accept=".json,.xml,.txt,application/json,text/xml" class="visually-hidden"></label>
       <button class="btn" id="btn-sample">Load sample dashboard</button>
     </div>
     <div class="error" id="load-error" hidden></div>
@@ -357,7 +378,7 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
         <textarea id="ldr-conf" class="cfg-text" spellcheck="false" aria-label="macros.conf and savedsearches.conf" placeholder="macros.conf and/or savedsearches.conf"></textarea>
         <textarea id="ldr-dm" class="cfg-text" spellcheck="false" aria-label="Data model JSON" placeholder="Data model JSON"></textarea>
       </div>
-      <div class="loader-actions"><label class="btn small">Choose .conf / .json files… <input type="file" id="ldr-cfg-file" multiple accept=".conf,.json,.txt" hidden></label><button class="btn small" id="ldr-cfg-sample">Use sample config</button></div>
+      <div class="loader-actions"><label class="btn small">Choose .conf / .json files… <input type="file" id="ldr-cfg-file" multiple accept=".conf,.json,.txt" class="visually-hidden"></label><button class="btn small" id="ldr-cfg-sample">Use sample config</button></div>
     </details>
     <details class="howto">
       <summary>How to get the dashboard source</summary>
@@ -513,7 +534,7 @@ const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const fmt = v => v === undefined ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
 const uniq = a => [...new Set(a)];
 const plural = (n, s, p) => `${n} ${n === 1 ? s : (p || s + 's')}`;
-const APP_NAME = 'Licoryx Dashboard Inventory', APP_VERSION = '1.1.0'; // build.py checks this matches app.conf
+const APP_NAME = 'Licoryx Dashboard Inventory', APP_VERSION = '1.1.1'; // build.py checks this matches app.conf
 const SELF_APP = 'licoryx_dashboard_inventory';
 // Run fn over items with at most `limit` running at once; onDone(count) after each finishes.
 async function pool(items, limit, fn, onDone) {
@@ -2367,7 +2388,7 @@ function renderNav() {
     } else if (v.id === 'relationships') count = M.edges.length;
     else if (v.id === 'issues') count = M.issues.length;
     const alert = v.id === 'issues' && M.issues.some(i => i.severity !== 'info');
-    return `<button data-view="${v.id}" ${view === v.id ? 'aria-current="page"' : ''}><span>${esc(v.label)}</span><span class="count ${alert ? 'alert' : ''}">${count}</span></button>`;
+    return `<button data-view="${v.id}" ${view === v.id ? 'aria-current="page"' : ''}><span>${esc(v.label)}</span><span class="count ${alert ? 'alert' : ''}">${count}${alert ? '<span class="visually-hidden"> need attention</span>' : ''}</span></button>`;
   }).join('') + `<div class="small muted nav-version">${esc(APP_NAME)} ${APP_VERSION}</div>`;
 }
 
@@ -2895,7 +2916,7 @@ function mockPanel(item, style) {
   const title = n.title ? `<div class="t" title="${esc(n.title)}">${esc(withValues(n.title))}</div>` : '';
   const tip = `${n.key} · ${n.type}${ds.length ? ' · data: ' + ds.join(', ') : ''}`;
   const waiting = st.waiting.length ? `<div class="waiting">Waiting for input: ${esc(st.waiting.map(x => M.nodes.get(x).label).join(', '))}</div>` : '';
-  return `<div class="mock-panel mock-item${shape ? ' shape' : ''}${hiddenCls}" data-id="${esc(n.id)}" style="${style}" title="${esc(tip)}">
+  return `<div class="mock-panel mock-item${shape ? ' shape' : ''}${hiddenCls}" data-id="${esc(n.id)}" style="${style}" title="${esc(tip)}" tabindex="0" role="button" aria-label="${esc((n.label || n.key) + ' — show details')}">
     ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}${title}<div class="b${waiting ? ' faded' : ''}">${vizSketch(n)}</div>${waiting}
     ${!shape && t !== 'markdown' ? `<div class="f">${esc(shortType(n.type))}${ds.length ? ' · ' + esc(ds.join(', ')) : ''}</div>` : ''}${mockState.showNames ? `<div class="idtag" title="${esc(itemNames(n))}">${esc(itemNames(n))}</div>` : ''}</div>`;
 }
@@ -3251,7 +3272,7 @@ function viewCompare() {
       <p style="margin-top:0">Compare <b>${esc(M.title)}</b> (A, the dashboard open now) with another version (B). Paste or choose the other definition${DASH.length > 1 ? ', or pick one of the loaded dashboards' : ''}.</p>
       ${DASH.length > 1 ? `<p><label>Loaded dashboard: <select id="cmp-pick"><option value="">Choose…</option>${DASH.map((d, i) => i === CUR_I ? '' : `<option value="${i}">${esc(d.model.title)}</option>`).join('')}</select></label></p>` : ''}
       <textarea id="cmp-source" class="cmp-source" spellcheck="false" placeholder="Paste version B: Studio JSON, dashboard XML or a REST response."></textarea>
-      <div class="loader-actions"><button class="btn primary" id="cmp-run">Compare</button><label class="btn">Choose file… <input type="file" id="cmp-file" accept=".json,.xml,.txt" hidden></label></div>
+      <div class="loader-actions"><button class="btn primary" id="cmp-run">Compare</button><label class="btn">Choose file… <input type="file" id="cmp-file" accept=".json,.xml,.txt" class="visually-hidden"></label></div>
       <div class="error" id="cmp-error" hidden></div></div>`;
   }
   const rows = diffModels(M, COMPARE.model);
@@ -3316,7 +3337,7 @@ function viewConfig() {
   </div>
   <div class="loader-actions" style="margin:8px 0 4px">
     <button class="btn primary" id="cfg-apply">Apply${DASH.length > 1 ? ' to all loaded dashboards' : ''}</button>
-    <label class="btn">Choose .conf / .json files… <input type="file" id="cfg-file" multiple accept=".conf,.json,.txt" hidden></label>
+    <label class="btn">Choose .conf / .json files… <input type="file" id="cfg-file" multiple accept=".conf,.json,.txt" class="visually-hidden"></label>
     <button class="btn" id="cfg-sample">Load sample config</button>
     <button class="btn" id="cfg-clear">Clear</button>
   </div>
@@ -4180,7 +4201,15 @@ async function drawGraph() {
   highlight(el);
   const target = graphState.mode === 'focus' ? graphState.center : graphState.selected;
   const tp = target && (L.P.get(target) || L.P.get(S.cm.rep.get(target)));
-  if (tp) wrap.scrollTo({ left: Math.max(0, tp.x * graphState.zoom - wrap.clientWidth / 2), top: Math.max(0, tp.y * graphState.zoom - wrap.clientHeight / 2) });
+  if (tp) {
+    const z = graphState.zoom, want = tp.x * z - wrap.clientWidth / 2;
+    // Snap left to the start of a column, so the first visible column is whole (not empty-looking boxes),
+    // as long as the item in focus still fits on screen.
+    const starts = uniq([...L.P.values()].map(q => q.x)).sort((a, b) => a - b);
+    const snap = starts.filter(x => x * z - 8 <= want && (tp.x - x) * z + 220 * z <= wrap.clientWidth).pop();
+    const left = want <= 0 ? 0 : snap !== undefined ? Math.max(0, snap * z - 8) : Math.max(0, tp.x * z - 8);
+    wrap.scrollTo({ left, top: Math.max(0, tp.y * z - wrap.clientHeight / 2) });
+  }
 }
 // Arrow keys: right = something it feeds, left = something feeding it, up/down = the next box in the column.
 function neighbourFor(id, key) {
@@ -5731,6 +5760,8 @@ document.addEventListener('input', e => {
 $('#drawer-close').onclick = closeDrawer;
 $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistory.pop(); openDrawer(drawerHistory[drawerHistory.length - 1], false); } };
 document.addEventListener('keydown', e => {
+  // Mockup panels are role="button": Enter and Space open them, like a button
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.mock-item[role="button"]')) { e.preventDefault(); e.target.click(); return; }
   if (e.key === 'Escape') { closeDrawer(); exportMenu.hidden = true; }
   if (e.key === 'Enter' && e.target.matches?.('input[data-mock-token]')) onMockChange(e.target);
 });
