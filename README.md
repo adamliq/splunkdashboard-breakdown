@@ -176,7 +176,7 @@ From the **Export** menu:
 - **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
 - **Share links** point at the app's page in the same Splunk instance.
 
-**Download:** get the package from the [latest release](https://github.com/adamliq/splunkdashboard-breakdown/releases/latest), or from the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.1.0.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.1.0.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
+**Download:** get the package from the [latest release](https://github.com/adamliq/splunkdashboard-breakdown/releases/latest), or from the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.1.1.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.1.1.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
 
 To build the package yourself (Python 3, standard library only):
 
@@ -187,10 +187,10 @@ python3 splunk-app/build.py --check  # also fails if splunk-app/package/ holds a
 
 The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries and `LICENSE.txt`, checks that the version in `app.conf`, `app.manifest` and `index.html` (`APP_VERSION`) match, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/`; CI fails if you forget.
 
-**AppInspect:** version 1.1.0 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
+**AppInspect:** version 1.1.1 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
 
 ```sh
-splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.0.tgz --mode precert --included-tags cloud
+splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.1.tgz --mode precert --included-tags cloud
 ```
 
 ### Tests and releases
@@ -214,7 +214,7 @@ splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.0.tgz --mode prec
 
 **CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and package check, AppInspect (fails on any failure or warning), the stand-in test, and the real-Splunk test in Splunk 10.x, 9.4 and 8.2. Screenshots are kept as build artifacts.
 
-**Releases:** push a tag matching the app version, for example `git tag v1.1.0 && git push origin v1.1.0`. `.github/workflows/release.yml` rebuilds the package, checks it against AppInspect, and publishes a GitHub release with the `.tgz` attached.
+**Releases:** push a tag matching the app version, for example `git tag v1.1.1 && git push origin v1.1.1`. `.github/workflows/release.yml` rebuilds the package, checks it against AppInspect, and publishes a GitHub release with the `.tgz` attached.
 
 ## Examples
 
