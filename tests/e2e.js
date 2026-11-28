@@ -113,7 +113,7 @@ const section = s => { step = s; console.log(s); };
   await f.waitForSelector('#g-wrap svg .gnode', { timeout: 60000 });
   ok(await f.$$eval('#g-wrap .gnode', g => g.length) > 3, 'ELK map layout from the bundled library');
   await page.screenshot({ path: path.join(OUT, '4-map.png') });
-  await f.click('#btn-export'); await f.click('#btn-share');
+  await f.click('#btn-share'); // Share… is its own button beside Export
   await f.waitForFunction(() => document.querySelector('#share-link').value.startsWith('http'));
   const link = await f.$eval('#share-link', e => e.value);
   ok(link.startsWith(`${BASE}/en-US/app/${APP}/inventory#d=`), 'share links point at the app page');

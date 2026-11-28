@@ -67,7 +67,7 @@ Unknown keys are flagged only when they look like a misspelling of a known one, 
 
 ## Splunk version compatibility
 
-The **Splunk version** page lists the features the dashboard uses that need a particular Splunk version: Dashboard Studio, the grid layout, default token values, hiding panels with no data, smart-source tokens, tabs, unset-token drilldowns, and show/hide conditions. It shows the minimum version each needs and the items that use it, and says which version the whole dashboard needs; the Overview and the reports show the same. Choose your version (Splunk Enterprise 8.2 to 10.0, or Splunk Cloud Platform) to see what won't work on it. The minimum versions are approximate, based on Splunk release notes. If one is wrong for your environment, correct it in the table; your corrections and version are remembered in your browser.
+The **Version compatibility** page lists the features the dashboard uses that need a particular Splunk version: Dashboard Studio, the grid layout, default token values, hiding panels with no data, smart-source tokens, tabs, unset-token drilldowns, and show/hide conditions. It shows the minimum version each needs and the items that use it, and says which version the whole dashboard needs; the Overview and the reports show the same. Choose your version (Splunk Enterprise 8.2 to 10.0, or Splunk Cloud Platform) to see what won't work on it. The minimum versions are approximate, based on Splunk release notes. If one is wrong for your environment, correct it in the table; your corrections and version are remembered in your browser.
 
 ## Recommendations
 
@@ -84,7 +84,7 @@ The **Recommendations** page suggests optimisations and best practice. Unlike is
 
 ## Repair
 
-Issues with a safe fix carry a checkbox: removing a broken data-source reference, layout entry or visibility condition, removing an unused data source, placing an unplaced panel, adding an unplaced input to the input bar, turning on `enableSmartSources`, adding a missing leading pipe, and removing an empty command. Pick the fixes, then **Download definition** (JSON, or the original XML file with its `<definition>` replaced) or **Load the fixed version** to re-check it. Repairs made while loading are always included.
+Issues with a safe fix carry a checkbox: removing a broken data-source reference, layout entry or visibility condition, removing an unused data source, placing an unplaced panel, adding an unplaced input to the input bar, turning on `enableSmartSources`, adding a missing leading pipe, and removing an empty command. **Select all safe fixes** (or tick the ones you want), then **Download definition with N fixes** (JSON, or the original XML file with its `<definition>` replaced) or **Re-check with fixes applied** to load the fixed version into the page. With no fix ticked, **Download original definition** saves the dashboard unchanged. Repairs made while loading are always included.
 
 ## Dashboard mockup
 
@@ -150,18 +150,20 @@ Explore them through:
 
 ## Exports
 
-From the **Export** menu:
+From the **Export** menu, grouped into Reports, Data, Dashboard and Images, and the **Share…** button beside it:
 
-- **Full report (.pdf)** and **Full report (.md):** everything about the open dashboard in one document. It covers a summary, issues with their fixes, the layout (a mockup image of each tab in the PDF, and positions of every item), the numbered inventory, inputs, data sources (lineage, time ranges, what each search reads, and the full, effective and expanded SPL), indexes, sourcetypes, lookups, data models and macros, SPL commands and pipelines, visualizations, tokens and where each is referenced, visibility conditions, every relationship, the Splunk config used, and the dashboard definition as an appendix.
+- **Full report (PDF)** and **Full report (Markdown):** everything about the open dashboard in one document. It covers a summary, issues with their fixes, the layout (a mockup image of each tab in the PDF, and positions of every item), the numbered inventory, inputs, data sources (lineage, time ranges, what each search reads, and the full, effective and expanded SPL), indexes, sourcetypes, lookups, data models and macros, SPL commands and pipelines, visualizations, tokens and where each is referenced, visibility conditions, every relationship, the Splunk config used, and the dashboard definition as an appendix.
   - The PDF is landscape A4, with a contents page linking to each section, bookmarks, and page numbers. It is built in the browser with [jsPDF](https://github.com/parallax/jsPDF), loaded from jsDelivr the first time you export. If that can't load (for example offline), the report is saved as a print-ready HTML file instead; open it and choose **Print → Save as PDF**.
   - The Markdown has a linked table of contents and renders on GitHub, GitLab and most wikis.
 - **Excel workbook (.xlsx):** the same content as the full report, one sheet per section (inventory, inputs, data sources, what each search reads, SPL, visualizations, tokens, issues, recommendations, relationships and more), each with filters. Written by the page itself, with no library. The All dashboards page also has an app workbook: dashboards, shared items and links between dashboards.
-- **Share link…:** a link that opens this dashboard in the page. The whole definition (and, if you tick it, the pasted Splunk config) is compressed into the part of the link after `#`, which browsers never send to a web server; but anyone you give the link to can read the definition, including its searches. From the claude.ai artifact or a local file, links point to the [GitHub Pages site](https://adamliq.github.io/splunkdashboard-breakdown/). Large dashboards make long links, which some chat and email apps cut off; the dialog warns when a link is long.
-- **Printable summary (.html):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
-- **Inventory (.csv)** and **Relationships (.csv)**.
-- **Model (.json):** the full parsed model.
-- **Definition, with selected fixes.**
-- **Mockup (.svg / .png).**
+- **Share…** (its own button): a link that opens this dashboard in the page. The whole definition (and, if you tick it, the pasted Splunk config) is compressed into the part of the link after `#`, which browsers never send to a web server; but anyone you give the link to can read the definition, including its searches. From the claude.ai artifact or a local file, links point to the [GitHub Pages site](https://adamliq.github.io/splunkdashboard-breakdown/). Large dashboards make long links, which some chat and email apps cut off; the dialog warns when a link is long.
+- **One-page summary (HTML):** a one-page summary with counts, a mockup of each tab, tokens, data sources, visualizations and issues, ready to print.
+- **Inventory (CSV)** and **Relationships (CSV)**.
+- **Parsed model (JSON):** the full parsed model.
+- **Corrected definition (JSON):** the definition with the fixes ticked on the Issues page; the menu says how many are selected.
+- **Mockup (SVG / PNG).**
+
+The menu works from the keyboard: Enter or ↓ opens it, the arrow keys, Home and End move between items, and Escape closes it and returns to the Export button.
 
 ## Splunk app
 
@@ -176,7 +178,7 @@ From the **Export** menu:
 - **Self-contained:** jsPDF, jsPDF-AutoTable and elkjs are bundled in `appserver/static/lib` (see `THIRD-PARTY-NOTICES.md`), so the app makes no connections outside Splunk. There is no inline script, Python, input, index, saved search or custom command.
 - **Share links** point at the app's page in the same Splunk instance.
 
-**Download:** get the package from the [latest release](https://github.com/adamliq/splunkdashboard-breakdown/releases/latest), or from the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.1.1.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.1.1.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
+**Download:** get the package from the [latest release](https://github.com/adamliq/splunkdashboard-breakdown/releases/latest), or from the repository at [`splunk-app/package/licoryx_dashboard_inventory-1.1.2.tgz`](splunk-app/package/licoryx_dashboard_inventory-1.1.2.tgz). Install it under **Apps → Manage apps → Install app from file**, or upload it to Splunk Cloud with **Upload app**. On Splunk Enterprise, restart Splunk when it asks; until then, the app menu shows a generic icon.
 
 To build the package yourself (Python 3, standard library only):
 
@@ -187,10 +189,10 @@ python3 splunk-app/build.py --check  # also fails if splunk-app/package/ holds a
 
 The build turns `index.html` into `appserver/static/inventory.html`, `inventory.css` and `inventory.js`, adds the bundled libraries and `LICENSE.txt`, checks that the version in `app.conf`, `app.manifest` and `index.html` (`APP_VERSION`) match, and writes the archive with the file permissions Splunk Cloud expects. After changing `index.html` or the app, rebuild and copy the result to `splunk-app/package/`; CI fails if you forget.
 
-**AppInspect:** version 1.1.1 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
+**AppInspect:** version 1.1.2 passes Splunk AppInspect 4.4.0 with no failures, warnings, errors or skipped checks, for the `cloud`, `private_victoria`, `private_classic`, `future` and `aarch64_compatibility` tags, and for all 254 checks run together:
 
 ```sh
-splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.1.tgz --mode precert --included-tags cloud
+splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.2.tgz --mode precert --included-tags cloud
 ```
 
 ### Tests and releases
@@ -214,7 +216,7 @@ splunk-appinspect inspect dist/licoryx_dashboard_inventory-1.1.1.tgz --mode prec
 
 **CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and package check, AppInspect (fails on any failure or warning), the stand-in test, and the real-Splunk test in Splunk 10.x, 9.4 and 8.2. Screenshots are kept as build artifacts.
 
-**Releases:** push a tag matching the app version, for example `git tag v1.1.1 && git push origin v1.1.1`. `.github/workflows/release.yml` rebuilds the package, checks it against AppInspect, and publishes a GitHub release with the `.tgz` attached.
+**Releases:** push a tag matching the app version, for example `git tag v1.1.2 && git push origin v1.1.2`. `.github/workflows/release.yml` rebuilds the package, checks it against AppInspect, and publishes a GitHub release with the `.tgz` attached.
 
 ## Examples
 

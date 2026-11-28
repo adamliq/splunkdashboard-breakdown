@@ -86,6 +86,19 @@ label.btn:has(input:focus-visible) { outline: 2px solid var(--focus); outline-of
 /* App */
 #app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - 53px); }
 #nav { border-right: 1px solid var(--border); background: var(--panel); padding: 12px 8px; position: sticky; top: 53px; height: calc(100vh - 53px); overflow: auto; }
+.nav-select { display: none; align-items: center; gap: 8px; font-weight: 600; }
+.nav-select select { flex: 1; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid var(--field-border); border-radius: 6px; background: var(--panel); font-weight: 400; }
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; background: var(--panel); color: var(--accent-strong); border: 2px solid var(--focus); border-radius: 6px; padding: 8px 12px; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 8px; }
+#view-title:focus { outline: none; }
+#view-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 4px; }
+.menu-group { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.menu-group:not(:first-child) { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+.menu-list button .note { display: block; font-size: 11.5px; color: var(--muted); }
+.menu-list button:focus-visible { outline-offset: -2px; }
+.linklike { min-height: 24px; display: inline-flex; align-items: center; }
+.chip[data-invkind] { min-height: 26px; }
+details > summary { min-height: 24px; }
 #nav button { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
 #nav button:hover { background: var(--panel-2); }
 #nav button[aria-current="page"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent-strong); font-weight: 600; }
@@ -332,10 +345,15 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 .colhead { fill: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 
 @media (max-width: 820px) {
-  #app { grid-template-columns: 1fr; }
-  #nav { position: static; height: auto; display: flex; overflow-x: auto; gap: 4px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--border); }
-  #nav button { width: auto; white-space: nowrap; gap: 6px; }
-  #nav hr, #nav .navlabel { display: none; }
+  /* minmax(0, …): without it the column grows to the navigation's width and the whole page scrolls sideways */
+  #app { grid-template-columns: minmax(0, 1fr); }
+  /* On narrow screens the section list is a dropdown showing the current page */
+  #nav { position: static; height: auto; padding: 8px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
+  #nav button, #nav hr, #nav .navlabel, #nav .nav-version { display: none; }
+  #nav .nav-select { display: flex; }
+  /* The Export menu opens as a full-width sheet at the bottom, so it never runs off either edge */
+  .menu-list { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; max-height: 70vh; overflow: auto; margin: 0; }
+  .menu-list button { min-height: 40px; }
   .content { padding: 14px 16px 30px; }
   .topbar { padding: 10px 16px; flex-wrap: wrap; }
   .search { min-width: 0; flex: 1; }
@@ -353,14 +371,16 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#view-title" id="skip-link">Skip to content</a>
 <header class="topbar">
   <h1>Licoryx Dashboard Inventory</h1>
   <select id="dash-switch" aria-label="Dashboard" hidden></select>
   <span class="dash-title" id="dash-title"></span>
-  <button class="btn" id="btn-new" hidden>Load another dashboard</button>
+  <button class="btn" id="btn-new" hidden>Load different dashboards</button>
 </header>
 
 <main id="loader">
+  <div class="loader-actions" id="back-row" hidden style="margin-bottom:12px"><button class="btn" id="btn-back">← Back to inventory</button><span class="muted small" id="back-note"></span></div>
   <div class="card" id="splunk-loader" hidden style="margin-bottom:14px"></div>
   <div class="card">
     <h2>Inventory a Splunk dashboard</h2>
@@ -398,22 +418,26 @@ svg.has-sel .gedge:not(.dim) { opacity: 1; stroke-width: 2; }
   <nav id="nav" aria-label="Inventory sections"></nav>
   <section class="content">
     <div class="toolbar">
-      <h2 id="view-title"></h2>
+      <h2 id="view-title" tabindex="-1"></h2>
       <input class="search" id="filter" type="search" placeholder="Filter this view…" aria-label="Filter this view">
+      <button class="btn" id="btn-share" aria-haspopup="dialog">Share…</button>
       <div class="menu">
-        <button class="btn" id="btn-export" aria-haspopup="true" aria-expanded="false">Export ▾</button>
-        <div class="menu-list" id="export-menu" hidden>
-          <button id="btn-export-pdf"><b>Full report (.pdf)</b></button>
-          <button id="btn-export-md"><b>Full report (.md)</b></button>
-          <button id="btn-export-xlsx"><b>Excel workbook (.xlsx)</b></button>
-          <button id="btn-share">Share link…</button>
-          <button id="btn-export-summary">Printable summary (.html)</button>
-          <button id="btn-export-inv">Inventory (.csv)</button>
-          <button id="btn-export-rel">Relationships (.csv)</button>
-          <button id="btn-export-json">Model (.json)</button>
-          <button id="btn-export-def">Definition, with selected fixes</button>
-          <button id="btn-export-svg">Mockup (.svg)</button>
-          <button id="btn-export-png">Mockup (.png)</button>
+        <button class="btn" id="btn-export" aria-haspopup="menu" aria-expanded="false" aria-controls="export-menu">Export ▾</button>
+        <div class="menu-list" id="export-menu" role="menu" aria-label="Export" hidden>
+          <div class="menu-group" role="presentation">Reports</div>
+          <button role="menuitem" id="btn-export-pdf"><b>Full report (PDF)</b></button>
+          <button role="menuitem" id="btn-export-md">Full report (Markdown)</button>
+          <button role="menuitem" id="btn-export-xlsx">Excel workbook</button>
+          <button role="menuitem" id="btn-export-summary">One-page summary (HTML)</button>
+          <div class="menu-group" role="presentation">Data</div>
+          <button role="menuitem" id="btn-export-inv">Inventory (CSV)</button>
+          <button role="menuitem" id="btn-export-rel">Relationships (CSV)</button>
+          <button role="menuitem" id="btn-export-json">Parsed model (JSON)</button>
+          <div class="menu-group" role="presentation">Dashboard</div>
+          <button role="menuitem" id="btn-export-def">Corrected definition (JSON)<span class="note" id="export-def-note"></span></button>
+          <div class="menu-group" role="presentation">Images</div>
+          <button role="menuitem" id="btn-export-svg">Mockup (SVG)</button>
+          <button role="menuitem" id="btn-export-png">Mockup (PNG)</button>
         </div>
       </div>
     </div>
@@ -536,7 +560,7 @@ const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const fmt = v => v === undefined ? '' : (typeof v === 'string' ? v : JSON.stringify(v));
 const uniq = a => [...new Set(a)];
 const plural = (n, s, p) => `${n} ${n === 1 ? s : (p || s + 's')}`;
-const APP_NAME = 'Licoryx Dashboard Inventory', APP_VERSION = '1.1.1'; // build.py checks this matches app.conf
+const APP_NAME = 'Licoryx Dashboard Inventory', APP_VERSION = '1.1.2'; // build.py checks this matches app.conf
 const SELF_APP = 'licoryx_dashboard_inventory';
 // Run fn over items with at most `limit` running at once; onDone(count) after each finishes.
 async function pool(items, limit, fn, onDone) {
@@ -2350,6 +2374,8 @@ function timeRange(n) {
 const VIEWS = [
   { id: 'app', label: 'All dashboards', when: () => DASH.length > 1, count: () => DASH.length },
   { id: 'overview', label: 'Overview' },
+  { id: 'issues', label: 'Issues' },
+  { id: 'recommendations', label: 'Recommendations', count: () => recommendations().length },
   { id: 'mockup', label: 'Dashboard mockup' },
   { sep: 'Inventory' },
   { id: 'inventory', label: 'All items', count: () => invItems().length },
@@ -2369,14 +2395,27 @@ const VIEWS = [
   { id: 'tokenmatrix', label: 'Token matrix', count: () => M.byKind('token').length || '' },
   { id: 'dataflow', label: 'Data flow (Sankey)' },
   { id: 'relationships', label: 'Relationship list' },
-  { sep: 'Checks and tools' },
-  { id: 'issues', label: 'Issues' },
-  { id: 'recommendations', label: 'Recommendations', count: () => recommendations().length },
-  { id: 'compat', label: 'Splunk version', count: () => compatSummary().unsupported.length || '' },
+  { sep: 'Tools' },
+  { id: 'compat', label: 'Version compatibility', count: () => compatSummary().unsupported.length || '' },
   { id: 'compare', label: 'Compare versions' },
   { id: 'config', label: 'Splunk config', count: () => CONFIG.macros.size + CONFIG.saved.size + CONFIG.datamodels.size || '' },
 ];
 
+// The same sections as a dropdown, shown instead of the sidebar on narrow screens.
+function navSelect() {
+  const groups = []; let cur = { label: '', items: [] }; groups.push(cur);
+  for (const v of VIEWS) {
+    if (v.sep) { cur = { label: v.sep, items: [] }; groups.push(cur); continue; }
+    if (v.when && !v.when()) continue;
+    let count = v.count ? v.count() : '';
+    if (v.kinds) count = v.kinds.reduce((a, k) => a + M.byKind(k).length, 0);
+    else if (v.kind) { const c = M.byKind(v.kind).length; if (v.hideEmpty && !c) continue; count = c; }
+    else if (v.id === 'relationships') count = M.edges.length;
+    else if (v.id === 'issues') count = M.issues.length;
+    cur.items.push(`<option value="${v.id}" ${view === v.id ? 'selected' : ''}>${esc(v.label)}${count !== '' && count !== 0 ? ` (${count})` : ''}</option>`);
+  }
+  return `<label class="nav-select">Section <select id="nav-select">${groups.map(g => g.label ? `<optgroup label="${esc(g.label)}">${g.items.join('')}</optgroup>` : g.items.join('')).join('')}</select></label>`;
+}
 function renderNav() {
   $('#nav').innerHTML = VIEWS.map(v => {
     if (v.sep) return `<hr><div class="navlabel">${esc(v.sep)}</div>`;
@@ -2391,7 +2430,7 @@ function renderNav() {
     else if (v.id === 'issues') count = M.issues.length;
     const alert = v.id === 'issues' && M.issues.some(i => i.severity !== 'info');
     return `<button data-view="${v.id}" ${view === v.id ? 'aria-current="page"' : ''}><span>${esc(v.label)}</span><span class="count ${alert ? 'alert' : ''}">${count}${alert ? '<span class="visually-hidden"> need attention</span>' : ''}</span></button>`;
-  }).join('') + `<div class="small muted nav-version">${esc(APP_NAME)} ${APP_VERSION}</div>`;
+  }).join('') + `<div class="small muted nav-version">${esc(APP_NAME)} ${APP_VERSION}</div>` + navSelect();
 }
 
 function render() {
@@ -2440,7 +2479,7 @@ function viewOverview() {
       <dt>Layout</dt><dd>${esc(M.layoutSummary)}</dd>
       <dt>Source</dt><dd>${esc(M.format)}</dd>
       <dt>Relationships</dt><dd>${M.edges.length} connections between ${M.nodes.size - 1} items</dd>
-      ${(() => { const c = compatSummary(); return c.needs ? `<dt>Needs</dt><dd>Splunk Enterprise ${esc(c.needs)} or later (approximately; for ${esc(c.why.join(', '))})${c.unsupported.length ? ` · <b style="color:var(--sev-error)">${plural(c.unsupported.length, 'feature')} not supported on your version</b>` : ''} <button class="btn small" data-view="compat">Check</button></dd>` : ''; })()}
+      ${(() => { const c = compatSummary(); return c.needs ? `<dt>Needs</dt><dd>Splunk Enterprise ${esc(c.needs)} or later (approximately; for ${esc(c.why.join(', '))})${c.unsupported.length ? ` · <b style="color:var(--sev-error)">${plural(c.unsupported.length, 'feature')} not supported on your version</b>` : ''} <button class="btn small" data-view="compat">Check compatibility</button></dd>` : ''; })()}
       ${M.src.splunk ? `<dt>In Splunk</dt><dd>${splunkWhere(M.src.splunk)}</dd>` : ''}
       ${M.deps ? `<dt>Dependencies</dt><dd>${depsSummary(M.deps, true)}</dd>` : ''}
       ${M.src.splunk && SPLUNK ? `<dt>Usage</dt><dd>${usageOf(M.src) ? usageText(usageOf(M.src)) : USAGE ? `Not viewed in the last ${USAGE_DAYS} days` : usageButton()}</dd>` : ''}
@@ -3101,9 +3140,9 @@ function viewIssues() {
       : '<b>No issue here has a safe automatic fix.</b>'}
     ${repairs.length ? ` Loading also repaired the source (${repairs.length}), so a downloaded definition is clean, valid JSON.` : ''}
     <div class="loader-actions" style="margin-top:8px">
-      ${fixable.length ? `<button class="btn small" id="fix-all">Select all fixes</button><button class="btn small" id="fix-none">Clear selection</button>` : ''}
-      <button class="btn primary small" id="fix-download">Download definition${FIX_SEL.size ? ` with ${plural(FIX_SEL.size, 'fix', 'fixes')}` : ''}</button>
-      ${FIX_SEL.size ? `<button class="btn small" id="fix-load">Load the fixed version</button>` : ''}
+      ${FIX_SEL.size
+        ? `<button class="btn primary small" id="fix-download">Download definition with ${plural(FIX_SEL.size, 'fix', 'fixes')}</button><button class="btn small" id="fix-load">Re-check with fixes applied</button>${FIX_SEL.size < fixable.length ? `<button class="btn small" id="fix-all">Select all ${fixable.length} safe fixes</button>` : ''}<button class="btn small" id="fix-none">Clear selection</button>`
+        : `${fixable.length ? `<button class="btn primary small" id="fix-all">Select all ${fixable.length} safe ${fixable.length === 1 ? 'fix' : 'fixes'}</button>` : ''}<button class="btn small" id="fix-download">Download original definition</button>`}
     </div></div>`;
   if (!M.issues.length) return bar + '<p>No issues found. Every reference resolves, every item is placed, every token is defined, and the SPL checks passed.</p>';
   return bar + table([
@@ -5658,7 +5697,7 @@ function loadDashboards(files) {
   }
   if (!built.length) { err.textContent = errors.join('\n') || 'No dashboard was found.'; err.hidden = false; return; }
   DASH = built; LOAD_ERRORS = errors;
-  $('#loader').hidden = true; $('#app').hidden = false; $('#btn-new').hidden = false;
+  $('#loader').hidden = true; $('#app').hidden = false; $('#btn-new').hidden = false; $('#back-row').hidden = true;
   COMPARE = null;
   selectDash(0, built.length > 1 ? 'app' : 'overview');
   window.scrollTo(0, 0);
@@ -5720,6 +5759,9 @@ srcBox.addEventListener('drop', async e => {
 $('#btn-new').onclick = () => {
   closeDrawer();
   $('#app').hidden = true; $('#loader').hidden = false; $('#btn-new').hidden = true; $('#dash-switch').hidden = true;
+  $('#back-row').hidden = !DASH.length;
+  $('#back-note').textContent = DASH.length ? `Loading something new replaces the ${DASH.length > 1 ? plural(DASH.length, 'dashboard') + ' loaded now' : 'dashboard loaded now'}.` : '';
+  $('#btn-back').focus();
   $('#dash-title').textContent = ''; document.title = 'Licoryx Dashboard Inventory';
   $('#ldr-conf').value = CONFIG.conf; $('#ldr-dm').value = CONFIG.dm;
 };
@@ -5728,8 +5770,31 @@ $('#filter').addEventListener('input', applyFilter);
 
 // Export menu
 const exportMenu = $('#export-menu');
-$('#btn-export').onclick = e => { e.stopPropagation(); exportMenu.hidden = !exportMenu.hidden; $('#btn-export').setAttribute('aria-expanded', String(!exportMenu.hidden)); };
-exportMenu.addEventListener('click', () => { exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false'); });
+const menuItems = () => [...exportMenu.querySelectorAll('[role="menuitem"]')];
+function openExportMenu(focusFirst) {
+  const n = FIX_SEL.size;
+  $('#export-def-note').textContent = n ? `${plural(n, 'fix', 'fixes')} selected on the Issues page` : 'No fixes selected: the original definition';
+  exportMenu.hidden = false; $('#btn-export').setAttribute('aria-expanded', 'true');
+  if (focusFirst) menuItems()[0].focus();
+}
+function closeExportMenu(returnFocus) {
+  if (exportMenu.hidden) return;
+  exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false');
+  if (returnFocus) $('#btn-export').focus();
+}
+// Mouse opens the menu; keyboard (Enter, Space, ↓) opens it with the first item focused.
+$('#btn-export').onclick = e => { e.stopPropagation(); if (exportMenu.hidden) openExportMenu(e.detail === 0); else closeExportMenu(false); };
+$('#btn-export').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openExportMenu(false); const it = menuItems(); (e.key === 'ArrowDown' ? it[0] : it[it.length - 1]).focus(); } });
+exportMenu.addEventListener('keydown', e => {
+  const it = menuItems(), i = it.indexOf(document.activeElement);
+  const go = k => { e.preventDefault(); it[(k + it.length) % it.length].focus(); };
+  if (e.key === 'ArrowDown') go(i + 1); else if (e.key === 'ArrowUp') go(i - 1);
+  else if (e.key === 'Home') go(0); else if (e.key === 'End') go(it.length - 1);
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeExportMenu(true); }
+  else if (e.key === 'Tab') closeExportMenu(false);
+});
+// Choosing an item closes the menu and returns focus to Export (dialogs and downloads don't take it away)
+exportMenu.addEventListener('click', () => closeExportMenu(true));
 $('#btn-export-summary').onclick = exportSummary;
 $('#btn-export-md').onclick = exportReportMd;
 $('#btn-export-pdf').onclick = exportReportPdf;
@@ -5744,11 +5809,20 @@ $('#btn-share').onclick = openShareDialog;
 $('#share-config').onchange = refreshShareLink;
 $('#share-copy').onclick = copyShareLink;
 $('#share-close').onclick = () => $('#share-dlg').close();
+// When the Share dialog closes (Close, Escape or the backdrop), focus goes back to the Share button
+$('#share-dlg').addEventListener('close', () => { if (!$('#app').hidden) $('#btn-share').focus(); });
+// Narrow screens: the section dropdown
+document.addEventListener('change', e => { if (e.target.id === 'nav-select') { view = e.target.value; render(); window.scrollTo(0, 0); focusViewTitle(); } });
+// Skip link: to the current page's heading, or to the loader's first field
+$('#skip-link').onclick = e => { e.preventDefault(); if (!$('#app').hidden) focusViewTitle(); else ($('#splunk-loader:not([hidden]) select') || $('#source')).focus(); };
+// Back from the loader to the inventory still in memory
+$('#btn-back').onclick = () => { $('#loader').hidden = true; $('#app').hidden = false; $('#btn-new').hidden = false; $('#back-row').hidden = true; selectDash(CUR_I, view); focusViewTitle(); };
 window.addEventListener('hashchange', loadFromHash);
 initSplunkLoader();
 if (SPLUNK) applySplunkTheme();
 loadFromHash();
 { const v = document.createElement('p'); v.className = 'small muted app-version'; v.textContent = `${APP_NAME} ${APP_VERSION}`; $('#loader').appendChild(v); }
+function focusViewTitle() { const h = $('#view-title'); if (h && !$('#app').hidden) h.focus({ preventScroll: true }); }
 function updateSplunkButton() {
   const b = $('#sp-load'), n = splunkState.selected.size;
   if (b) { b.disabled = !n; b.textContent = n ? `Load ${plural(n, 'dashboard')}` : 'Choose dashboards to load'; }
@@ -5764,7 +5838,7 @@ $('#drawer-back').onclick = () => { if (drawerHistory.length > 1) { drawerHistor
 document.addEventListener('keydown', e => {
   // Mockup panels are role="button": Enter and Space open them, like a button
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.mock-item[role="button"]')) { e.preventDefault(); e.target.click(); return; }
-  if (e.key === 'Escape') { closeDrawer(); exportMenu.hidden = true; }
+  if (e.key === 'Escape') { closeDrawer(); closeExportMenu(document.activeElement?.closest?.('.menu') !== null); }
   if (e.key === 'Enter' && e.target.matches?.('input[data-mock-token]')) onMockChange(e.target);
 });
 document.addEventListener('change', async e => {
@@ -5786,7 +5860,7 @@ document.addEventListener('change', async e => {
   if (t.closest?.('[data-mock-token]')) onMockChange(t);
 });
 document.addEventListener('click', e => {
-  if (!e.target.closest('.menu')) { exportMenu.hidden = true; $('#btn-export').setAttribute('aria-expanded', 'false'); }
+  if (!e.target.closest('.menu')) closeExportMenu(false);
   const id = e.target.closest('[id]')?.id;
   const actions = {
     'mock-reset': () => { resetMockValues(); render(); },
@@ -5818,7 +5892,7 @@ document.addEventListener('click', e => {
   };
   if (actions[id] && e.target.closest('button')) { actions[id](); return; }
   const v = e.target.closest('[data-view]');
-  if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); return; }
+  if (v) { view = v.dataset.view; render(); window.scrollTo(0, 0); focusViewTitle(); return; }
   const mr = e.target.closest('[data-matrows]');
   if (mr) { matState.rows = mr.dataset.matrows; render(); return; }
   const mc = e.target.closest('[data-matcols]');
